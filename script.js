@@ -100,6 +100,18 @@ const productPackages = {
   }
 };
 
+const chatgptUsageRules = [
+  'Selalu backup project anda',
+  'Dilarang mengubah pengaturan akun',
+  'Dilarang mengaktifkan memori',
+  'Dilarang melakukan kustomisasi instruksi',
+  'Hindari membahas konten sensitif',
+  'Dilarang menggunakan VPN',
+  'Dilarang menghapus chat pengguna lain',
+  'Dilarang mengeluarkan pengguna lain dari grup',
+  'Dilarang ganti device'
+];
+
 const productDetailContent = {
   chatgpt: {
     label: 'ChatGPT Plus',
@@ -137,7 +149,7 @@ const productDetailContent = {
       'Kendala karena salah email atau salah paket tidak dapat dianggap sebagai kelalaian seller.',
       'Admin akan membantu pengecekan jika akses tidak dapat digunakan setelah aktivasi.'
     ],
-    note: 'Sebelum order, pastikan email Canva milik pembeli sudah siap untuk aktivasi.',
+    note: 'Pastikan email Canva sudah siap sebelum order.',
     orderProduct: 'canva',
     orderPlan: '1-bulan'
   },
@@ -153,8 +165,6 @@ const productDetailContent = {
     ],
     terms: [
       'Paket sharing cocok untuk kebutuhan bersama, sedangkan private cocok untuk penggunaan personal.',
-      'Kendala perangkat dapat ditindaklanjuti melalui WhatsApp sebelum dan sesudah aktivasi.',
-      'Customer disarankan membaca panduan penggunaan agar proses berjalan lancar.',
       'Pelanggaran penggunaan dapat memengaruhi layanan sesuai ketentuan Catsoft.'
     ],
     note: 'Jika Anda belum yakin paket mana yang cocok, gunakan konsultasi dulu sebelum order.',
@@ -214,6 +224,7 @@ const productDetailLead = document.getElementById('productDetailLead');
 const productDetailSummary = document.getElementById('productDetailSummary');
 const productDetailTerms = document.getElementById('productDetailTerms');
 const productDetailNote = document.getElementById('productDetailNote');
+const productDetailPolicy = document.getElementById('productDetailPolicy');
 const productDetailOrder = document.getElementById('productDetailOrder');
 const closeProductDetail = document.getElementById('closeProductDetail');
 const closeProductDetailBtn = document.getElementById('closeProductDetailBtn');
@@ -278,6 +289,39 @@ function closeProductDetailModal() {
   activeProductDetailKey = null;
 }
 
+function renderProductPolicy(productKey) {
+  if (!productDetailPolicy) {
+    return;
+  }
+
+  productDetailPolicy.innerHTML = '';
+  productDetailPolicy.classList.add('is-hidden');
+
+  if (productKey !== 'chatgpt') {
+    return;
+  }
+
+  const title = document.createElement('p');
+  title.className = 'product-detail-policy-title';
+  title.textContent = '⚠️ PERATURAN PENGGUNAAN CHATGPT 🚀✨';
+
+  const list = document.createElement('ol');
+  list.className = 'product-detail-policy-list';
+
+  chatgptUsageRules.forEach((rule) => {
+    const item = document.createElement('li');
+    item.textContent = rule;
+    list.appendChild(item);
+  });
+
+  const footer = document.createElement('p');
+  footer.className = 'product-detail-policy-footer';
+  footer.textContent = '⛔️Jika ditemukan melanggar salah satu peraturan diatas, garansi akan otomatis hangus⛔️';
+
+  productDetailPolicy.append(title, list, footer);
+  productDetailPolicy.classList.remove('is-hidden');
+}
+
 function openProductDetail(productKey) {
   if (!productDetailModal || !productDetailContent[productKey]) {
     return;
@@ -292,6 +336,7 @@ function openProductDetail(productKey) {
   createDetailListItems(productDetailSummary, detail.summary);
   createDetailListItems(productDetailTerms, detail.terms);
   productDetailNote.textContent = detail.note;
+  renderProductPolicy(productKey);
   productDetailModal.classList.add('active');
   productDetailModal.setAttribute('aria-hidden', 'false');
 }

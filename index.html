@@ -312,21 +312,27 @@
     .products {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 22px;
+      gap: 24px;
       align-items: stretch;
     }
 
     .product-card {
       position: relative;
-      background: rgba(255, 255, 255, 0.86);
-      border: 1px solid rgba(226, 232, 240, 0.9);
-      border-radius: 30px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 28px;
       padding: 26px;
+      min-height: 560px;
       box-shadow: 0 18px 54px rgba(15, 23, 42, 0.06);
       display: flex;
       flex-direction: column;
       backdrop-filter: blur(14px);
       transition: 0.24s ease;
+    }
+
+    .product-card.featured {
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: 0 18px 54px rgba(15, 23, 42, 0.06);
     }
 
     .product-card:hover {
@@ -337,40 +343,59 @@
 
     .product-badge {
       position: absolute;
-      top: 18px;
-      right: 18px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 11px;
+      top: 20px;
+      right: 0;
+      padding: 9px 14px;
+      border-radius: 10px 0 0 10px;
+      font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: white;
-      box-shadow: 0 10px 24px rgba(15,23,42,0.16);
+      letter-spacing: 0.02em;
+      color: #0f172a;
+      background: #facc15;
+      box-shadow: 0 10px 24px rgba(15,23,42,0.12);
     }
 
-    .badge-best {
-      background: linear-gradient(135deg, #f59e0b, #f97316);
-    }
-
-    .badge-popular {
-      background: linear-gradient(135deg, #2563eb, #06b6d4);
-    }
-
+    .badge-best,
+    .badge-popular,
     .badge-creator {
-      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      background: #facc15;
     }
 
     .product-icon {
       width: 58px;
       height: 58px;
-      border-radius: 20px;
+      border-radius: 16px;
       background: linear-gradient(135deg, #dbeafe, #eef2ff);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
+      font-size: 28px;
       margin-bottom: 18px;
+      box-shadow: 0 10px 26px rgba(37, 99, 235, 0.10);
+    }
+
+    .product-meta {
+      color: #64748b;
+      font-size: 14px;
+      font-style: italic;
+      margin-top: -10px;
+      margin-bottom: 16px;
+    }
+
+    .product-description {
+      color: #475569;
+      font-size: 15px;
+      margin-bottom: 16px;
+    }
+
+    .secure-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #64748b;
+      font-size: 13px;
+      margin-top: auto;
+      margin-bottom: 16px;
     }
 
     .product-card h3 {
@@ -860,12 +885,13 @@
         </div>
 
         <div class="products">
-          <article class="product-card">
+          <article class="product-card featured">
             <div class="product-badge badge-best">Best Seller</div>
             <div class="product-icon">🤖</div>
-            <h3>ChatGPT Plus </h3>
-            <p>Layanan langganan ChatGPT Plus untuk membantu produktivitas, belajar, coding, riset, ide konten, dan kebutuhan AI harian.</p>
+            <h3>ChatGPT Plus</h3>
             <div class="price">Mulai Rp42.500</div>
+            <div class="product-meta">Langganan sharing & private</div>
+            <p class="product-description">Akses ChatGPT Plus untuk produktivitas, belajar, coding, riset, ide konten, dan kebutuhan AI harian.</p>
             <ul class="features">
               <li>Private — Rp580.000</li>
               <li>Sharing 2 User — Rp200.000</li>
@@ -873,22 +899,23 @@
               <li>Sharing 7–10 User — Rp42.500</li>
               <li>Garansi masa langganan 27–30 hari</li>
               <li>Akses 2 device untuk paket 2/4 user</li>
-              <li>Wajib backup project penting secara mandiri</li>
             </ul>
+            <div class="secure-row">🔒 Aktivasi & support dibantu admin Catsoft</div>
             <div class="button-group">
               <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Private%20Rp580.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order Private</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%202%20User%20Rp200.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 2 User</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%204%20User%20Rp105.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 4 User</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%207-10%20User%20Rp42.500.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 7–10 User</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%202%20User%20Rp200.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">2 User</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%204%20User%20Rp105.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">4 User</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%207-10%20User%20Rp42.500.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">7–10 User</a>
             </div>
           </article>
 
           <article class="product-card">
-            <div class="product-badge badge-popular">Paling Populer</div>
+            <div class="product-badge badge-popular">Populer</div>
             <div class="product-icon">🎨</div>
-            <h3>Canva Pro </h3>
-            <p>Layanan langganan Canva Pro untuk desain harian, bisnis, konten social media, presentasi, tugas, dan kebutuhan profesional.</p>
+            <h3>Canva Pro</h3>
             <div class="price">Mulai Rp25.000</div>
+            <div class="product-meta">Langganan bulanan hingga tahunan</div>
+            <p class="product-description">Untuk desain harian, bisnis, konten social media, presentasi, tugas, dan kebutuhan profesional.</p>
             <ul class="features">
               <li>1 Bulan — Rp25.000</li>
               <li>3 Bulan — Rp70.000</li>
@@ -897,20 +924,22 @@
               <li>Aktivasi ke email Canva pembeli</li>
               <li>Panduan aktivasi & support admin</li>
             </ul>
+            <div class="secure-row">🔒 Aktivasi & support dibantu admin Catsoft</div>
             <div class="button-group">
-              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%201%20Bulan%20Rp25.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 1 Bulan</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%203%20Bulan%20Rp70.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 3 Bulan</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%206%20Bulan%20Rp135.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 6 Bulan</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%201%20Tahun%20Rp270.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order 1 Tahun</a>
+              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%201%20Bulan%20Rp25.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">1 Bulan</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%203%20Bulan%20Rp70.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">3 Bulan</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%206%20Bulan%20Rp135.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">6 Bulan</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%201%20Tahun%20Rp270.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">1 Tahun</a>
             </div>
           </article>
 
           <article class="product-card">
-            <div class="product-badge badge-creator">Creator Favorite</div>
+            <div class="product-badge badge-creator">Creator</div>
             <div class="product-icon">🎬</div>
-            <h3>CapCut Pro </h3>
-            <p>Layanan langganan CapCut Pro untuk editing video konten, promosi bisnis, social media, dan kebutuhan profesional tanpa watermark.</p>
+            <h3>CapCut Pro</h3>
             <div class="price">Mulai Rp45.566</div>
+            <div class="product-meta">Private & sharing 1 bulan</div>
+            <p class="product-description">Untuk editing video konten, promosi bisnis, social media, dan kebutuhan profesional tanpa watermark.</p>
             <ul class="features">
               <li>Sharing 1 Bulan — Rp45.566</li>
               <li>Private 1 Bulan — Rp106.397</li>
@@ -919,9 +948,10 @@
               <li>Support HP & PC/Laptop</li>
               <li>Panduan aktivasi & support admin</li>
             </ul>
+            <div class="secure-row">🔒 Aktivasi & support dibantu admin Catsoft</div>
             <div class="button-group">
-              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Private%201%20Bulan%20Rp106.397.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order Private</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Sharing%201%20Bulan%20Rp45.566.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order Sharing</a>
+              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Private%201%20Bulan%20Rp106.397.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Private</a>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Sharing%201%20Bulan%20Rp45.566.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Sharing</a>
             </div>
           </article>
         </div>

@@ -636,6 +636,149 @@ section {
   font-size: 14px;
 }
 
+.email-access-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.email-access-card,
+.email-help-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
+}
+
+.email-access-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+.email-access-header h3 {
+  font-size: 24px;
+  margin-top: 8px;
+  letter-spacing: -0.03em;
+}
+
+.section-kicker {
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #2563eb;
+  letter-spacing: 0.08em;
+}
+
+.badge-soft {
+  background: rgba(219, 234, 254, 0.9);
+  color: #1d4ed8;
+  border: 1px solid rgba(191, 219, 254, 0.95);
+}
+
+.email-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.email-field-group label {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.email-field-group input {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid #cbd5e1;
+  padding: 14px 16px;
+  font-size: 15px;
+  background: #fff;
+  color: #0f172a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.email-field-group input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.email-preview-card {
+  border-radius: 20px;
+  padding: 18px;
+  background: linear-gradient(135deg, #eff6ff, #eef2ff);
+  border: 1px solid #bfdbfe;
+  margin-bottom: 18px;
+}
+
+.email-preview-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.email-preview-value {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  word-break: break-all;
+}
+
+.email-preview-hint {
+  margin-top: 10px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.email-actions {
+  margin-bottom: 16px;
+}
+
+.email-status {
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.email-help-card h3 {
+  font-size: 24px;
+  margin-bottom: 16px;
+  letter-spacing: -0.03em;
+}
+
+.email-help-list {
+  padding-left: 20px;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.9;
+  margin-bottom: 20px;
+}
+
+.info-note {
+  background: #f8fafc;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+
+.info-note-accent {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
 .cta {
   position: relative;
   overflow: hidden;

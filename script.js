@@ -1,5 +1,6 @@
 const faqItems = document.querySelectorAll('.faq-item');
 const whatsappNumber = '6282318082303';
+const trackingStorageKey = 'catsoftClickTracking';
 
 const productPackages = {
   chatgpt: {
@@ -143,6 +144,14 @@ if (mobileMenuToggle && navLinks) {
 const termsModal = document.getElementById('termsModal');
 const openTerms = document.getElementById('openTermsLink');
 const closeTerms = document.getElementById('closeTerms');
+const trackingModal = document.getElementById('trackingModal');
+const closeTracking = document.getElementById('closeTracking');
+const trackingStats = document.getElementById('trackingStats');
+const trackingRows = document.getElementById('trackingRows');
+const trackingStatus = document.getElementById('trackingStatus');
+const copyTracking = document.getElementById('copyTracking');
+const downloadTracking = document.getElementById('downloadTracking');
+const resetTracking = document.getElementById('resetTracking');
 
 if (openTerms && closeTerms && termsModal) {
   openTerms.addEventListener('click', (e) => {
@@ -168,6 +177,316 @@ if (openTerms && closeTerms && termsModal) {
   if (params.get('terms') === 'open') {
     termsModal.classList.add('active');
   }
+}
+
+function getTrackingEvents() {
+  try {
+    const savedEvents = JSON.parse(localStorage.getItem(trackingStorageKey) || '[]');
+    return Array.isArray(savedEvents) ? savedEvents : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveTrackingEvents(events) {
+  localStorage.setItem(trackingStorageKey, JSON.stringify(events.slice(-500)));
+}
+
+function getClickSource(element) {
+  const section = element.closest('section');
+
+  if (section && section.id) {
+    return section.id;
+  }
+
+  if (element.closest('footer')) {
+    return 'footer';
+  }
+
+  if (element.closest('header')) {
+    return 'header';
+  }
+
+  return 'page';
+}
+
+function trackClick(type, label, details = {}) {
+  const events = getTrackingEvents();
+  const event = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    time: new Date().toISOString(),
+    type,
+    label,
+    product: details.product || '',
+    plan: details.plan || '',
+    source: details.source || '',
+    target: details.target || ''
+  };
+
+  events.push(event);
+  saveTrackingEvents(events);
+
+  if (trackingModal && trackingModal.classList.contains('active')) {
+    renderTrackingPanel();
+  }
+
+  return event;
+}
+
+function countTrackingEvents(events, matcher) {
+  return events.filter(matcher).length;
+}
+
+function getTopProduct(events) {
+  const counts = events.reduce((result, event) => {
+    if (!event.product) {
+      return result;
+    }
+
+    result[event.product] = (result[event.product] || 0) + 1;
+    return result;
+  }, {});
+
+  const sortedProducts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return sortedProducts[0] || null;
+}
+
+function formatTrackingTime(value) {
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(new Date(value));
+}
+
+function createTrackingStat(value, label) {
+  const item = document.createElement('div');
+  const valueElement = document.createElement('strong');
+  const labelElement = document.createElement('span');
+
+  item.className = 'tracking-stat';
+  valueElement.textContent = value;
+  labelElement.textContent = label;
+  item.append(valueElement, labelElement);
+
+  return item;
+}
+
+function getTrackingSummaryText() {
+  const events = getTrackingEvents();
+  const topProduct = getTopProduct(events);
+  const lines = [
+    'Ringkasan Tracking Catsoft',
+    `Total klik: ${events.length}`,
+    `WhatsApp: ${countTrackingEvents(events, (event) => event.type === 'whatsapp')}`,
+    `Shopee: ${countTrackingEvents(events, (event) => event.type === 'shopee')}`,
+    `Klik produk: ${countTrackingEvents(events, (event) => event.type === 'produk')}`,
+    `Produk teratas: ${topProduct ? `${topProduct[0]} (${topProduct[1]} klik)` : '-'}`
+  ];
+
+  return lines.join('\n');
+}
+
+function renderTrackingPanel() {
+  if (!trackingStats || !trackingRows) {
+    return;
+  }
+
+  const events = getTrackingEvents();
+  const topProduct = getTopProduct(events);
+  const latestEvents = [...events].reverse().slice(0, 80);
+
+  trackingStats.innerHTML = '';
+  trackingStats.append(
+    createTrackingStat(events.length, 'Total klik'),
+    createTrackingStat(countTrackingEvents(events, (event) => event.type === 'whatsapp'), 'Klik WhatsApp'),
+    createTrackingStat(countTrackingEvents(events, (event) => event.type === 'shopee'), 'Klik Shopee'),
+    createTrackingStat(topProduct ? `${topProduct[0]} (${topProduct[1]})` : '-', 'Produk teratas')
+  );
+
+  trackingRows.innerHTML = '';
+
+  if (!latestEvents.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.className = 'tracking-empty';
+    cell.colSpan = 5;
+    cell.textContent = 'Belum ada klik yang tercatat di browser ini.';
+    row.appendChild(cell);
+    trackingRows.appendChild(row);
+    return;
+  }
+
+  latestEvents.forEach((event) => {
+    const row = document.createElement('tr');
+    const cells = [
+      formatTrackingTime(event.time),
+      event.type,
+      event.label,
+      event.product || '-',
+      event.plan || '-'
+    ];
+
+    cells.forEach((value) => {
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.appendChild(cell);
+    });
+
+    trackingRows.appendChild(row);
+  });
+}
+
+function openTrackingPanel() {
+  if (!trackingModal) {
+    return;
+  }
+
+  trackingModal.classList.add('active');
+  renderTrackingPanel();
+}
+
+function closeTrackingPanel() {
+  if (!trackingModal) {
+    return;
+  }
+
+  trackingModal.classList.remove('active');
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete('tracking');
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+function getTrackingCsv() {
+  const rows = [
+    ['time', 'type', 'label', 'product', 'plan', 'source', 'target'],
+    ...getTrackingEvents().map((event) => [
+      event.time,
+      event.type,
+      event.label,
+      event.product,
+      event.plan,
+      event.source,
+      event.target
+    ])
+  ];
+
+  return rows
+    .map((row) => row.map((value) => `"${String(value || '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+}
+
+function downloadTrackingCsv() {
+  const blob = new Blob([getTrackingCsv()], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = `catsoft-click-tracking-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function initClickTracking() {
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a');
+
+    if (!link) {
+      return;
+    }
+
+    const label = link.textContent.trim() || link.getAttribute('aria-label') || 'Link';
+    const href = link.getAttribute('href') || '';
+
+    if (link.dataset.orderProduct) {
+      const product = productPackages[link.dataset.orderProduct]?.name || link.dataset.orderProduct;
+      const plan = productPackages[link.dataset.orderProduct]?.plans.find((item) => item.value === link.dataset.orderPlan)?.name || link.dataset.orderPlan;
+
+      trackClick('produk', label, {
+        product,
+        plan,
+        source: getClickSource(link),
+        target: '#order'
+      });
+
+      return;
+    }
+
+    if (href.includes('wa.me/')) {
+      trackClick('whatsapp', label, {
+        source: getClickSource(link),
+        target: href
+      });
+      return;
+    }
+
+    if (href.includes('shopee.co.id')) {
+      trackClick('shopee', label, {
+        source: getClickSource(link),
+        target: href
+      });
+    }
+  });
+
+  if (trackingModal) {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('tracking') === 'open') {
+      openTrackingPanel();
+    }
+
+    trackingModal.addEventListener('click', (event) => {
+      if (event.target === trackingModal) {
+        closeTrackingPanel();
+      }
+    });
+  }
+
+  if (closeTracking) {
+    closeTracking.addEventListener('click', closeTrackingPanel);
+  }
+
+  if (copyTracking) {
+    copyTracking.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(getTrackingSummaryText());
+        trackingStatus.textContent = 'Ringkasan tracking berhasil disalin.';
+      } catch (error) {
+        trackingStatus.textContent = 'Gagal menyalin otomatis. Buka console dan jalankan CatsoftTracker.report().';
+      }
+    });
+  }
+
+  if (downloadTracking) {
+    downloadTracking.addEventListener('click', () => {
+      downloadTrackingCsv();
+      trackingStatus.textContent = 'File CSV tracking berhasil dibuat.';
+    });
+  }
+
+  if (resetTracking) {
+    resetTracking.addEventListener('click', () => {
+      if (!confirm('Reset semua data tracking di browser ini?')) {
+        return;
+      }
+
+      saveTrackingEvents([]);
+      renderTrackingPanel();
+      trackingStatus.textContent = 'Data tracking sudah direset.';
+    });
+  }
+
+  window.CatsoftTracker = {
+    open: openTrackingPanel,
+    events: getTrackingEvents,
+    report: getTrackingSummaryText,
+    csv: getTrackingCsv,
+    reset() {
+      saveTrackingEvents([]);
+      renderTrackingPanel();
+    }
+  };
 }
 
 const quickOrderForm = document.getElementById('quickOrderForm');
@@ -533,7 +852,16 @@ function initQuickOrderForm() {
     }
 
     const message = buildOrderMessage();
+    const { product, plan } = getSelectedPackage();
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+    trackClick('whatsapp', 'Order Cepat WhatsApp', {
+      product: product.name,
+      plan: plan.name,
+      source: 'order',
+      target: 'quick-order-form'
+    });
+
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
 
     if (orderFormStatus) {
@@ -559,7 +887,16 @@ function initQuickOrderForm() {
       }
 
       const message = buildConsultationMessage();
+      const { product, plan } = getSelectedPackage();
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+      trackClick('whatsapp', 'Konsultasi Dulu', {
+        product: product.name,
+        plan: plan.name,
+        source: 'order',
+        target: 'consultation-button'
+      });
+
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
 
       if (orderFormStatus) {
@@ -732,6 +1069,7 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 }
 
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
+window.addEventListener('DOMContentLoaded', initClickTracking);
 window.addEventListener('DOMContentLoaded', initThemedFormValidation);
 window.addEventListener('DOMContentLoaded', initQuickOrderForm);
 window.addEventListener('DOMContentLoaded', () => {

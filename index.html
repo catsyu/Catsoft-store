@@ -485,6 +485,43 @@
     </div>
   </div>
 
+  <div class="tracking-modal" id="trackingModal">
+    <div class="tracking-box">
+      <div class="tracking-header">
+        <div>
+          <h2>Tracking Klik Catsoft</h2>
+          <p>Data tersimpan di browser ini untuk membantu melihat tombol dan produk yang paling sering diklik.</p>
+        </div>
+        <button class="tracking-close" id="closeTracking" type="button" aria-label="Tutup tracking">×</button>
+      </div>
+
+      <div class="tracking-stats" id="trackingStats"></div>
+
+      <div class="tracking-actions">
+        <button class="btn btn-secondary" id="copyTracking" type="button">Copy Ringkasan</button>
+        <button class="btn btn-secondary" id="downloadTracking" type="button">Download CSV</button>
+        <button class="btn btn-primary" id="resetTracking" type="button">Reset Data</button>
+      </div>
+
+      <div class="tracking-table-wrap">
+        <table class="tracking-table">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Tipe</th>
+              <th>Label</th>
+              <th>Produk</th>
+              <th>Paket</th>
+            </tr>
+          </thead>
+          <tbody id="trackingRows"></tbody>
+        </table>
+      </div>
+
+      <p class="tracking-note" id="trackingStatus">Buka panel ini dengan menambahkan <strong>?tracking=open</strong> di akhir URL website.</p>
+    </div>
+  </div>
+
   <a
     class="floating-whatsapp"
     href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20bertanya%20tentang%20produk%20langganan%20di%20Catsoft.%20Mohon%20dibantu%20ya."

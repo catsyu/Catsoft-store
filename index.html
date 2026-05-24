@@ -629,7 +629,8 @@
       flex-wrap: wrap;
     }
 
-    .footer-links button {
+    .footer-links button,
+    .footer-links a {
       background: transparent;
       border: none;
       color: inherit;
@@ -1103,7 +1104,7 @@
         <a href="https://www.instagram.com/catsoft.store?utm_source=qr" target="_blank" rel="noopener">Instagram</a>
         <a href="https://shopee.co.id/catsoft" target="_blank" rel="noopener">Shopee</a>
         <a href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20bertanya%20tentang%20produk%20langganan%20di%20Catsoft." target="_blank" rel="noopener">WhatsApp</a>
-        <button id="openTerms">Subscription & Cancellation Terms</button>
+        <a href="https://catsoft.store/?terms=open" id="openTermsLink">Subscription & Cancellation Terms</a>
       </div>
     </div>
   </footer>
@@ -1183,22 +1184,31 @@
     });
 
     const termsModal = document.getElementById('termsModal');
-    const openTerms = document.getElementById('openTerms');
+    const openTerms = document.getElementById('openTermsLink');
     const closeTerms = document.getElementById('closeTerms');
 
-    openTerms.addEventListener('click', () => {
+    openTerms.addEventListener('click', (e) => {
+      e.preventDefault();
       termsModal.classList.add('active');
+      history.replaceState(null, '', '?terms=open');
     });
 
     closeTerms.addEventListener('click', () => {
       termsModal.classList.remove('active');
+      history.replaceState(null, '', window.location.pathname);
     });
 
     termsModal.addEventListener('click', (e) => {
       if (e.target === termsModal) {
         termsModal.classList.remove('active');
+        history.replaceState(null, '', window.location.pathname);
       }
     });
+  const params = new URLSearchParams(window.location.search);
+
+    if (params.get('terms') === 'open') {
+      termsModal.classList.add('active');
+    }
   </script>
 </body>
 </html>

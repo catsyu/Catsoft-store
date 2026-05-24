@@ -88,24 +88,17 @@
     .logo {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 800;
-      font-size: 24px;
-      letter-spacing: -0.04em;
       white-space: nowrap;
     }
 
     .logo img {
-      width: 42px;
       height: 42px;
-      border-radius: 12px;
-      object-fit: cover;
-      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16);
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 24px rgba(37, 99, 235, 0.16));
     }
 
-    .logo span {
-      color: #2563eb;
-    }
+    
 
     .nav-links {
       display: flex;
@@ -747,7 +740,6 @@
       <nav>
         <a href="#" class="logo">
           <img src="logo.png" alt="Logo Catsoft.store" />
-          <span>Catsoft.store</span>
         </a>
         <div class="nav-links">
           <a href="#produk">Produk</a>

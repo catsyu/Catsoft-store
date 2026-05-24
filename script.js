@@ -97,6 +97,35 @@ const productPackages = {
         terms: 'Private, support HP & PC/Laptop sesuai ketentuan'
       }
     ]
+  },
+  likeig: {
+    name: 'Like IG Bergaransi Permanen',
+    plans: [
+      {
+        value: '100-like',
+        label: '100 Like — Rp16.500',
+        name: '100 Like',
+        price: 'Rp16.500',
+        duration: 'Proses bertahap',
+        terms: 'Real Indo terpercaya, aman, tanpa password, garansi refill 7 hari'
+      },
+      {
+        value: '500-like',
+        label: '500 Like — Rp44.000',
+        name: '500 Like',
+        price: 'Rp44.000',
+        duration: 'Proses bertahap',
+        terms: 'Real Indo terpercaya, aman, tanpa password, garansi refill 7 hari'
+      },
+      {
+        value: '1000-like',
+        label: '1000 Like — Rp65.500',
+        name: '1000 Like',
+        price: 'Rp65.500',
+        duration: 'Proses bertahap',
+        terms: 'Real Indo terpercaya, aman, tanpa password, garansi refill 7 hari'
+      }
+    ]
   }
 };
 
@@ -170,6 +199,28 @@ const productDetailContent = {
     note: 'Jika Anda belum yakin paket mana yang cocok, gunakan konsultasi dulu sebelum order.',
     orderProduct: 'capcut',
     orderPlan: 'sharing-1-bulan'
+  },
+  likeig: {
+    label: 'Like IG Bergaransi Permanen',
+    title: 'Like IG Bergaransi Permanen',
+    lead: 'Paket like Instagram real Indo terpercaya untuk menaikkan engagement secara bertahap, cepat, aman, dan praktis tanpa perlu password.',
+    summary: [
+      'Tersedia paket 100 Like, 500 Like, dan 1000 Like.',
+      'Likes naik secara alami dan bertahap.',
+      'Aman dari banned selama instruksi produk diikuti.',
+      '100% real, aman, dan bergaransi sesuai ketentuan.',
+      'Cukup kirim link postingan Instagram setelah checkout.'
+    ],
+    terms: [
+      'Akun Instagram wajib public selama proses berlangsung.',
+      'Dilarang menghapus postingan atau mengubah akun menjadi private selama proses.',
+      'Garansi refill berlaku 7 hari.',
+      'Produk digital, tidak ada pengiriman fisik.',
+      'Membeli berarti setuju dengan kebijakan pada foto produk maupun deskripsi.'
+    ],
+    note: 'Silakan chat admin Catsoft kalau ada yang ingin ditanyakan sebelum membeli.',
+    orderProduct: 'likeig',
+    orderPlan: '100-like'
   }
 };
 
@@ -215,7 +266,7 @@ if (mobileMenuToggle && navLinks) {
 }
 
 const termsModal = document.getElementById('termsModal');
-const openTerms = document.getElementById('openTermsLink');
+const openTermsLinks = document.querySelectorAll('#openTermsLink, #orderTermsLink');
 const closeTerms = document.getElementById('closeTerms');
 const productDetailModal = document.getElementById('productDetailModal');
 const productDetailLabel = document.getElementById('productDetailLabel');
@@ -239,22 +290,33 @@ const resetTracking = document.getElementById('resetTracking');
 
 let activeProductDetailKey = null;
 
-if (openTerms && closeTerms && termsModal) {
-  openTerms.addEventListener('click', (e) => {
-    e.preventDefault();
-    termsModal.classList.add('active');
-    history.replaceState(null, '', '?terms=open');
+if (closeTerms && termsModal) {
+  openTermsLinks.forEach((openTermsLink) => {
+    openTermsLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      termsModal.classList.add('active');
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('terms', 'open');
+      history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    });
   });
 
   closeTerms.addEventListener('click', () => {
     termsModal.classList.remove('active');
-    history.replaceState(null, '', window.location.pathname);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('terms');
+    history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   });
 
   termsModal.addEventListener('click', (e) => {
     if (e.target === termsModal) {
       termsModal.classList.remove('active');
-      history.replaceState(null, '', window.location.pathname);
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('terms');
+      history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
     }
   });
 
@@ -366,7 +428,7 @@ if (productDetailOrder) {
     const detail = productDetailContent[activeProductDetailKey];
 
     closeProductDetailModal();
-    selectOrderPackage(detail.orderProduct, detail.orderPlan);
+    selectOrderPackage(detail.orderProduct, detail.orderPlan, true);
 
     const orderSection = document.getElementById('order');
 
@@ -706,6 +768,11 @@ const orderPlanSelect = document.getElementById('orderPlan');
 const orderNoteInput = document.getElementById('orderNote');
 const canvaEmailField = document.getElementById('canvaEmailField');
 const canvaActivationEmailInput = document.getElementById('canvaActivationEmail');
+const likeIgFields = document.getElementById('likeIgFields');
+const instagramPostLinkInput = document.getElementById('instagramPostLink');
+const likeIgOrderStatusSelect = document.getElementById('likeIgOrderStatus');
+const shopeeOrderNumberField = document.getElementById('shopeeOrderNumberField');
+const shopeeOrderNumberInput = document.getElementById('shopeeOrderNumber');
 const consultationBtn = document.getElementById('consultationBtn');
 const orderFormStatus = document.getElementById('orderFormStatus');
 const summaryProduct = document.getElementById('summaryProduct');
@@ -732,6 +799,16 @@ const validationMessages = {
   canvaActivationEmail: {
     valueMissing: 'Email Canva wajib diisi.',
     typeMismatch: 'Email Canva tidak valid.'
+  },
+  instagramPostLink: {
+    valueMissing: 'Link postingan Instagram wajib diisi.',
+    typeMismatch: 'Link postingan Instagram tidak valid.'
+  },
+  likeIgOrderStatus: {
+    valueMissing: 'Pilih status order.'
+  },
+  shopeeOrderNumber: {
+    valueMissing: 'Nomor pesanan Shopee wajib diisi.'
   }
 };
 
@@ -757,6 +834,29 @@ function hasValidEmailDomain(value) {
   return domainLabels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
 }
 
+function normalizeUrlInput(value) {
+  const cleanValue = value.trim().replace(/\s+/g, '');
+
+  if (/^https?:\/\//i.test(cleanValue)) {
+    return cleanValue;
+  }
+
+  return `https://${cleanValue}`;
+}
+
+function hasValidInstagramPostLink(value) {
+  try {
+    const url = new URL(normalizeUrlInput(value));
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    const hasInstagramHost = hostname === 'instagram.com' || hostname.endsWith('.instagram.com');
+    const hasPostPath = /^\/(p|reel|tv)\/[^/?#]+\/?$/i.test(url.pathname);
+
+    return hasInstagramHost && hasPostPath;
+  } catch (error) {
+    return false;
+  }
+}
+
 function getValidationMessage(field) {
   if (!isFieldAvailable(field)) {
     return '';
@@ -775,6 +875,10 @@ function getValidationMessage(field) {
 
   if (field.id === 'canvaActivationEmail' && value && !hasValidEmailDomain(value)) {
     return messages.typeMismatch || 'Email Canva tidak valid.';
+  }
+
+  if (field.id === 'instagramPostLink' && value && !hasValidInstagramPostLink(value)) {
+    return messages.typeMismatch || 'Link postingan Instagram tidak valid.';
   }
 
   return '';
@@ -929,6 +1033,48 @@ function getSelectedPackage() {
   return { product, plan };
 }
 
+function getOrderPackageFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const productKey = params.get('produk') || params.get('product');
+  const planKey = params.get('paket') || params.get('plan');
+
+  if (!productKey || !productPackages[productKey]) {
+    return null;
+  }
+
+  const product = productPackages[productKey];
+  const hasPlan = product.plans.some((plan) => plan.value === planKey);
+
+  return {
+    productKey,
+    planKey: hasPlan ? planKey : product.plans[0].value
+  };
+}
+
+function updateOrderUrl(productKey, planKey, mode = 'replace') {
+  if (!productPackages[productKey]) {
+    return;
+  }
+
+  const product = productPackages[productKey];
+  const selectedPlan = product.plans.some((plan) => plan.value === planKey) ? planKey : product.plans[0].value;
+  const url = new URL(window.location.href);
+
+  url.searchParams.set('produk', productKey);
+  url.searchParams.set('paket', selectedPlan);
+  url.searchParams.delete('terms');
+  url.hash = 'order';
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+
+  if (mode === 'push') {
+    history.pushState(null, '', nextUrl);
+    return;
+  }
+
+  history.replaceState(null, '', nextUrl);
+}
+
 function populatePlanOptions(preferredPlan) {
   if (!orderProductSelect || !orderPlanSelect) {
     return;
@@ -957,6 +1103,8 @@ function updateOrderSummary() {
 
   const { product, plan } = getSelectedPackage();
   const isCanvaOrder = orderProductSelect.value === 'canva';
+  const isLikeIgOrder = orderProductSelect.value === 'likeig';
+  const isShopeeOrder = isLikeIgOrder && likeIgOrderStatusSelect?.value === 'sudah-order-shopee';
 
   summaryProduct.textContent = product.name;
   summaryPrice.textContent = plan.price;
@@ -970,9 +1118,32 @@ function updateOrderSummary() {
     canvaActivationEmailInput.disabled = !isCanvaOrder;
     clearFieldError(canvaActivationEmailInput);
   }
+
+  if (likeIgFields && instagramPostLinkInput && likeIgOrderStatusSelect) {
+    likeIgFields.classList.toggle('is-hidden', !isLikeIgOrder);
+    instagramPostLinkInput.required = isLikeIgOrder;
+    instagramPostLinkInput.disabled = !isLikeIgOrder;
+    likeIgOrderStatusSelect.required = isLikeIgOrder;
+    likeIgOrderStatusSelect.disabled = !isLikeIgOrder;
+    clearFieldError(instagramPostLinkInput);
+    clearFieldError(likeIgOrderStatusSelect);
+  }
+
+  if (shopeeOrderNumberField && shopeeOrderNumberInput) {
+    shopeeOrderNumberField.classList.toggle('is-hidden', !isShopeeOrder);
+    shopeeOrderNumberInput.required = isShopeeOrder;
+    shopeeOrderNumberInput.disabled = !isShopeeOrder;
+    clearFieldError(shopeeOrderNumberInput);
+  }
+
+  if (orderFormStatus) {
+    orderFormStatus.textContent = isLikeIgOrder
+      ? 'Untuk Like IG, isi link postingan. Jika sudah order di Shopee, masukkan nomor pesanan agar admin bisa mencocokkan transaksi.'
+      : 'Pesan WhatsApp akan dibuat otomatis sesuai pilihan paket.';
+  }
 }
 
-function selectOrderPackage(productKey, planKey) {
+function selectOrderPackage(productKey, planKey, shouldUpdateUrl = false) {
   if (!orderProductSelect || !orderPlanSelect) {
     return;
   }
@@ -983,6 +1154,10 @@ function selectOrderPackage(productKey, planKey) {
 
   populatePlanOptions(planKey);
   updateOrderSummary();
+
+  if (shouldUpdateUrl) {
+    updateOrderUrl(orderProductSelect.value, orderPlanSelect.value, 'push');
+  }
 }
 
 function buildOrderMessage() {
@@ -990,6 +1165,9 @@ function buildOrderMessage() {
   const customerName = customerNameInput.value.trim();
   const customerContact = customerContactInput.value.trim();
   const canvaActivationEmail = canvaActivationEmailInput ? canvaActivationEmailInput.value.trim() : '';
+  const instagramPostLink = instagramPostLinkInput ? instagramPostLinkInput.value.trim() : '';
+  const likeIgOrderStatus = likeIgOrderStatusSelect ? likeIgOrderStatusSelect.value : 'mau-beli';
+  const shopeeOrderNumber = shopeeOrderNumberInput ? shopeeOrderNumberInput.value.trim() : '';
   const orderNote = orderNoteInput.value.trim() || '-';
 
   const messageLines = [
@@ -1002,6 +1180,17 @@ function buildOrderMessage() {
 
   if (orderProductSelect.value === 'canva') {
     messageLines.push(`Email Canva untuk aktivasi: ${canvaActivationEmail || '-'}`);
+  }
+
+  if (orderProductSelect.value === 'likeig') {
+    messageLines.push(
+      `Link postingan Instagram: ${instagramPostLink || '-'}`,
+      `Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`
+    );
+
+    if (likeIgOrderStatus === 'sudah-order-shopee') {
+      messageLines.push(`Nomor pesanan Shopee: ${shopeeOrderNumber || '-'}`);
+    }
   }
 
   messageLines.push(
@@ -1020,6 +1209,9 @@ function buildConsultationMessage() {
   const { product, plan } = getSelectedPackage();
   const customerName = customerNameInput.value.trim();
   const customerContact = customerContactInput.value.trim();
+  const instagramPostLink = instagramPostLinkInput ? instagramPostLinkInput.value.trim() : '';
+  const likeIgOrderStatus = likeIgOrderStatusSelect ? likeIgOrderStatusSelect.value : 'mau-beli';
+  const shopeeOrderNumber = shopeeOrderNumberInput ? shopeeOrderNumberInput.value.trim() : '';
   const messageLines = [
     'Halo Min Catsoft, saya ingin konsultasi dulu sebelum order.',
     '',
@@ -1029,6 +1221,18 @@ function buildConsultationMessage() {
     `Paket yang dipertanyakan: ${plan.name}`,
     `Harga paket: ${plan.price}`
   ];
+
+  if (orderProductSelect.value === 'likeig') {
+    messageLines.push(`Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`);
+
+    if (instagramPostLink) {
+      messageLines.push(`Link postingan Instagram: ${instagramPostLink}`);
+    }
+
+    if (likeIgOrderStatus === 'sudah-order-shopee' && shopeeOrderNumber) {
+      messageLines.push(`Nomor pesanan Shopee: ${shopeeOrderNumber}`);
+    }
+  }
 
   messageLines.push(
     '',
@@ -1043,15 +1247,31 @@ function initQuickOrderForm() {
     return;
   }
 
-  populatePlanOptions();
+  const orderPackageFromUrl = getOrderPackageFromUrl();
+
+  if (orderPackageFromUrl) {
+    orderProductSelect.value = orderPackageFromUrl.productKey;
+    populatePlanOptions(orderPackageFromUrl.planKey);
+  } else {
+    populatePlanOptions();
+  }
+
   updateOrderSummary();
 
   orderProductSelect.addEventListener('change', () => {
     populatePlanOptions();
     updateOrderSummary();
+    updateOrderUrl(orderProductSelect.value, orderPlanSelect.value);
   });
 
-  orderPlanSelect.addEventListener('change', updateOrderSummary);
+  orderPlanSelect.addEventListener('change', () => {
+    updateOrderSummary();
+    updateOrderUrl(orderProductSelect.value, orderPlanSelect.value);
+  });
+
+  if (likeIgOrderStatusSelect) {
+    likeIgOrderStatusSelect.addEventListener('change', updateOrderSummary);
+  }
 
   quickOrderForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -1115,8 +1335,15 @@ function initQuickOrderForm() {
   }
 
   document.querySelectorAll('[data-order-product]').forEach((trigger) => {
-    trigger.addEventListener('click', () => {
-      selectOrderPackage(trigger.dataset.orderProduct, trigger.dataset.orderPlan);
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      selectOrderPackage(trigger.dataset.orderProduct, trigger.dataset.orderPlan, true);
+
+      const orderSection = document.getElementById('order');
+
+      if (orderSection) {
+        orderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
   });
 }

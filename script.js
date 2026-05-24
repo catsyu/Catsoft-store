@@ -3,37 +3,41 @@ const faqItems = document.querySelectorAll('.faq-item');
 faqItems.forEach((item) => {
   const question = item.querySelector('.faq-question');
 
-  question.addEventListener('click', () => {
-    item.classList.toggle('active');
-  });
+  if (question) {
+    question.addEventListener('click', () => {
+      item.classList.toggle('active');
+    });
+  }
 });
 
 const termsModal = document.getElementById('termsModal');
 const openTerms = document.getElementById('openTermsLink');
 const closeTerms = document.getElementById('closeTerms');
 
-openTerms.addEventListener('click', (e) => {
-  e.preventDefault();
-  termsModal.classList.add('active');
-  history.replaceState(null, '', '?terms=open');
-});
+if (openTerms && closeTerms && termsModal) {
+  openTerms.addEventListener('click', (e) => {
+    e.preventDefault();
+    termsModal.classList.add('active');
+    history.replaceState(null, '', '?terms=open');
+  });
 
-closeTerms.addEventListener('click', () => {
-  termsModal.classList.remove('active');
-  history.replaceState(null, '', window.location.pathname);
-});
-
-termsModal.addEventListener('click', (e) => {
-  if (e.target === termsModal) {
+  closeTerms.addEventListener('click', () => {
     termsModal.classList.remove('active');
     history.replaceState(null, '', window.location.pathname);
+  });
+
+  termsModal.addEventListener('click', (e) => {
+    if (e.target === termsModal) {
+      termsModal.classList.remove('active');
+      history.replaceState(null, '', window.location.pathname);
+    }
+  });
+
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get('terms') === 'open') {
+    termsModal.classList.add('active');
   }
-});
-
-const params = new URLSearchParams(window.location.search);
-
-if (params.get('terms') === 'open') {
-  termsModal.classList.add('active');
 }
 
 const emailAliasInput = document.getElementById('emailAliasInput');
@@ -115,7 +119,7 @@ function openMailPortal() {
     `https://mail.google.com/a/${domain}`
   ];
 
-  const targetUrl = candidates.find((url) => url !== `https://mail.google.com/a/${domain}` || domain.length > 0);
+  const targetUrl = candidates[0];
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
   emailStatus.textContent = `Membuka ${targetUrl}. Jika portal tidak bisa diakses, silakan gunakan panel webmail provider domain Anda.`;
 }
@@ -136,12 +140,15 @@ function initProductOrderButtons() {
   });
 }
 
-emailAliasInput.addEventListener('input', updateEmailPreview);
-emailDomainInput.addEventListener('input', updateEmailPreview);
-copyEmailBtn.addEventListener('click', copyEmailAddress);
-openMailBtn.addEventListener('click', openMailPortal);
+if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint && emailStatus && copyEmailBtn && openMailBtn) {
+  emailAliasInput.addEventListener('input', updateEmailPreview);
+  emailDomainInput.addEventListener('input', updateEmailPreview);
+  copyEmailBtn.addEventListener('click', copyEmailAddress);
+  openMailBtn.addEventListener('click', openMailPortal);
 
-window.addEventListener('DOMContentLoaded', () => {
-  updateEmailPreview();
-  initProductOrderButtons();
-});
+  window.addEventListener('DOMContentLoaded', () => {
+    updateEmailPreview();
+  });
+}
+
+window.addEventListener('DOMContentLoaded', initProductOrderButtons);

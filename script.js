@@ -100,6 +100,69 @@ const productPackages = {
   }
 };
 
+const productDetailContent = {
+  chatgpt: {
+    label: 'ChatGPT Plus',
+    title: 'ChatGPT Plus',
+    lead: 'Paket terbaik untuk pekerjaan, riset, coding, menulis konten, dan kebutuhan AI harian dengan opsi private maupun sharing.',
+    summary: [
+      'Private, sharing 2 user, sharing 4 user, dan sharing 7–10 user tersedia.',
+      'Garansi masa langganan 27–30 hari sesuai paket yang dipilih.',
+      'Akses 2 device untuk paket sharing 2 dan 4 user.',
+      'Admin Catsoft akan membantu aktivasi dan menjelaskan penggunaan dasar.'
+    ],
+    terms: [
+      'Paket private cocok untuk 1 akun utama atau penggunaan personal.',
+      'Paket sharing memiliki batas jumlah user dan mekanisme akses yang berbeda.',
+      'Klaim garansi harus diajukan lewat WhatsApp dengan detail kendala yang jelas.',
+      'Customer tetap wajib menjaga keamanan akun dan tidak menyebarluaskan akses tanpa izin.'
+    ],
+    note: 'Pastikan email atau nomor kontak yang diisi aktif agar admin dapat membalas dengan cepat.',
+    orderProduct: 'chatgpt',
+    orderPlan: 'private'
+  },
+  canva: {
+    label: 'Canva Pro',
+    title: 'Canva Pro',
+    lead: 'Langganan desain premium untuk presentasi, konten social media, branding, dan kebutuhan visual harian.',
+    summary: [
+      'Pilihan paket 1 bulan, 3 bulan, 6 bulan, dan 1 tahun.',
+      'Aktivasi dilakukan ke email Canva pembeli.',
+      'Panduan aktivasi dan support admin disediakan setelah order.',
+      'Paket tahunan cocok untuk kebutuhan jangka panjang dan tim kecil.'
+    ],
+    terms: [
+      'Email Canva harus ditulis dengan benar agar aktivasi dapat berjalan lancar.',
+      'Garansi berlaku selama masa aktif paket dan mengikuti ketentuan Catsoft.',
+      'Kendala karena salah email atau salah paket tidak dapat dianggap sebagai kelalaian seller.',
+      'Admin akan membantu pengecekan jika akses tidak dapat digunakan setelah aktivasi.'
+    ],
+    note: 'Sebelum order, pastikan email Canva milik pembeli sudah siap untuk aktivasi.',
+    orderProduct: 'canva',
+    orderPlan: '1-bulan'
+  },
+  capcut: {
+    label: 'CapCut Pro',
+    title: 'CapCut Pro',
+    lead: 'Fitur editing video premium tanpa watermark untuk konten promosi, edukasi, dan kebutuhan kreatif di HP maupun PC/Laptop.',
+    summary: [
+      'Tersedia paket sharing 1 bulan dan private 1 bulan.',
+      'Export video tanpa watermark untuk kebutuhan konten profesional.',
+      'Support tersedia untuk HP dan PC/Laptop.',
+      'Admin akan membantu aktivasi serta memastikan paket cocok dengan perangkat Anda.'
+    ],
+    terms: [
+      'Paket sharing cocok untuk kebutuhan bersama, sedangkan private cocok untuk penggunaan personal.',
+      'Kendala perangkat dapat ditindaklanjuti melalui WhatsApp sebelum dan sesudah aktivasi.',
+      'Customer disarankan membaca panduan penggunaan agar proses berjalan lancar.',
+      'Pelanggaran penggunaan dapat memengaruhi layanan sesuai ketentuan Catsoft.'
+    ],
+    note: 'Jika Anda belum yakin paket mana yang cocok, gunakan konsultasi dulu sebelum order.',
+    orderProduct: 'capcut',
+    orderPlan: 'sharing-1-bulan'
+  }
+};
+
 faqItems.forEach((item) => {
   const question = item.querySelector('.faq-question');
 
@@ -144,6 +207,16 @@ if (mobileMenuToggle && navLinks) {
 const termsModal = document.getElementById('termsModal');
 const openTerms = document.getElementById('openTermsLink');
 const closeTerms = document.getElementById('closeTerms');
+const productDetailModal = document.getElementById('productDetailModal');
+const productDetailLabel = document.getElementById('productDetailLabel');
+const productDetailTitle = document.getElementById('productDetailTitle');
+const productDetailLead = document.getElementById('productDetailLead');
+const productDetailSummary = document.getElementById('productDetailSummary');
+const productDetailTerms = document.getElementById('productDetailTerms');
+const productDetailNote = document.getElementById('productDetailNote');
+const productDetailOrder = document.getElementById('productDetailOrder');
+const closeProductDetail = document.getElementById('closeProductDetail');
+const closeProductDetailBtn = document.getElementById('closeProductDetailBtn');
 const trackingModal = document.getElementById('trackingModal');
 const closeTracking = document.getElementById('closeTracking');
 const trackingStats = document.getElementById('trackingStats');
@@ -152,6 +225,8 @@ const trackingStatus = document.getElementById('trackingStatus');
 const copyTracking = document.getElementById('copyTracking');
 const downloadTracking = document.getElementById('downloadTracking');
 const resetTracking = document.getElementById('resetTracking');
+
+let activeProductDetailKey = null;
 
 if (openTerms && closeTerms && termsModal) {
   openTerms.addEventListener('click', (e) => {
@@ -178,6 +253,95 @@ if (openTerms && closeTerms && termsModal) {
     termsModal.classList.add('active');
   }
 }
+
+function createDetailListItems(targetElement, items) {
+  if (!targetElement) {
+    return;
+  }
+
+  targetElement.innerHTML = '';
+
+  items.forEach((item) => {
+    const listItem = document.createElement('li');
+    listItem.textContent = item;
+    targetElement.appendChild(listItem);
+  });
+}
+
+function closeProductDetailModal() {
+  if (!productDetailModal) {
+    return;
+  }
+
+  productDetailModal.classList.remove('active');
+  productDetailModal.setAttribute('aria-hidden', 'true');
+  activeProductDetailKey = null;
+}
+
+function openProductDetail(productKey) {
+  if (!productDetailModal || !productDetailContent[productKey]) {
+    return;
+  }
+
+  const detail = productDetailContent[productKey];
+
+  activeProductDetailKey = productKey;
+  productDetailLabel.textContent = detail.label;
+  productDetailTitle.textContent = detail.title;
+  productDetailLead.textContent = detail.lead;
+  createDetailListItems(productDetailSummary, detail.summary);
+  createDetailListItems(productDetailTerms, detail.terms);
+  productDetailNote.textContent = detail.note;
+  productDetailModal.classList.add('active');
+  productDetailModal.setAttribute('aria-hidden', 'false');
+}
+
+if (productDetailModal) {
+  productDetailModal.addEventListener('click', (event) => {
+    if (event.target === productDetailModal) {
+      closeProductDetailModal();
+    }
+  });
+}
+
+if (closeProductDetail) {
+  closeProductDetail.addEventListener('click', closeProductDetailModal);
+}
+
+if (closeProductDetailBtn) {
+  closeProductDetailBtn.addEventListener('click', closeProductDetailModal);
+}
+
+if (productDetailOrder) {
+  productDetailOrder.addEventListener('click', () => {
+    if (!activeProductDetailKey || !productDetailContent[activeProductDetailKey]) {
+      return;
+    }
+
+    const detail = productDetailContent[activeProductDetailKey];
+
+    closeProductDetailModal();
+    selectOrderPackage(detail.orderProduct, detail.orderPlan);
+
+    const orderSection = document.getElementById('order');
+
+    if (orderSection) {
+      orderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+}
+
+document.querySelectorAll('[data-product-detail]').forEach((button) => {
+  button.addEventListener('click', () => {
+    openProductDetail(button.dataset.productDetail);
+  });
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && productDetailModal?.classList.contains('active')) {
+    closeProductDetailModal();
+  }
+});
 
 function getTrackingEvents() {
   try {

@@ -222,6 +222,10 @@ nav {
   box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
 }
 
+.detail-btn {
+  width: 100%;
+  margin-top: 12px;
+}
 
 .product-card .button-group .btn,
 .product-card .button-group .btn-primary,
@@ -1103,6 +1107,106 @@ footer {
   color: inherit;
   cursor: pointer;
   font-size: 14px;
+}
+
+.product-detail-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.25s ease;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.product-detail-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.product-detail-box {
+  width: min(860px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 30px;
+  padding: 32px;
+  box-shadow: 0 30px 90px rgba(15,23,42,0.28);
+  position: relative;
+}
+
+.product-detail-box h2 {
+  font-size: 30px;
+  margin: 8px 0 10px;
+  letter-spacing: 0;
+}
+
+.product-detail-lead {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.product-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 24px 0;
+}
+
+.product-detail-box h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.product-detail-list {
+  padding-left: 18px;
+  color: #475569;
+  line-height: 1.9;
+}
+
+.product-detail-note {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.product-detail-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+
+.product-detail-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: none;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.product-detail-close:hover {
+  background: #e2e8f0;
+}
+
+@media (max-width: 768px) {
+  .product-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .terms-modal {

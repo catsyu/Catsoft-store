@@ -114,6 +114,7 @@
               <a class="btn btn-secondary" href="#order" data-order-product="chatgpt" data-order-plan="sharing-4">4 User</a>
               <a class="btn btn-secondary" href="#order" data-order-product="chatgpt" data-order-plan="sharing-7-10">7–10 User</a>
             </div>
+            <button type="button" class="btn btn-secondary detail-btn" data-product-detail="chatgpt" aria-haspopup="dialog" aria-controls="productDetailModal">Lihat Detail</button>
           </article>
 
           <article class="product-card">
@@ -138,6 +139,7 @@
               <a class="btn btn-secondary" href="#order" data-order-product="canva" data-order-plan="6-bulan">6 Bulan</a>
               <a class="btn btn-secondary" href="#order" data-order-product="canva" data-order-plan="1-tahun">1 Tahun</a>
             </div>
+            <button type="button" class="btn btn-secondary detail-btn" data-product-detail="canva" aria-haspopup="dialog" aria-controls="productDetailModal">Lihat Detail</button>
           </article>
 
           <article class="product-card">
@@ -160,6 +162,7 @@
               <a class="btn btn-primary" href="#order" data-order-product="capcut" data-order-plan="private-1-bulan">Private</a>
               <a class="btn btn-secondary" href="#order" data-order-product="capcut" data-order-plan="sharing-1-bulan">Sharing</a>
             </div>
+            <button type="button" class="btn btn-secondary detail-btn" data-product-detail="capcut" aria-haspopup="dialog" aria-controls="productDetailModal">Lihat Detail</button>
           </article>
         </div>
       </div>
@@ -416,6 +419,38 @@
       </div>
     </div>
   </footer>
+
+  <div class="product-detail-modal" id="productDetailModal" aria-hidden="true">
+    <div class="product-detail-box" role="dialog" aria-modal="true" aria-labelledby="productDetailTitle">
+      <button class="product-detail-close" id="closeProductDetail" type="button" aria-label="Tutup detail produk">×</button>
+      <p class="section-kicker" id="productDetailLabel">Produk</p>
+      <h2 id="productDetailTitle">Produk Catsoft</h2>
+      <p id="productDetailLead" class="product-detail-lead">Informasi lengkap akan muncul di sini.</p>
+
+      <div class="product-detail-grid">
+        <div>
+          <h3>Ringkasan</h3>
+          <ul id="productDetailSummary" class="product-detail-list"></ul>
+        </div>
+        <div>
+          <h3>Ketentuan lengkap</h3>
+          <ul id="productDetailTerms" class="product-detail-list"></ul>
+        </div>
+      </div>
+
+      <p id="productDetailNote" class="product-detail-note">Gunakan tombol di bawah untuk menuju bagian order dan memeriksa paket yang sesuai.</p>
+
+      <div class="product-detail-footer">
+        <div>
+          <p class="product-detail-note">Ketentuan dan harga dapat dikonfirmasi ulang oleh admin sebelum proses order.</p>
+        </div>
+        <div class="button-group">
+          <button class="btn btn-primary" id="productDetailOrder" type="button">Pilih paket di order</button>
+          <button class="btn btn-secondary" id="closeProductDetailBtn" type="button">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="terms-modal" id="termsModal">
     <div class="terms-box">

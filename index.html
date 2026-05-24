@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catsoft.store - Produk Digital Siap Pakai</title>
+  <meta name="description" content="Catsoft.store menjual produk digital seperti template website, desain, e-book, tools, dan aset digital siap pakai." />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #f8fafc;
+      color: #0f172a;
+      line-height: 1.6;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .container {
+      width: min(1120px, 92%);
+      margin: auto;
+    }
+
+    header {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 0;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 24px;
+      letter-spacing: -0.04em;
+    }
+
+    .logo span {
+      color: #2563eb;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      font-size: 14px;
+      color: #475569;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 14px;
+      transition: 0.2s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(37,99,235,0.24);
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #e0e7ff;
+      color: #1e40af;
+    }
+
+    .hero {
+      padding: 86px 0 64px;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,0.18), transparent 35%),
+        radial-gradient(circle at top right, rgba(14,165,233,0.14), transparent 28%);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: clamp(38px, 6vw, 64px);
+      line-height: 1.02;
+      letter-spacing: -0.07em;
+      margin-bottom: 22px;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: #475569;
+      max-width: 590px;
+      margin-bottom: 30px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .hero-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 30px;
+      padding: 28px;
+      box-shadow: 0 24px 70px rgba(15,23,42,0.08);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .stat {
+      background: #f8fafc;
+      border-radius: 20px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 22px;
+      color: #2563eb;
+    }
+
+    section {
+      padding: 74px 0;
+    }
+
+    .section-heading {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 42px;
+    }
+
+    .section-heading h2 {
+      font-size: clamp(30px, 4vw, 44px);
+      letter-spacing: -0.05em;
+      margin-bottom: 12px;
+    }
+
+    .section-heading p {
+      color: #64748b;
+    }
+
+    .products {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+    }
+
+    .product-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 26px;
+      padding: 24px;
+      box-shadow: 0 16px 48px rgba(15,23,42,0.05);
+    }
+
+    .product-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      background: #dbeafe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin-bottom: 18px;
+    }
+
+    .product-card h3 {
+      font-size: 21px;
+      margin-bottom: 8px;
+    }
+
+    .price {
+      font-size: 24px;
+      font-weight: 800;
+      color: #2563eb;
+      margin: 18px 0;
+    }
+
+    .features {
+      list-style: none;
+      color: #475569;
+      font-size: 14px;
+      margin-bottom: 22px;
+    }
+
+    .features li {
+      margin: 8px 0;
+    }
+
+    .features li::before {
+      content: "✓";
+      color: #16a34a;
+      font-weight: 800;
+      margin-right: 8px;
+    }
+
+    .why-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .why-card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 22px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .cta {
+      background: #0f172a;
+      color: white;
+      border-radius: 36px;
+      padding: 54px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .cta h2 {
+      font-size: clamp(30px, 4vw, 46px);
+      letter-spacing: -0.05em;
+      margin-bottom: 12px;
+    }
+
+    .cta p {
+      color: #cbd5e1;
+      max-width: 620px;
+    }
+
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid #e2e8f0;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 880px) {
+      .hero-grid,
+      .cta {
+        grid-template-columns: 1fr;
+      }
+
+      .products,
+      .why-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .products,
+      .why-grid,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .cta {
+        padding: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a href="#" class="logo">Catsoft<span>.store</span></a>
+        <div class="nav-links">
+          <a href="#produk">Produk</a>
+          <a href="#keunggulan">Keunggulan</a>
+          <a href="#kontak">Kontak</a>
+        </div>
+        <a class="btn btn-primary" href="https://wa.me/6281234567890" target="_blank">Order Sekarang</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="badge">Produk digital praktis untuk kreator & bisnis</div>
+          <h1>Jualan produk digital lebih mudah dengan Catsoft.store</h1>
+          <p>Temukan template website, desain, e-book, tools, dan aset digital siap pakai untuk membantu bisnismu tampil profesional tanpa ribet.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#produk">Lihat Produk</a>
+            <a class="btn btn-secondary" href="https://wa.me/6281234567890" target="_blank">Konsultasi via WhatsApp</a>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <h3>Kenapa pilih produk digital?</h3>
+          <p style="color:#64748b;margin-top:10px;">Sekali beli, langsung dapat file. Cocok untuk bisnis, freelancer, pelajar, dan kreator konten.</p>
+          <div class="stats">
+            <div class="stat"><strong>24/7</strong><span>Akses</span></div>
+            <div class="stat"><strong>Instan</strong><span>Delivery</span></div>
+            <div class="stat"><strong>100%</strong><span>Digital</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="produk">
+      <div class="container">
+        <div class="section-heading">
+          <h2>Produk Digital Pilihan</h2>
+          <p>Ganti nama produk, harga, dan link pembayaran sesuai katalog milikmu.</p>
+        </div>
+
+        <div class="products">
+          <article class="product-card">
+            <div class="product-icon">🌐</div>
+            <h3>Template Website Bisnis</h3>
+            <p>Template HTML responsif untuk landing page, portofolio, dan toko online sederhana.</p>
+            <div class="price">Rp49.000</div>
+            <ul class="features">
+              <li>File HTML, CSS, JS</li>
+              <li>Mobile friendly</li>
+              <li>Mudah diedit</li>
+            </ul>
+            <a class="btn btn-primary" href="https://wa.me/6281234567890?text=Saya%20mau%20beli%20Template%20Website%20Bisnis" target="_blank">Beli Produk</a>
+          </article>
+
+          <article class="product-card">
+            <div class="product-icon">🎨</div>
+            <h3>Bundle Desain Canva</h3>
+            <p>Kumpulan template desain untuk promosi Instagram, poster, katalog, dan konten harian.</p>
+            <div class="price">Rp35.000</div>
+            <ul class="features">
+              <li>Link Canva editable</li>
+              <li>Desain modern</li>
+              <li>Cocok untuk UMKM</li>
+            </ul>
+            <a class="btn btn-primary" href="https://wa.me/6281234567890?text=Saya%20mau%20beli%20Bundle%20Desain%20Canva" target="_blank">Beli Produk</a>
+          </article>
+
+          <article class="product-card">
+            <div class="product-icon">📘</div>
+            <h3>E-book Strategi Digital</h3>
+            <p>Panduan praktis membangun brand, membuat konten, dan menjual produk digital online.</p>
+            <div class="price">Rp29.000</div>
+            <ul class="features">
+              <li>Format PDF</li>
+              <li>Bahasa Indonesia</li>
+              <li>Tips siap praktik</li>
+            </ul>
+            <a class="btn btn-primary" href="https://wa.me/6281234567890?text=Saya%20mau%20beli%20E-book%20Strategi%20Digital" target="_blank">Beli Produk</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="keunggulan">
+      <div class="container">
+        <div class="section-heading">
+          <h2>Keunggulan Catsoft.store</h2>
+          <p>Dirancang untuk jualan produk digital yang simpel, cepat, dan dipercaya pelanggan.</p>
+        </div>
+
+        <div class="why-grid">
+          <div class="why-card">
+            <h3>Pengiriman Cepat</h3>
+            <p>Produk bisa dikirim otomatis atau manual lewat WhatsApp/email.</p>
+          </div>
+          <div class="why-card">
+            <h3>Mudah Dipakai</h3>
+            <p>File digital disiapkan agar mudah dibuka, diedit, dan digunakan.</p>
+          </div>
+          <div class="why-card">
+            <h3>Harga Terjangkau</h3>
+            <p>Cocok untuk pelajar, kreator, freelancer, dan UMKM.</p>
+          </div>
+          <div class="why-card">
+            <h3>Support Ramah</h3>
+            <p>Pembeli bisa bertanya melalui WhatsApp sebelum atau setelah membeli.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="kontak">
+      <div class="container">
+        <div class="cta">
+          <div>
+            <h2>Siap mulai jualan di Catsoft.store?</h2>
+            <p>Hubungi kami untuk order produk digital, request katalog, atau konsultasi kebutuhan website dan desain.</p>
+          </div>
+          <a class="btn btn-primary" href="https://wa.me/6281234567890" target="_blank">Chat WhatsApp</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <p>© 2026 Catsoft.store. All rights reserved.</p>
+      <p>Email: hello@catsoft.store</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -35,7 +35,6 @@
         <div class="nav-links" id="navLinks">
           <a href="#produk">Produk</a>
           <a href="#order">Order Cepat</a>
-          <a href="#perbandingan">Perbandingan</a>
           <a href="#keunggulan">Keunggulan</a>
           <a href="#testimoni">Testimoni</a>
           <a href="#faq">FAQ</a>
@@ -110,10 +109,10 @@
             </ul>
             <div class="secure-row">🔒 Aktivasi & support dibantu admin Catsoft</div>
             <div class="button-group">
-              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Private%20Rp580.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Order Private</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%202%20User%20Rp200.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">2 User</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%204%20User%20Rp105.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">4 User</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20ChatGPT%20Plus%20Sharing%207-10%20User%20Rp42.500.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">7–10 User</a>
+              <a class="btn btn-primary" href="#order" data-order-product="chatgpt" data-order-plan="private">Order Private</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="chatgpt" data-order-plan="sharing-2">2 User</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="chatgpt" data-order-plan="sharing-4">4 User</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="chatgpt" data-order-plan="sharing-7-10">7–10 User</a>
             </div>
           </article>
 
@@ -134,10 +133,10 @@
             </ul>
             <div class="secure-row">🔒 Aktivasi & support dibantu admin Catsoft</div>
             <div class="button-group">
-              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%201%20Bulan%20Rp25.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">1 Bulan</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%203%20Bulan%20Rp70.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">3 Bulan</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%206%20Bulan%20Rp135.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">6 Bulan</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20Canva%20Pro%201%20Tahun%20Rp270.000.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">1 Tahun</a>
+              <a class="btn btn-primary" href="#order" data-order-product="canva" data-order-plan="1-bulan">1 Bulan</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="canva" data-order-plan="3-bulan">3 Bulan</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="canva" data-order-plan="6-bulan">6 Bulan</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="canva" data-order-plan="1-tahun">1 Tahun</a>
             </div>
           </article>
 
@@ -158,8 +157,8 @@
             </ul>
             <div class="secure-row">🔒 Aktivasi & support dibantu admin Catsoft</div>
             <div class="button-group">
-              <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Private%201%20Bulan%20Rp106.397.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Private</a>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Sharing%201%20Bulan%20Rp45.566.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Sharing</a>
+              <a class="btn btn-primary" href="#order" data-order-product="capcut" data-order-plan="private-1-bulan">Private</a>
+              <a class="btn btn-secondary" href="#order" data-order-product="capcut" data-order-plan="sharing-1-bulan">Sharing</a>
             </div>
           </article>
         </div>
@@ -178,7 +177,7 @@
             <div class="form-grid">
               <div class="field-group">
                 <label for="customerName">Nama customer</label>
-                <input id="customerName" name="customerName" type="text" placeholder="Contoh: Husnul" autocomplete="name" required />
+                <input id="customerName" name="customerName" type="text" placeholder="Contoh: Joe Doe" autocomplete="name" required />
               </div>
 
               <div class="field-group">
@@ -201,14 +200,19 @@
               </div>
             </div>
 
+            <div class="field-group canva-email-field is-hidden" id="canvaEmailField">
+              <label for="canvaActivationEmail">Email Canva untuk aktivasi</label>
+              <input id="canvaActivationEmail" name="canvaActivationEmail" type="email" inputmode="email" placeholder="Contoh: joedoe@email.com" autocomplete="email" required disabled />
+            </div>
+
             <div class="field-group">
-              <label for="orderNote">Catatan tambahan</label>
-              <textarea id="orderNote" name="orderNote" rows="4" placeholder="Contoh: Butuh untuk tugas, ingin aktivasi hari ini, atau tanya stok dulu."></textarea>
+              <label for="orderNote">Catatan atau kebutuhan</label>
+              <textarea id="orderNote" name="orderNote" rows="4" placeholder="Contoh: Butuh untuk tugas, ingin aktivasi hari ini, atau kosongkan jika tidak ada catatan."></textarea>
             </div>
 
             <div class="order-actions">
               <button class="btn btn-primary" type="submit">Kirim Order ke WhatsApp</button>
-              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20konsultasi%20dulu%20sebelum%20order.%20Mohon%20dibantu%20rekomendasi%20paket%20yang%20sesuai." target="_blank" rel="noopener">Konsultasi Dulu</a>
+              <a class="btn btn-secondary" href="#" id="consultationBtn">Konsultasi Dulu</a>
             </div>
 
             <p class="form-note" id="orderFormStatus">Pesan WhatsApp akan dibuat otomatis sesuai pilihan paket.</p>
@@ -225,56 +229,6 @@
             </ul>
             <div class="secure-row">🔒 Detail order tetap dikonfirmasi admin sebelum diproses</div>
           </aside>
-        </div>
-      </div>
-    </section>
-
-    <section id="perbandingan">
-      <div class="container">
-        <div class="section-heading">
-          <h2>Bandingkan Paket Catsoft</h2>
-          <p>Pilih paket berdasarkan kebutuhan: desain, AI, editing video, masa aktif, dan pilihan sharing atau private.</p>
-        </div>
-
-        <div class="comparison-wrap">
-          <table class="comparison-table">
-            <thead>
-              <tr>
-                <th>Produk</th>
-                <th>Harga Mulai</th>
-                <th>Cocok Untuk</th>
-                <th>Pilihan Paket</th>
-                <th>Support</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>ChatGPT Plus</strong></td>
-                <td>Rp42.500</td>
-                <td>AI harian, belajar, coding, riset, ide konten</td>
-                <td>Private, sharing 2 user, 4 user, 7–10 user</td>
-                <td>Garansi 27–30 hari, panduan aktivasi</td>
-                <td><a class="table-link" href="#order" data-order-product="chatgpt" data-order-plan="sharing-7-10">Pilih</a></td>
-              </tr>
-              <tr>
-                <td><strong>Canva Pro</strong></td>
-                <td>Rp25.000</td>
-                <td>Desain konten, presentasi, bisnis, tugas</td>
-                <td>1 bulan, 3 bulan, 6 bulan, 1 tahun</td>
-                <td>Aktivasi ke email pembeli, support admin</td>
-                <td><a class="table-link" href="#order" data-order-product="canva" data-order-plan="1-bulan">Pilih</a></td>
-              </tr>
-              <tr>
-                <td><strong>CapCut Pro</strong></td>
-                <td>Rp45.566</td>
-                <td>Editing video, konten promosi, social media</td>
-                <td>Sharing 1 bulan, private 1 bulan</td>
-                <td>Support HP & PC/Laptop, panduan aktivasi</td>
-                <td><a class="table-link" href="#order" data-order-product="capcut" data-order-plan="sharing-1-bulan">Pilih</a></td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
     </section>

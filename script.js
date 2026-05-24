@@ -176,6 +176,9 @@ const customerContactInput = document.getElementById('customerContact');
 const orderProductSelect = document.getElementById('orderProduct');
 const orderPlanSelect = document.getElementById('orderPlan');
 const orderNoteInput = document.getElementById('orderNote');
+const canvaEmailField = document.getElementById('canvaEmailField');
+const canvaActivationEmailInput = document.getElementById('canvaActivationEmail');
+const consultationBtn = document.getElementById('consultationBtn');
 const orderFormStatus = document.getElementById('orderFormStatus');
 const summaryProduct = document.getElementById('summaryProduct');
 const summaryPrice = document.getElementById('summaryPrice');
@@ -184,6 +187,211 @@ const summaryDuration = document.getElementById('summaryDuration');
 const summaryTerms = document.getElementById('summaryTerms');
 const adminStatus = document.getElementById('adminStatus');
 const adminStatusText = document.getElementById('adminStatusText');
+
+const validationMessages = {
+  customerName: {
+    valueMissing: 'Nama wajib diisi.'
+  },
+  customerContact: {
+    valueMissing: 'Kontak wajib diisi.'
+  },
+  orderProduct: {
+    valueMissing: 'Pilih produk.'
+  },
+  orderPlan: {
+    valueMissing: 'Pilih paket.'
+  },
+  canvaActivationEmail: {
+    valueMissing: 'Email Canva wajib diisi.',
+    typeMismatch: 'Email Canva tidak valid.'
+  }
+};
+
+function isFieldAvailable(field) {
+  return field && !field.disabled && !field.closest('.is-hidden');
+}
+
+function hasValidEmailDomain(value) {
+  const email = value.trim();
+  const parts = email.split('@');
+
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return false;
+  }
+
+  const domainLabels = parts[1].toLowerCase().split('.');
+  const topLevelDomain = domainLabels[domainLabels.length - 1];
+
+  if (domainLabels.length < 2 || !/^[a-z]{2,24}$/.test(topLevelDomain)) {
+    return false;
+  }
+
+  return domainLabels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+}
+
+function getValidationMessage(field) {
+  if (!isFieldAvailable(field)) {
+    return '';
+  }
+
+  const messages = validationMessages[field.id] || {};
+  const value = field.value.trim();
+
+  if (field.required && !value) {
+    return messages.valueMissing || 'Lengkapi bagian ini dulu ya agar order bisa diproses.';
+  }
+
+  if (field.validity.typeMismatch) {
+    return messages.typeMismatch || 'Format data belum sesuai. Cek lagi sebentar ya.';
+  }
+
+  if (field.id === 'canvaActivationEmail' && value && !hasValidEmailDomain(value)) {
+    return messages.typeMismatch || 'Email Canva tidak valid.';
+  }
+
+  return '';
+}
+
+function getFieldErrorElement(field) {
+  const fieldGroup = field.closest('.field-group');
+
+  if (!fieldGroup) {
+    return null;
+  }
+
+  let errorElement = fieldGroup.querySelector('.field-alert');
+
+  if (!errorElement) {
+    errorElement = document.createElement('div');
+    errorElement.className = 'field-alert';
+    errorElement.id = `${field.id}Alert`;
+    errorElement.setAttribute('role', 'alert');
+    fieldGroup.appendChild(errorElement);
+  }
+
+  return errorElement;
+}
+
+function showFieldError(field, message) {
+  const fieldGroup = field.closest('.field-group');
+  const errorElement = getFieldErrorElement(field);
+
+  if (!fieldGroup || !errorElement) {
+    return;
+  }
+
+  fieldGroup.classList.add('has-error');
+  field.setAttribute('aria-invalid', 'true');
+  field.setAttribute('aria-describedby', errorElement.id);
+  errorElement.textContent = message;
+  errorElement.hidden = false;
+}
+
+function clearFieldError(field) {
+  const fieldGroup = field.closest('.field-group');
+  const errorElement = fieldGroup ? fieldGroup.querySelector('.field-alert') : null;
+
+  if (fieldGroup) {
+    fieldGroup.classList.remove('has-error');
+  }
+
+  field.removeAttribute('aria-invalid');
+  field.removeAttribute('aria-describedby');
+  field.setCustomValidity('');
+
+  if (errorElement) {
+    errorElement.textContent = '';
+    errorElement.hidden = true;
+  }
+}
+
+function validateField(field, shouldShowError = true) {
+  clearFieldError(field);
+
+  const message = getValidationMessage(field);
+
+  if (!message) {
+    return true;
+  }
+
+  field.setCustomValidity(message);
+
+  if (shouldShowError) {
+    showFieldError(field, message);
+  }
+
+  return false;
+}
+
+function getOrderFields() {
+  if (!quickOrderForm) {
+    return [];
+  }
+
+  return Array.from(quickOrderForm.querySelectorAll('input, select, textarea')).filter(isFieldAvailable);
+}
+
+function validatePreviousFields(currentField) {
+  const fields = getOrderFields();
+  const currentIndex = fields.indexOf(currentField);
+
+  if (currentIndex <= 0) {
+    return;
+  }
+
+  fields.slice(0, currentIndex).forEach((field) => {
+    validateField(field, true);
+  });
+}
+
+function validateOrderForm() {
+  const fields = getOrderFields();
+  let firstInvalidField = null;
+
+  fields.forEach((field) => {
+    if (!validateField(field, true) && !firstInvalidField) {
+      firstInvalidField = field;
+    }
+  });
+
+  if (firstInvalidField) {
+    firstInvalidField.focus();
+
+    if (orderFormStatus) {
+      orderFormStatus.textContent = 'Lengkapi data yang ditandai.';
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
+function initThemedFormValidation() {
+  if (!quickOrderForm) {
+    return;
+  }
+
+  quickOrderForm.noValidate = true;
+
+  quickOrderForm.querySelectorAll('input, select, textarea').forEach((field) => {
+    field.addEventListener('blur', () => {
+      validateField(field, true);
+    });
+
+    field.addEventListener('focus', () => {
+      validatePreviousFields(field);
+    });
+
+    field.addEventListener('input', () => {
+      validateField(field, field.closest('.has-error') !== null);
+    });
+
+    field.addEventListener('change', () => {
+      validateField(field, field.closest('.has-error') !== null);
+    });
+  });
+}
 
 function getSelectedPackage() {
   const productKey = orderProductSelect.value;
@@ -220,12 +428,20 @@ function updateOrderSummary() {
   }
 
   const { product, plan } = getSelectedPackage();
+  const isCanvaOrder = orderProductSelect.value === 'canva';
 
   summaryProduct.textContent = product.name;
   summaryPrice.textContent = plan.price;
   summaryPlan.textContent = plan.name;
   summaryDuration.textContent = plan.duration;
   summaryTerms.textContent = plan.terms;
+
+  if (canvaEmailField && canvaActivationEmailInput) {
+    canvaEmailField.classList.toggle('is-hidden', !isCanvaOrder);
+    canvaActivationEmailInput.required = isCanvaOrder;
+    canvaActivationEmailInput.disabled = !isCanvaOrder;
+    clearFieldError(canvaActivationEmailInput);
+  }
 }
 
 function selectOrderPackage(productKey, planKey) {
@@ -245,21 +461,53 @@ function buildOrderMessage() {
   const { product, plan } = getSelectedPackage();
   const customerName = customerNameInput.value.trim();
   const customerContact = customerContactInput.value.trim();
+  const canvaActivationEmail = canvaActivationEmailInput ? canvaActivationEmailInput.value.trim() : '';
   const orderNote = orderNoteInput.value.trim() || '-';
 
-  return [
+  const messageLines = [
     'Halo Min Catsoft, saya ingin order produk premium.',
     '',
     `Nama: ${customerName}`,
     `Email/WhatsApp: ${customerContact}`,
-    `Produk: ${product.name}`,
+    `Produk: ${product.name}`
+  ];
+
+  if (orderProductSelect.value === 'canva') {
+    messageLines.push(`Email Canva untuk aktivasi: ${canvaActivationEmail || '-'}`);
+  }
+
+  messageLines.push(
     `Paket: ${plan.name}`,
     `Harga: ${plan.price}`,
     `Masa aktif: ${plan.duration}`,
     `Catatan: ${orderNote}`,
     '',
     'Mohon dibantu konfirmasi stok, ketentuan, dan proses aktivasinya.'
-  ].join('\n');
+  );
+
+  return messageLines.join('\n');
+}
+
+function buildConsultationMessage() {
+  const { product, plan } = getSelectedPackage();
+  const customerName = customerNameInput.value.trim();
+  const customerContact = customerContactInput.value.trim();
+  const messageLines = [
+    'Halo Min Catsoft, saya ingin konsultasi dulu sebelum order.',
+    '',
+    `Nama: ${customerName}`,
+    `Email/WhatsApp: ${customerContact}`,
+    `Produk yang ditanyakan: ${product.name}`,
+    `Paket yang dipertanyakan: ${plan.name}`,
+    `Harga paket: ${plan.price}`
+  ];
+
+  messageLines.push(
+    '',
+    'Mohon dibantu info stok, ketentuan, dan rekomendasinya.'
+  );
+
+  return messageLines.join('\n');
 }
 
 function initQuickOrderForm() {
@@ -280,8 +528,7 @@ function initQuickOrderForm() {
   quickOrderForm.addEventListener('submit', (event) => {
     event.preventDefault();
 
-    if (!quickOrderForm.checkValidity()) {
-      quickOrderForm.reportValidity();
+    if (!validateOrderForm()) {
       return;
     }
 
@@ -293,6 +540,33 @@ function initQuickOrderForm() {
       orderFormStatus.textContent = 'Pesan order sudah disiapkan. Lanjutkan kirim di WhatsApp agar admin bisa memproses.';
     }
   });
+
+  if (consultationBtn) {
+    consultationBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+
+      const hasValidName = validateField(customerNameInput, true);
+      const hasValidContact = validateField(customerContactInput, true);
+
+      if (!hasValidName || !hasValidContact) {
+        (hasValidName ? customerContactInput : customerNameInput).focus();
+
+        if (orderFormStatus) {
+          orderFormStatus.textContent = 'Lengkapi nama dan kontak dulu.';
+        }
+
+        return;
+      }
+
+      const message = buildConsultationMessage();
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+      if (orderFormStatus) {
+        orderFormStatus.textContent = 'Pesan konsultasi sudah disiapkan sesuai nama dan produk yang dipilih.';
+      }
+    });
+  }
 
   document.querySelectorAll('[data-order-product]').forEach((trigger) => {
     trigger.addEventListener('click', () => {
@@ -458,6 +732,7 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 }
 
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
+window.addEventListener('DOMContentLoaded', initThemedFormValidation);
 window.addEventListener('DOMContentLoaded', initQuickOrderForm);
 window.addEventListener('DOMContentLoaded', () => {
   updateAdminStatus();

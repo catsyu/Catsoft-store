@@ -32,14 +32,23 @@
         <a href="#" class="logo">
           <img src="logo.png" alt="Logo Catsoft" />
         </a>
-        <div class="nav-links">
+        <div class="nav-links" id="navLinks">
           <a href="#produk">Produk</a>
+          <a href="#order">Order Cepat</a>
+          <a href="#perbandingan">Perbandingan</a>
           <a href="#keunggulan">Keunggulan</a>
           <a href="#testimoni">Testimoni</a>
           <a href="#faq">FAQ</a>
           <a href="#kontak">Kontak</a>
         </div>
-        <a class="btn btn-primary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20langganan%20produk%20premium.%20Mohon%20dibantu%20info%20paket%20yang%20tersedia." target="_blank" rel="noopener">Order Sekarang</a>
+        <div class="nav-actions">
+          <a class="btn btn-primary" href="#order">Order Sekarang</a>
+          <button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="Buka menu" aria-expanded="false" aria-controls="navLinks">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
       </nav>
     </div>
   </header>
@@ -53,13 +62,20 @@
           <p>Catsoft menyediakan layanan langganan Canva Pro, ChatGPT Plus, dan CapCut Pro premium dengan harga terjangkau, aktivasi dibantu, support admin fast response, serta garansi sesuai ketentuan produk.</p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#produk">Lihat Produk</a>
-            <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20konsultasi%20dulu%20sebelum%20order.%20Mohon%20dibantu%20rekomendasi%20paket%20yang%20sesuai." target="_blank" rel="noopener">Konsultasi via WhatsApp</a>
+            <a class="btn btn-secondary" href="#order">Order Cepat</a>
           </div>
         </div>
 
         <div class="hero-card">
           <h3>Keuntungan order di Catsoft</h3>
           <p>Setiap pembelian layanan langganan dibantu langsung oleh admin Catsoft, mulai dari pemilihan paket, aktivasi, sampai support apabila ada kendala sesuai ketentuan garansi produk.</p>
+          <div class="admin-status" id="adminStatus" aria-live="polite">
+            <span class="status-dot"></span>
+            <div>
+              <strong>Status admin</strong>
+              <p id="adminStatusText">Mengecek jam operasional Catsoft...</p>
+            </div>
+          </div>
           <div class="stats">
             <div class="stat"><strong>Fast</strong><span>Response & Support Admin</span></div>
             <div class="stat"><strong>Full</strong><span>Panduan aktivasi</span></div>
@@ -146,6 +162,119 @@
               <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20order%20CapCut%20Pro%20Sharing%201%20Bulan%20Rp45.566.%20Mohon%20dibantu%20prosesnya." target="_blank" rel="noopener">Sharing</a>
             </div>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="order" class="order-section">
+      <div class="container">
+        <div class="section-heading">
+          <h2>Order Cepat via WhatsApp</h2>
+          <p>Isi data singkat, pilih produk dan paket, lalu Catsoft akan menyiapkan pesan order otomatis untuk dikirim ke admin.</p>
+        </div>
+
+        <div class="order-grid">
+          <form class="order-form" id="quickOrderForm">
+            <div class="form-grid">
+              <div class="field-group">
+                <label for="customerName">Nama customer</label>
+                <input id="customerName" name="customerName" type="text" placeholder="Contoh: Husnul" autocomplete="name" required />
+              </div>
+
+              <div class="field-group">
+                <label for="customerContact">Email atau nomor WhatsApp</label>
+                <input id="customerContact" name="customerContact" type="text" placeholder="Email aktivasi / nomor aktif" required />
+              </div>
+
+              <div class="field-group">
+                <label for="orderProduct">Produk</label>
+                <select id="orderProduct" name="orderProduct" required>
+                  <option value="chatgpt">ChatGPT Plus</option>
+                  <option value="canva">Canva Pro</option>
+                  <option value="capcut">CapCut Pro</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label for="orderPlan">Paket</label>
+                <select id="orderPlan" name="orderPlan" required></select>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="orderNote">Catatan tambahan</label>
+              <textarea id="orderNote" name="orderNote" rows="4" placeholder="Contoh: Butuh untuk tugas, ingin aktivasi hari ini, atau tanya stok dulu."></textarea>
+            </div>
+
+            <div class="order-actions">
+              <button class="btn btn-primary" type="submit">Kirim Order ke WhatsApp</button>
+              <a class="btn btn-secondary" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20ingin%20konsultasi%20dulu%20sebelum%20order.%20Mohon%20dibantu%20rekomendasi%20paket%20yang%20sesuai." target="_blank" rel="noopener">Konsultasi Dulu</a>
+            </div>
+
+            <p class="form-note" id="orderFormStatus">Pesan WhatsApp akan dibuat otomatis sesuai pilihan paket.</p>
+          </form>
+
+          <aside class="order-summary" aria-live="polite">
+            <span class="section-kicker">Ringkasan Order</span>
+            <h3 id="summaryProduct">ChatGPT Plus</h3>
+            <div class="summary-price" id="summaryPrice">Rp580.000</div>
+            <ul class="summary-list">
+              <li><strong>Paket:</strong> <span id="summaryPlan">Private</span></li>
+              <li><strong>Masa aktif:</strong> <span id="summaryDuration">27–30 hari</span></li>
+              <li><strong>Ketentuan:</strong> <span id="summaryTerms">Private, dibantu aktivasi oleh admin</span></li>
+            </ul>
+            <div class="secure-row">🔒 Detail order tetap dikonfirmasi admin sebelum diproses</div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="perbandingan">
+      <div class="container">
+        <div class="section-heading">
+          <h2>Bandingkan Paket Catsoft</h2>
+          <p>Pilih paket berdasarkan kebutuhan: desain, AI, editing video, masa aktif, dan pilihan sharing atau private.</p>
+        </div>
+
+        <div class="comparison-wrap">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th>Harga Mulai</th>
+                <th>Cocok Untuk</th>
+                <th>Pilihan Paket</th>
+                <th>Support</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>ChatGPT Plus</strong></td>
+                <td>Rp42.500</td>
+                <td>AI harian, belajar, coding, riset, ide konten</td>
+                <td>Private, sharing 2 user, 4 user, 7–10 user</td>
+                <td>Garansi 27–30 hari, panduan aktivasi</td>
+                <td><a class="table-link" href="#order" data-order-product="chatgpt" data-order-plan="sharing-7-10">Pilih</a></td>
+              </tr>
+              <tr>
+                <td><strong>Canva Pro</strong></td>
+                <td>Rp25.000</td>
+                <td>Desain konten, presentasi, bisnis, tugas</td>
+                <td>1 bulan, 3 bulan, 6 bulan, 1 tahun</td>
+                <td>Aktivasi ke email pembeli, support admin</td>
+                <td><a class="table-link" href="#order" data-order-product="canva" data-order-plan="1-bulan">Pilih</a></td>
+              </tr>
+              <tr>
+                <td><strong>CapCut Pro</strong></td>
+                <td>Rp45.566</td>
+                <td>Editing video, konten promosi, social media</td>
+                <td>Sharing 1 bulan, private 1 bulan</td>
+                <td>Support HP & PC/Laptop, panduan aktivasi</td>
+                <td><a class="table-link" href="#order" data-order-product="capcut" data-order-plan="sharing-1-bulan">Pilih</a></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

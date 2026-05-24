@@ -1,4 +1,103 @@
 const faqItems = document.querySelectorAll('.faq-item');
+const whatsappNumber = '6282318082303';
+
+const productPackages = {
+  chatgpt: {
+    name: 'ChatGPT Plus',
+    plans: [
+      {
+        value: 'private',
+        label: 'Private — Rp580.000',
+        name: 'Private',
+        price: 'Rp580.000',
+        duration: '27–30 hari',
+        terms: 'Private, dibantu aktivasi oleh admin'
+      },
+      {
+        value: 'sharing-2',
+        label: 'Sharing 2 User — Rp200.000',
+        name: 'Sharing 2 User',
+        price: 'Rp200.000',
+        duration: '27–30 hari',
+        terms: 'Sharing 2 user, akses 2 device sesuai ketentuan'
+      },
+      {
+        value: 'sharing-4',
+        label: 'Sharing 4 User — Rp105.000',
+        name: 'Sharing 4 User',
+        price: 'Rp105.000',
+        duration: '27–30 hari',
+        terms: 'Sharing 4 user, akses 2 device sesuai ketentuan'
+      },
+      {
+        value: 'sharing-7-10',
+        label: 'Sharing 7–10 User — Rp42.500',
+        name: 'Sharing 7–10 User',
+        price: 'Rp42.500',
+        duration: '27–30 hari',
+        terms: 'Sharing 7–10 user, penggunaan mengikuti panduan admin'
+      }
+    ]
+  },
+  canva: {
+    name: 'Canva Pro',
+    plans: [
+      {
+        value: '1-bulan',
+        label: '1 Bulan — Rp25.000',
+        name: '1 Bulan',
+        price: 'Rp25.000',
+        duration: '1 bulan',
+        terms: 'Aktivasi ke email Canva pembeli'
+      },
+      {
+        value: '3-bulan',
+        label: '3 Bulan — Rp70.000',
+        name: '3 Bulan',
+        price: 'Rp70.000',
+        duration: '3 bulan',
+        terms: 'Aktivasi ke email Canva pembeli'
+      },
+      {
+        value: '6-bulan',
+        label: '6 Bulan — Rp135.000',
+        name: '6 Bulan',
+        price: 'Rp135.000',
+        duration: '6 bulan',
+        terms: 'Aktivasi ke email Canva pembeli'
+      },
+      {
+        value: '1-tahun',
+        label: '1 Tahun — Rp270.000',
+        name: '1 Tahun',
+        price: 'Rp270.000',
+        duration: '1 tahun',
+        terms: 'Aktivasi ke email Canva pembeli'
+      }
+    ]
+  },
+  capcut: {
+    name: 'CapCut Pro',
+    plans: [
+      {
+        value: 'sharing-1-bulan',
+        label: 'Sharing 1 Bulan — Rp45.566',
+        name: 'Sharing 1 Bulan',
+        price: 'Rp45.566',
+        duration: '1 bulan',
+        terms: 'Sharing, support HP & PC/Laptop sesuai ketentuan'
+      },
+      {
+        value: 'private-1-bulan',
+        label: 'Private 1 Bulan — Rp106.397',
+        name: 'Private 1 Bulan',
+        price: 'Rp106.397',
+        duration: '1 bulan',
+        terms: 'Private, support HP & PC/Laptop sesuai ketentuan'
+      }
+    ]
+  }
+};
 
 faqItems.forEach((item) => {
   const question = item.querySelector('.faq-question');
@@ -9,6 +108,37 @@ faqItems.forEach((item) => {
     });
   }
 });
+
+const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+const navLinks = document.getElementById('navLinks');
+
+if (mobileMenuToggle && navLinks) {
+  mobileMenuToggle.addEventListener('click', () => {
+    const isOpen = navLinks.classList.toggle('open');
+    mobileMenuToggle.classList.toggle('active', isOpen);
+    mobileMenuToggle.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  navLinks.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => {
+      navLinks.classList.remove('open');
+      mobileMenuToggle.classList.remove('active');
+      mobileMenuToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!navLinks.classList.contains('open')) {
+      return;
+    }
+
+    if (!navLinks.contains(event.target) && !mobileMenuToggle.contains(event.target)) {
+      navLinks.classList.remove('open');
+      mobileMenuToggle.classList.remove('active');
+      mobileMenuToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
 
 const termsModal = document.getElementById('termsModal');
 const openTerms = document.getElementById('openTermsLink');
@@ -38,6 +168,182 @@ if (openTerms && closeTerms && termsModal) {
   if (params.get('terms') === 'open') {
     termsModal.classList.add('active');
   }
+}
+
+const quickOrderForm = document.getElementById('quickOrderForm');
+const customerNameInput = document.getElementById('customerName');
+const customerContactInput = document.getElementById('customerContact');
+const orderProductSelect = document.getElementById('orderProduct');
+const orderPlanSelect = document.getElementById('orderPlan');
+const orderNoteInput = document.getElementById('orderNote');
+const orderFormStatus = document.getElementById('orderFormStatus');
+const summaryProduct = document.getElementById('summaryProduct');
+const summaryPrice = document.getElementById('summaryPrice');
+const summaryPlan = document.getElementById('summaryPlan');
+const summaryDuration = document.getElementById('summaryDuration');
+const summaryTerms = document.getElementById('summaryTerms');
+const adminStatus = document.getElementById('adminStatus');
+const adminStatusText = document.getElementById('adminStatusText');
+
+function getSelectedPackage() {
+  const productKey = orderProductSelect.value;
+  const product = productPackages[productKey] || productPackages.chatgpt;
+  const plan = product.plans.find((item) => item.value === orderPlanSelect.value) || product.plans[0];
+
+  return { product, plan };
+}
+
+function populatePlanOptions(preferredPlan) {
+  if (!orderProductSelect || !orderPlanSelect) {
+    return;
+  }
+
+  const product = productPackages[orderProductSelect.value] || productPackages.chatgpt;
+  const selectedPlan = preferredPlan || orderPlanSelect.value || product.plans[0].value;
+
+  orderPlanSelect.innerHTML = '';
+
+  product.plans.forEach((plan) => {
+    const option = document.createElement('option');
+    option.value = plan.value;
+    option.textContent = plan.label;
+    orderPlanSelect.appendChild(option);
+  });
+
+  const hasSelectedPlan = product.plans.some((plan) => plan.value === selectedPlan);
+  orderPlanSelect.value = hasSelectedPlan ? selectedPlan : product.plans[0].value;
+}
+
+function updateOrderSummary() {
+  if (!orderProductSelect || !orderPlanSelect || !summaryProduct || !summaryPrice || !summaryPlan || !summaryDuration || !summaryTerms) {
+    return;
+  }
+
+  const { product, plan } = getSelectedPackage();
+
+  summaryProduct.textContent = product.name;
+  summaryPrice.textContent = plan.price;
+  summaryPlan.textContent = plan.name;
+  summaryDuration.textContent = plan.duration;
+  summaryTerms.textContent = plan.terms;
+}
+
+function selectOrderPackage(productKey, planKey) {
+  if (!orderProductSelect || !orderPlanSelect) {
+    return;
+  }
+
+  if (productPackages[productKey]) {
+    orderProductSelect.value = productKey;
+  }
+
+  populatePlanOptions(planKey);
+  updateOrderSummary();
+}
+
+function buildOrderMessage() {
+  const { product, plan } = getSelectedPackage();
+  const customerName = customerNameInput.value.trim();
+  const customerContact = customerContactInput.value.trim();
+  const orderNote = orderNoteInput.value.trim() || '-';
+
+  return [
+    'Halo Min Catsoft, saya ingin order produk premium.',
+    '',
+    `Nama: ${customerName}`,
+    `Email/WhatsApp: ${customerContact}`,
+    `Produk: ${product.name}`,
+    `Paket: ${plan.name}`,
+    `Harga: ${plan.price}`,
+    `Masa aktif: ${plan.duration}`,
+    `Catatan: ${orderNote}`,
+    '',
+    'Mohon dibantu konfirmasi stok, ketentuan, dan proses aktivasinya.'
+  ].join('\n');
+}
+
+function initQuickOrderForm() {
+  if (!quickOrderForm || !orderProductSelect || !orderPlanSelect) {
+    return;
+  }
+
+  populatePlanOptions();
+  updateOrderSummary();
+
+  orderProductSelect.addEventListener('change', () => {
+    populatePlanOptions();
+    updateOrderSummary();
+  });
+
+  orderPlanSelect.addEventListener('change', updateOrderSummary);
+
+  quickOrderForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    if (!quickOrderForm.checkValidity()) {
+      quickOrderForm.reportValidity();
+      return;
+    }
+
+    const message = buildOrderMessage();
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    if (orderFormStatus) {
+      orderFormStatus.textContent = 'Pesan order sudah disiapkan. Lanjutkan kirim di WhatsApp agar admin bisa memproses.';
+    }
+  });
+
+  document.querySelectorAll('[data-order-product]').forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      selectOrderPackage(trigger.dataset.orderProduct, trigger.dataset.orderPlan);
+    });
+  });
+}
+
+function getJakartaTimeParts() {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    hourCycle: 'h23'
+  });
+
+  return formatter.formatToParts(new Date()).reduce((parts, item) => {
+    parts[item.type] = item.value;
+    return parts;
+  }, {});
+}
+
+function updateAdminStatus() {
+  if (!adminStatus || !adminStatusText) {
+    return;
+  }
+
+  const parts = getJakartaTimeParts();
+  const weekday = parts.weekday;
+  const hour = Number(parts.hour);
+  const isWeekend = weekday === 'Sat' || weekday === 'Sun';
+  const openHour = isWeekend ? 9 : 8;
+  const closeHour = 22;
+  const isOnline = hour >= openHour && hour < closeHour;
+  const openLabel = `${String(openHour).padStart(2, '0')}.00`;
+
+  adminStatus.classList.toggle('online', isOnline);
+  adminStatus.classList.toggle('offline', !isOnline);
+
+  if (isOnline) {
+    adminStatusText.textContent = `Admin sedang online sampai 22.00 WIB. Order diproses sesuai antrean masuk.`;
+    return;
+  }
+
+  if (hour < openHour) {
+    adminStatusText.textContent = `Admin belum online. Jam operasional hari ini mulai ${openLabel}–22.00 WIB.`;
+    return;
+  }
+
+  adminStatusText.textContent = 'Admin sedang offline. Order tetap bisa dikirim dan akan dibalas saat jam operasional berikutnya.';
 }
 
 const emailAliasInput = document.getElementById('emailAliasInput');
@@ -152,3 +458,8 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 }
 
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
+window.addEventListener('DOMContentLoaded', initQuickOrderForm);
+window.addEventListener('DOMContentLoaded', () => {
+  updateAdminStatus();
+  setInterval(updateAdminStatus, 60000);
+});

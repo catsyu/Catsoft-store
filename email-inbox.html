@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Email Inbox</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="email-inbox.css" />
+</head>
+<body>
+  <main class="email-page">
+    <header class="email-header">
+      <div class="brand-mark">
+        <img src="logo.png" alt="Catsoft" />
+        <div>
+          <span>Catsoft Tools</span>
+          <h1>Email Inbox</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a class="ghost-button" href="admin-tools.html">Home</a>
+        <button class="ghost-button" id="refreshBtn" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <section class="inbox-layout" aria-label="Email masuk Catsoft">
+      <section class="inbox-panel" aria-labelledby="inboxTitle">
+        <div class="panel-heading">
+          <div>
+            <span class="section-kicker">Email routing</span>
+            <h2 id="inboxTitle">Semua email masuk</h2>
+          </div>
+          <p class="sync-status" id="syncStatus" aria-live="polite">Memuat email...</p>
+        </div>
+
+        <div class="stats-grid" aria-label="Ringkasan email">
+          <button class="stat-card" type="button" data-stat-filter="all">
+            <span>Total</span>
+            <strong id="totalCount">0</strong>
+          </button>
+          <button class="stat-card urgent" type="button" data-stat-filter="unread">
+            <span>Belum dibaca</span>
+            <strong id="unreadCount">0</strong>
+          </button>
+          <button class="stat-card otp" type="button" data-stat-filter="chatgpt-otp">
+            <span>OTP ChatGPT</span>
+            <strong id="otpCount">0</strong>
+          </button>
+          <button class="stat-card recipient" type="button" data-stat-filter="recipients">
+            <span>Penerima</span>
+            <strong id="recipientCount">0</strong>
+          </button>
+        </div>
+
+        <form class="filter-panel" id="filterForm">
+          <label class="field-group recipient-field">
+            <span>Email penerima</span>
+            <input id="recipientFilter" type="email" placeholder="Chatgpt@catsoft.store" autocomplete="off" />
+          </label>
+
+          <label class="field-group">
+            <span>Kategori</span>
+            <select id="categoryFilter">
+              <option value="all">Semua kategori</option>
+              <option value="chatgpt-otp">OTP ChatGPT</option>
+              <option value="adobe">Adobe</option>
+              <option value="canva">Canva</option>
+              <option value="support">Support</option>
+              <option value="other">Lainnya</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Status</span>
+            <select id="statusFilter">
+              <option value="all">Semua status</option>
+              <option value="unread">Belum dibaca</option>
+              <option value="read">Sudah dibaca</option>
+            </select>
+          </label>
+
+          <label class="field-group search-field">
+            <span>Search</span>
+            <input id="keywordFilter" type="search" placeholder="Subject, pengirim, isi email" autocomplete="off" />
+          </label>
+        </form>
+
+        <div class="category-tabs" id="categoryTabs" aria-label="Filter kategori cepat">
+          <button class="category-tab active" type="button" data-category-tab="all">Semua</button>
+          <button class="category-tab" type="button" data-category-tab="chatgpt-otp">OTP ChatGPT</button>
+          <button class="category-tab" type="button" data-category-tab="adobe">Adobe</button>
+          <button class="category-tab" type="button" data-category-tab="canva">Canva</button>
+          <button class="category-tab" type="button" data-category-tab="support">Support</button>
+        </div>
+
+        <div class="email-list" id="emailList" aria-live="polite">
+          <p class="empty-state">Memuat email masuk.</p>
+        </div>
+      </section>
+
+      <aside class="message-panel" id="messagePanel" aria-live="polite">
+        <div class="detail-empty">
+          <span class="section-kicker">Detail email</span>
+          <h2>Pilih email</h2>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="email-inbox.js" defer></script>
+</body>
+</html>

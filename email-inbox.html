@@ -29,10 +29,10 @@
       <section class="inbox-panel" aria-labelledby="inboxTitle">
         <div class="panel-heading">
           <div>
-            <span class="section-kicker">Email routing</span>
+            <span class="section-kicker">Inbox</span>
             <h2 id="inboxTitle">Semua email masuk</h2>
           </div>
-          <p class="sync-status" id="syncStatus" aria-live="polite">Memuat email...</p>
+          <p class="sync-status" id="syncStatus" aria-live="polite">Memuat...</p>
         </div>
 
         <div class="stats-grid" aria-label="Ringkasan email">
@@ -56,14 +56,24 @@
 
         <form class="filter-panel" id="filterForm">
           <label class="field-group recipient-field">
-            <span>Email penerima</span>
-            <input id="recipientFilter" type="email" placeholder="Chatgpt@catsoft.store" autocomplete="off" />
+            <span>Penerima</span>
+            <input id="recipientFilter" type="email" placeholder="chatgpt@catsoft.store" autocomplete="off" />
+          </label>
+
+          <label class="field-group">
+            <span>Domain</span>
+            <select id="domainFilter">
+              <option value="all">Semua</option>
+              <option value="catsoft.store">catsoft.store</option>
+              <option value="catsoft.digital">catsoft.digital</option>
+              <option value="catsoft.online">catsoft.online</option>
+            </select>
           </label>
 
           <label class="field-group">
             <span>Kategori</span>
             <select id="categoryFilter">
-              <option value="all">Semua kategori</option>
+              <option value="all">Semua</option>
               <option value="chatgpt-otp">OTP ChatGPT</option>
               <option value="adobe">Adobe</option>
               <option value="canva">Canva</option>
@@ -75,15 +85,15 @@
           <label class="field-group">
             <span>Status</span>
             <select id="statusFilter">
-              <option value="all">Semua status</option>
+              <option value="all">Semua</option>
               <option value="unread">Belum dibaca</option>
-              <option value="read">Sudah dibaca</option>
+              <option value="read">Dibaca</option>
             </select>
           </label>
 
           <label class="field-group search-field">
-            <span>Search</span>
-            <input id="keywordFilter" type="search" placeholder="Subject, pengirim, isi email" autocomplete="off" />
+            <span>Cari</span>
+            <input id="keywordFilter" type="search" placeholder="Subject, pengirim, isi" autocomplete="off" />
           </label>
         </form>
 

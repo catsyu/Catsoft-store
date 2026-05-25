@@ -2,7 +2,7 @@ const productionApiEndpoint = 'https://catsoft.store/api/email-messages';
 const apiEndpoint = window.CATSOFT_EMAIL_INBOX_API || getDefaultApiEndpoint();
 const readStorageKey = 'catsoftEmailInboxReadIds';
 const autoRefreshMs = 15000;
-const emailFetchLimit = 200;
+const emailFetchLimit = 500;
 
 const refreshBtn = document.getElementById('refreshBtn');
 const syncStatus = document.getElementById('syncStatus');
@@ -12,6 +12,7 @@ const otpCount = document.getElementById('otpCount');
 const recipientCount = document.getElementById('recipientCount');
 const filterForm = document.getElementById('filterForm');
 const recipientFilter = document.getElementById('recipientFilter');
+const domainFilter = document.getElementById('domainFilter');
 const categoryFilter = document.getElementById('categoryFilter');
 const statusFilter = document.getElementById('statusFilter');
 const keywordFilter = document.getElementById('keywordFilter');
@@ -64,7 +65,7 @@ function getDefaultApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (isLocalPage) {
+  if (isLocalPage || hostname !== 'catsoft.store') {
     return productionApiEndpoint;
   }
 
@@ -215,6 +216,10 @@ function getAddressSummary(email) {
   return `${getSenderName(email.from, email.category)} -> ${getRecipientLabel(email)}`;
 }
 
+function getMessageDomain(email) {
+  return getEmailDomain(email.to);
+}
+
 function htmlToText(value) {
   return String(value || '')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -281,6 +286,7 @@ function isRead(email) {
 
 function setStatus(message, type) {
   syncStatus.textContent = message;
+  syncStatus.title = '';
   syncStatus.classList.remove('success', 'warning');
   if (type) {
     syncStatus.classList.add(type);
@@ -324,15 +330,13 @@ function formatClock(dateValue) {
 
   return new Intl.DateTimeFormat('id-ID', {
     hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    minute: '2-digit'
   }).format(date);
 }
 
-function getFreshStatus(prefix, count) {
+function getFreshStatus() {
   const updatedAt = state.lastUpdatedAt ? formatClock(state.lastUpdatedAt) : '-';
-  const source = apiEndpoint.startsWith('http') ? 'catsoft.store' : 'same-origin';
-  return `${prefix} - ${count} email - update ${updatedAt} - ${source} - auto 15 detik`;
+  return updatedAt;
 }
 
 async function loadEmails(options = {}) {
@@ -343,7 +347,7 @@ async function loadEmails(options = {}) {
   isLoadingEmails = true;
 
   if (!options.silent) {
-    setStatus('Memuat email...');
+    setStatus('Memuat...');
   }
 
   refreshBtn.disabled = true;
@@ -366,17 +370,19 @@ async function loadEmails(options = {}) {
     state.source = 'api';
     state.emails = sortEmails(emails);
     state.lastUpdatedAt = new Date();
-    setStatus(getFreshStatus('API aktif', state.emails.length), 'success');
+    setStatus(getFreshStatus(), 'success');
   } catch (error) {
     if (state.source === 'api' && state.emails.length) {
-      setStatus(`Refresh gagal: ${error.message} - data terakhir ${formatClock(state.lastUpdatedAt)}`, 'warning');
+      setStatus('Gagal sinkron', 'warning');
+      syncStatus.title = error.message;
       return;
     }
 
     state.source = 'demo';
     state.emails = sortEmails(createSampleEmails().map(normalizeEmail));
     state.lastUpdatedAt = new Date();
-    setStatus(`${getFreshStatus('Data demo', state.emails.length)} - ${error.message}`, 'warning');
+    setStatus('Data demo', 'warning');
+    syncStatus.title = error.message;
   } finally {
     isLoadingEmails = false;
     refreshBtn.disabled = false;
@@ -401,12 +407,14 @@ function sortEmails(emails) {
 
 function applyFilters() {
   const recipientQuery = normalizeSearch(recipientFilter.value);
+  const domainValue = domainFilter.value;
   const categoryValue = categoryFilter.value;
   const statusValue = statusFilter.value;
   const keywordQuery = normalizeSearch(keywordFilter.value);
 
   state.filteredEmails = state.emails.filter((email) => {
     const recipient = normalizeSearch(email.to);
+    const domain = getMessageDomain(email);
     const searchable = normalizeSearch(`${email.from} ${email.to} ${email.subject} ${email.snippet} ${email.body}`);
 
     if (recipientQuery) {
@@ -419,6 +427,10 @@ function applyFilters() {
     }
 
     if (categoryValue !== 'all' && email.category !== categoryValue) {
+      return false;
+    }
+
+    if (domainValue !== 'all' && domain !== domainValue) {
       return false;
     }
 
@@ -476,6 +488,7 @@ function renderEmailList() {
         <p class="email-preview">${escapeHtml(email.snippet || email.body || 'Tidak ada preview.')}</p>
         <div class="email-meta-row">
           <span class="category-badge ${escapeHtml(email.category)}">${escapeHtml(categoryLabels[email.category] || categoryLabels.other)}</span>
+          <span class="domain-badge">${escapeHtml(getMessageDomain(email) || 'domain tidak diketahui')}</span>
           <span class="read-badge ${read ? '' : 'unread'}">${read ? 'Sudah dibaca' : 'Belum dibaca'}</span>
         </div>
       </article>
@@ -582,6 +595,7 @@ function renderSelectedEmail(email) {
           <span class="category-badge ${escapeHtml(selectedEmail.category)}">${escapeHtml(categoryLabels[selectedEmail.category] || categoryLabels.other)}</span>
           <h2>${escapeHtml(selectedEmail.subject)}</h2>
           <p class="detail-address">${escapeHtml(getAddressSummary(selectedEmail))}</p>
+          <span class="domain-badge detail-domain">${escapeHtml(getMessageDomain(selectedEmail) || 'domain tidak diketahui')}</span>
           <details class="raw-addresses">
             <summary>Alamat lengkap</summary>
             <span>Dari: ${escapeHtml(selectedEmail.from || '-')}</span>
@@ -661,7 +675,7 @@ filterForm.addEventListener('submit', (event) => {
   applyFilters();
 });
 
-[recipientFilter, categoryFilter, statusFilter, keywordFilter].forEach((element) => {
+[recipientFilter, domainFilter, categoryFilter, statusFilter, keywordFilter].forEach((element) => {
   element.addEventListener('input', applyFilters);
   element.addEventListener('change', applyFilters);
 });
@@ -760,6 +774,7 @@ document.querySelectorAll('[data-stat-filter]').forEach((button) => {
       statusFilter.value = 'all';
     } else {
       categoryFilter.value = 'all';
+      domainFilter.value = 'all';
       statusFilter.value = 'all';
       recipientFilter.value = '';
       keywordFilter.value = '';

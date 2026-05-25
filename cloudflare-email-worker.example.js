@@ -1,6 +1,6 @@
 const MAX_BODY_CHARS = 50000;
 const DEFAULT_LIMIT = 80;
-const MAX_LIMIT = 200;
+const MAX_LIMIT = 500;
 
 const categoryRules = [
   {

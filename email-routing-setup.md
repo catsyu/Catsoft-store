@@ -16,6 +16,22 @@ Cloudflare Email Routing biasa hanya meneruskan email ke mailbox tujuan. Agar em
 4. Worker tetap meneruskan email ke `FORWARD_TO`, jadi Gmail tujuan tetap menerima email.
 5. `email-inbox.html` membaca API `/api/email-messages`.
 
+## Menambahkan domain lain
+
+Untuk `catsoft.digital` dan `catsoft.online`, pakai Worker dan D1 yang sama:
+
+1. Pastikan domain `catsoft.digital` dan `catsoft.online` sudah ada sebagai zone di Cloudflare.
+2. Buka masing-masing domain > Email Routing.
+3. Enable Email Routing dan ikuti instruksi DNS sampai status DNS configured.
+4. Buka Routing rules.
+5. Aktifkan Catch-All.
+6. Set action Catch-All ke `Send to a Worker`.
+7. Pilih Worker `mail-base-all-catch`.
+8. Kirim email test ke alamat seperti `test@catsoft.digital` dan `test@catsoft.online`.
+9. Buka `https://catsoft.store/api/email-messages/health`; angka `total` harus naik.
+
+Tidak perlu membuat D1 baru. Selama semua domain diarahkan ke Worker `mail-base-all-catch`, semua email akan masuk ke tabel `email_messages` yang sama. Page inbox sudah bisa difilter per domain: `catsoft.store`, `catsoft.digital`, dan `catsoft.online`.
+
 ## Agar data up-to-date
 
 - Worker harus menjadi tujuan catch-all atau custom address di Cloudflare Email Routing.

@@ -453,6 +453,85 @@ if (mobileMenuToggle && navLinks) {
   });
 }
 
+function closeMobileMenu() {
+  if (!mobileMenuToggle || !navLinks) {
+    return;
+  }
+
+  navLinks.classList.remove('open');
+  mobileMenuToggle.classList.remove('active');
+  mobileMenuToggle.setAttribute('aria-expanded', 'false');
+}
+
+const cleanSectionPaths = {
+  produk: '/produk',
+  order: '/order',
+  keunggulan: '/keunggulan',
+  testimoni: '/testimoni',
+  faq: '/faq',
+  kontak: '/kontak'
+};
+
+function getCleanSectionFromPath(pathname) {
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  return Object.entries(cleanSectionPaths).find(([, path]) => path === cleanPath)?.[0] || '';
+}
+
+function scrollToCleanSection(sectionId, behavior = 'smooth') {
+  const section = document.getElementById(sectionId);
+
+  if (!section) {
+    return;
+  }
+
+  section.scrollIntoView({ behavior, block: 'start' });
+}
+
+function initCleanSectionLinks() {
+  document.querySelectorAll('[data-clean-section]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const sectionId = link.dataset.cleanSection;
+      const cleanPath = cleanSectionPaths[sectionId];
+
+      if (!cleanPath) {
+        return;
+      }
+
+      event.preventDefault();
+      history.pushState(null, '', cleanPath);
+      closeMobileMenu();
+
+      if (sectionId === 'order') {
+        revealOrderForm();
+      }
+
+      scrollToCleanSection(sectionId);
+    });
+  });
+
+  const initialSection = getCleanSectionFromPath(window.location.pathname);
+
+  if (initialSection) {
+    if (initialSection === 'order') {
+      revealOrderForm();
+    }
+
+    window.setTimeout(() => scrollToCleanSection(initialSection, 'auto'), 80);
+  }
+
+  window.addEventListener('popstate', () => {
+    const sectionId = getCleanSectionFromPath(window.location.pathname);
+
+    if (sectionId) {
+      if (sectionId === 'order') {
+        revealOrderForm();
+      }
+
+      scrollToCleanSection(sectionId);
+    }
+  });
+}
+
 const termsModal = document.getElementById('termsModal');
 const openTermsLinks = document.querySelectorAll('#openTermsLink, #orderTermsLink');
 const closeTerms = document.getElementById('closeTerms');
@@ -867,7 +946,7 @@ function initClickTracking() {
         product,
         plan,
         source: getClickSource(link),
-        target: '#order'
+        target: '/order'
       });
 
       return;
@@ -1286,7 +1365,7 @@ function revealOrderForm({ shouldFocus = false } = {}) {
 }
 
 function shouldRevealOrderFromUrl() {
-  return window.location.hash === '#order' || getOrderPackageFromUrl() !== null;
+  return getCleanSectionFromPath(window.location.pathname) === 'order' || window.location.hash === '#order' || getOrderPackageFromUrl() !== null;
 }
 
 function isOrderSectionLink(link) {
@@ -1297,9 +1376,10 @@ function isOrderSectionLink(link) {
   }
 
   try {
-    return new URL(href, window.location.href).hash === '#order';
+    const url = new URL(href, window.location.href);
+    return url.hash === '#order' || getCleanSectionFromPath(url.pathname) === 'order';
   } catch (error) {
-    return href.includes('#order');
+    return href.includes('#order') || href.replace(/\/+$/, '') === '/order';
   }
 }
 
@@ -1347,9 +1427,10 @@ function updateOrderUrl(productKey, planKey, mode = 'replace') {
   url.searchParams.set('produk', productKey);
   url.searchParams.set('paket', selectedPlan);
   url.searchParams.delete('terms');
-  url.hash = 'order';
+  url.pathname = cleanSectionPaths.order;
+  url.hash = '';
 
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const nextUrl = `${url.pathname}${url.search}`;
 
   if (mode === 'push') {
     history.pushState(null, '', nextUrl);
@@ -1928,6 +2009,7 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
 window.addEventListener('DOMContentLoaded', initProductFilters);
 window.addEventListener('DOMContentLoaded', initClickTracking);
+window.addEventListener('DOMContentLoaded', initCleanSectionLinks);
 window.addEventListener('DOMContentLoaded', initThemedFormValidation);
 window.addEventListener('DOMContentLoaded', initOrderRevealTriggers);
 window.addEventListener('DOMContentLoaded', initQuickOrderForm);

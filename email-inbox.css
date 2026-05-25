@@ -20,6 +20,10 @@ body {
   overflow-x: hidden;
 }
 
+body.detail-drawer-open {
+  overflow: hidden;
+}
+
 button,
 input,
 select {
@@ -465,8 +469,36 @@ a {
   margin-top: 5px;
 }
 
+.raw-addresses {
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.raw-addresses summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 5px 10px;
+}
+
+.raw-addresses span {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
 .detail-actions {
   justify-content: flex-start;
+}
+
+.mobile-close-button {
+  display: none;
 }
 
 .ghost-button,
@@ -571,12 +603,35 @@ a {
   }
 
   .message-panel {
-    position: static;
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 60;
+    display: none;
+    max-height: min(86vh, 760px);
     min-height: 0;
+    overflow: auto;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -18px 55px rgba(15, 23, 42, 0.22);
+  }
+
+  .message-panel.is-open {
+    display: block;
+  }
+
+  body.detail-drawer-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(15, 23, 42, 0.38);
+  }
+
+  .mobile-close-button {
+    display: inline-flex;
   }
 
   .detail-empty {
-    min-height: 220px;
+    display: none;
   }
 }
 
@@ -611,10 +666,13 @@ a {
     width: 100%;
   }
 
-  .inbox-panel,
-  .message-panel {
+  .inbox-panel {
     padding: 16px;
     border-radius: 12px;
+  }
+
+  .message-panel {
+    padding: 16px;
   }
 
   .panel-heading,

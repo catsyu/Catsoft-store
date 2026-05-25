@@ -18,6 +18,7 @@ const keywordFilter = document.getElementById('keywordFilter');
 const categoryTabs = document.getElementById('categoryTabs');
 const emailList = document.getElementById('emailList');
 const messagePanel = document.getElementById('messagePanel');
+const mobileDetailQuery = window.matchMedia('(max-width: 1060px)');
 
 const categoryLabels = {
   all: 'Semua',
@@ -145,6 +146,73 @@ function normalizeSearch(value) {
 
 function cleanAddress(value) {
   return String(value || '').trim();
+}
+
+function getEmailDomain(value) {
+  const address = cleanAddress(value).toLowerCase();
+  const domain = address.split('@').pop() || '';
+  return domain.replace(/^www\./, '');
+}
+
+function getRecipientName(value) {
+  const address = cleanAddress(value).toLowerCase();
+  const localPart = address.split('@')[0] || address;
+
+  if (!localPart) {
+    return 'Penerima tidak diketahui';
+  }
+
+  return localPart
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getRecipientLabel(email) {
+  if (email.category === 'chatgpt-otp') {
+    return 'ChatGPT OTP';
+  }
+
+  if (email.category === 'adobe') {
+    return 'Adobe';
+  }
+
+  if (email.category === 'canva') {
+    return 'Canva';
+  }
+
+  if (email.category === 'support') {
+    return 'Support';
+  }
+
+  return getRecipientName(email.to);
+}
+
+function getSenderName(value, category) {
+  const address = cleanAddress(value);
+  const lowerAddress = address.toLowerCase();
+  const domain = getEmailDomain(address);
+
+  if (category === 'chatgpt-otp' || domain.includes('openai.com')) {
+    return 'OpenAI';
+  }
+
+  if (domain.includes('adobe.com')) {
+    return 'Adobe';
+  }
+
+  if (domain.includes('canva.com')) {
+    return 'Canva';
+  }
+
+  if (lowerAddress.includes('bounce') || lowerAddress.includes('noreply') || lowerAddress.includes('no-reply')) {
+    return domain || 'Pengirim otomatis';
+  }
+
+  return address.split('@')[0] || 'Pengirim tidak diketahui';
+}
+
+function getAddressSummary(email) {
+  return `${getSenderName(email.from, email.category)} -> ${getRecipientLabel(email)}`;
 }
 
 function htmlToText(value) {
@@ -401,7 +469,7 @@ function renderEmailList() {
         <div class="email-top">
           <div class="email-title">
             <h3>${escapeHtml(email.subject)}</h3>
-            <p>${escapeHtml(email.from)} ke ${escapeHtml(email.to)}</p>
+            <p>${escapeHtml(getAddressSummary(email))}</p>
           </div>
           <span class="email-time">${escapeHtml(formatDateTime(email.receivedAt))}</span>
         </div>
@@ -442,6 +510,7 @@ async function selectEmail(id) {
   markRead(localEmail);
   renderEmailList();
   renderSelectedEmail(localEmail);
+  openMobileDetail();
 
   if (state.source !== 'api') {
     return;
@@ -460,9 +529,11 @@ async function selectEmail(id) {
     if (index >= 0) {
       state.emails[index] = { ...state.emails[index], ...fullEmail, read: true };
       renderSelectedEmail(state.emails[index]);
+      openMobileDetail();
     }
   } catch (error) {
     renderSelectedEmail(localEmail);
+    openMobileDetail();
   }
 }
 
@@ -510,11 +581,17 @@ function renderSelectedEmail(email) {
         <div class="detail-title">
           <span class="category-badge ${escapeHtml(selectedEmail.category)}">${escapeHtml(categoryLabels[selectedEmail.category] || categoryLabels.other)}</span>
           <h2>${escapeHtml(selectedEmail.subject)}</h2>
-          <p class="detail-address">${escapeHtml(selectedEmail.from)} ke ${escapeHtml(selectedEmail.to)}</p>
+          <p class="detail-address">${escapeHtml(getAddressSummary(selectedEmail))}</p>
+          <details class="raw-addresses">
+            <summary>Alamat lengkap</summary>
+            <span>Dari: ${escapeHtml(selectedEmail.from || '-')}</span>
+            <span>Ke: ${escapeHtml(selectedEmail.to || '-')}</span>
+          </details>
         </div>
         <span class="email-time">${escapeHtml(formatDateTime(selectedEmail.receivedAt))}</span>
       </div>
       <div class="detail-actions">
+        <button class="secondary-button mobile-close-button" type="button" data-detail-action="close-detail">Tutup</button>
         <button class="secondary-button" type="button" data-detail-action="copy-recipient" data-copy-value="${escapeHtml(selectedEmail.to)}">Copy Penerima</button>
         <button class="secondary-button" type="button" data-detail-action="copy-body" data-copy-value="${escapeHtml(body)}">Copy Isi</button>
       </div>
@@ -524,6 +601,20 @@ function renderSelectedEmail(email) {
       <pre>${escapeHtml(body)}</pre>
     </div>
   `;
+}
+
+function openMobileDetail() {
+  if (!mobileDetailQuery.matches || !state.selectedId) {
+    return;
+  }
+
+  document.body.classList.add('detail-drawer-open');
+  messagePanel.classList.add('is-open');
+}
+
+function closeMobileDetail() {
+  document.body.classList.remove('detail-drawer-open');
+  messagePanel.classList.remove('is-open');
 }
 
 function copyText(value) {
@@ -617,6 +708,11 @@ messagePanel.addEventListener('click', (event) => {
     return;
   }
 
+  if (button.dataset.detailAction === 'close-detail') {
+    closeMobileDetail();
+    return;
+  }
+
   copyText(button.dataset.copyValue || '').then(() => {
     const originalText = button.textContent;
     button.textContent = 'Tersalin';
@@ -624,6 +720,32 @@ messagePanel.addEventListener('click', (event) => {
       button.textContent = originalText;
     }, 900);
   });
+});
+
+messagePanel.addEventListener('click', (event) => {
+  if (!mobileDetailQuery.matches || event.target !== messagePanel) {
+    return;
+  }
+
+  closeMobileDetail();
+});
+
+function handleMobileDetailQueryChange(event) {
+  if (!event.matches) {
+    closeMobileDetail();
+  }
+}
+
+if (mobileDetailQuery.addEventListener) {
+  mobileDetailQuery.addEventListener('change', handleMobileDetailQueryChange);
+} else {
+  mobileDetailQuery.addListener(handleMobileDetailQueryChange);
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeMobileDetail();
+  }
 });
 
 document.querySelectorAll('[data-stat-filter]').forEach((button) => {

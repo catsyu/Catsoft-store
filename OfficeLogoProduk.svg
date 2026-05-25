@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Microsoft Office</title>
+  <desc id="desc">Ikon Microsoft Office untuk produk Catsoft</desc>
+  <defs>
+    <linearGradient id="officeGradient" x1="40" x2="214" y1="218" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b91c1c"/>
+      <stop offset="0.42" stop-color="#ea580c"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#fff7ed"/>
+  <path fill="url(#officeGradient)" d="M68 58 139 34l58 22v143l-58 23-71-25V58Zm31 33v76l41 15V75L99 91Zm62-16v108l18-8V78l-18-3Z"/>
+  <path fill="#fff" fill-opacity=".78" d="M99 91 140 75v107l-41-15V91Z"/>
+</svg>

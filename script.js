@@ -98,6 +98,56 @@ const productPackages = {
       }
     ]
   },
+  office: {
+    name: 'Microsoft Office Original Lifetime',
+    plans: [
+      {
+        value: 'office-2016',
+        label: 'Office Professional Plus 2016 — Rp60.000',
+        name: 'Office Professional Plus 2016',
+        price: 'Rp60.000',
+        duration: 'Lifetime activation',
+        terms: 'Original key, 1 PC/Laptop, aktivasi dibantu admin'
+      },
+      {
+        value: 'office-2019',
+        label: 'Office Professional Plus 2019 — Rp90.000',
+        name: 'Office Professional Plus 2019',
+        price: 'Rp90.000',
+        duration: 'Lifetime activation',
+        terms: 'Original key, 1 PC/Laptop, aktivasi dibantu admin'
+      },
+      {
+        value: 'office-2021',
+        label: 'Office Professional Plus 2021 — Rp120.000',
+        name: 'Office Professional Plus 2021',
+        price: 'Rp120.000',
+        duration: 'Lifetime activation',
+        terms: 'Original key, 1 PC/Laptop, aktivasi dibantu admin'
+      },
+      {
+        value: 'office-2024',
+        label: 'Office Professional Plus 2024 — Rp150.000',
+        name: 'Office Professional Plus 2024',
+        price: 'Rp150.000',
+        duration: 'Lifetime activation',
+        terms: 'Original key, 1 PC/Laptop, aktivasi dibantu admin'
+      }
+    ]
+  },
+  aeassets: {
+    name: 'After Effects Assets Pack 5000+',
+    plans: [
+      {
+        value: 'assets-pack-5000',
+        label: 'After Effects Assets Pack 5000+ — Rp75.000',
+        name: 'After Effects Assets Pack 5000+',
+        price: 'Rp75.000',
+        duration: 'Akses lifetime',
+        terms: 'Produk digital, file siap pakai, garansi file dan support bantuan'
+      }
+    ]
+  },
   likeig: {
     name: 'Like IG Bergaransi Permanen',
     plans: [
@@ -124,6 +174,56 @@ const productPackages = {
         price: 'Rp65.500',
         duration: 'Proses bertahap',
         terms: 'Real Indo terpercaya, aman, tanpa password, garansi refill 7 hari'
+      }
+    ]
+  },
+  viewreelsig: {
+    name: 'View Reels IG Bergaransi',
+    plans: [
+      {
+        value: '2500-view',
+        label: '2.500 View — Rp21.500',
+        name: '2.500 View',
+        price: 'Rp21.500',
+        duration: 'Proses bertahap',
+        terms: 'Real penonton Indo, aman, tanpa password, bergaransi permanen'
+      },
+      {
+        value: '5000-view',
+        label: '5.000 View — Rp35.000',
+        name: '5.000 View',
+        price: 'Rp35.000',
+        duration: 'Proses bertahap',
+        terms: 'Real penonton Indo, aman, tanpa password, bergaransi permanen'
+      },
+      {
+        value: '100000-view',
+        label: '100.000 View — Rp56.000',
+        name: '100.000 View',
+        price: 'Rp56.000',
+        duration: 'Proses bertahap',
+        terms: 'Real penonton Indo, aman, tanpa password, bergaransi permanen'
+      }
+    ]
+  },
+  komenig: {
+    name: 'Komen IG Bergaransi',
+    plans: [
+      {
+        value: '10-komen-custom',
+        label: '10 Komen Custom — Rp35.000',
+        name: '10 Komen Custom',
+        price: 'Rp35.000',
+        duration: 'Proses bertahap',
+        terms: 'Real Indo, bisa custom komen, aman, tanpa password'
+      },
+      {
+        value: '50-komen-random',
+        label: '50 Komen Random Positif — Rp15.500',
+        name: '50 Komen Random Positif',
+        price: 'Rp15.500',
+        duration: 'Proses bertahap',
+        terms: 'Real Indo, komentar random positif, aman, tanpa password'
       }
     ]
   }
@@ -200,6 +300,50 @@ const productDetailContent = {
     orderProduct: 'capcut',
     orderPlan: 'sharing-1-bulan'
   },
+  office: {
+    label: 'Microsoft Office',
+    title: 'Microsoft Office Original Lifetime License',
+    lead: 'Lisensi original lifetime untuk Microsoft Office Professional Plus 2016, 2019, 2021, dan 2024 dengan aktivasi online dibantu admin Catsoft.',
+    summary: [
+      'Tersedia varian Office Professional Plus 2016, 2019, 2021, dan 2024.',
+      'Original & genuine Microsoft key untuk 1 PC atau 1 laptop.',
+      'One-time purchase tanpa subscription atau biaya bulanan.',
+      'Support Windows 10 / 11 dan compatible untuk PC/Laptop.',
+      'Termasuk panduan aktivasi, official setup link jika diperlukan, dan bantuan admin hingga selesai.'
+    ],
+    terms: [
+      'Aktivasi dilakukan melalui Desktop App dengan metode Activate by Telephone.',
+      'Customer mengirim Installation ID atau screenshot Installation ID kepada admin melalui chat.',
+      'Tidak perlu melakukan panggilan telepon ke Microsoft karena admin akan membantu proses aktivasi.',
+      'Key bersifat hardware bind dan tidak terhubung ke akun Microsoft.',
+      'Garansi tidak berlaku jika key digunakan melebihi batas perangkat, sistem tidak kompatibel, atau terjadi penyalahgunaan key.'
+    ],
+    note: 'Mohon chat admin setelah pembelian untuk mendapatkan panduan instalasi dan aktivasi dengan benar.',
+    orderProduct: 'office',
+    orderPlan: 'office-2024'
+  },
+  aeassets: {
+    label: 'After Effects Assets',
+    title: 'After Effects Assets Pack 5000+ Item',
+    lead: 'Koleksi lengkap berisi 5000+ aset premium untuk Adobe After Effects, cocok untuk video editor, content creator, motion designer, hingga pemula.',
+    summary: [
+      'Berisi template, motion graphics, transisi, efek visual, preset animasi, elemen teks, dan aset desain profesional.',
+      'Akses lifetime sekali beli tanpa biaya bulanan.',
+      'File digital siap pakai untuk mempercepat workflow editing.',
+      'Cocok untuk kebutuhan YouTube, promosi, cinematic, social media, dan konten profesional.',
+      'Garansi 100% apabila file bermasalah atau tidak sesuai.'
+    ],
+    terms: [
+      'Produk digital, tidak ada pengiriman fisik.',
+      'Aset dapat langsung digunakan dan diedit sesuai kebutuhan project.',
+      'Kompatibel dengan berbagai versi Adobe After Effects sesuai file yang tersedia.',
+      'Support bantuan diberikan jika ada kendala penggunaan aset.',
+      'Membeli berarti setuju dengan ketentuan toko pada deskripsi maupun foto produk.'
+    ],
+    note: 'Klaim garansi di luar jam operasional akan dibalas saat jam operasional berikutnya.',
+    orderProduct: 'aeassets',
+    orderPlan: 'assets-pack-5000'
+  },
   likeig: {
     label: 'Like IG Bergaransi Permanen',
     title: 'Like IG Bergaransi Permanen',
@@ -221,6 +365,50 @@ const productDetailContent = {
     note: 'Silakan chat admin Catsoft kalau ada yang ingin ditanyakan sebelum membeli.',
     orderProduct: 'likeig',
     orderPlan: '100-like'
+  },
+  viewreelsig: {
+    label: 'View Reels IG',
+    title: 'View Reels IG Bergaransi Permanen',
+    lead: 'Paket view Reels Instagram real penonton Indo untuk menaikkan viewers secara bertahap, cepat, aman, dan tetap praktis tanpa password.',
+    summary: [
+      'Tersedia paket 2.500 View, 5.000 View, dan 100.000 View.',
+      'Viewers naik secara alami dan bertahap.',
+      '100% real, aman, dan bergaransi sesuai ketentuan.',
+      'Jumlah bonus dapat bervariasi sesuai kondisi proses.',
+      'Produk digital, tidak ada pengiriman fisik.'
+    ],
+    terms: [
+      'Akun Instagram wajib public selama proses berlangsung.',
+      'Dilarang mengganti username selama proses.',
+      'Kirim link Reels atau username serta screenshot postingan di chat setelah checkout.',
+      'Klaim garansi wajib menyertakan detail kendala dan bukti order.',
+      'Membeli berarti setuju dengan kebijakan pada foto produk maupun deskripsi.'
+    ],
+    note: 'Pastikan Reels dapat diakses publik agar proses berjalan lancar.',
+    orderProduct: 'viewreelsig',
+    orderPlan: '2500-view'
+  },
+  komenig: {
+    label: 'Komen IG',
+    title: 'Jasa Komen IG Bergaransi Permanen',
+    lead: 'Layanan komentar Instagram real Indo dengan pilihan komentar custom atau random positif untuk meningkatkan interaksi secara aman dan bertahap.',
+    summary: [
+      'Tersedia paket 10 Komen Custom dan 50 Komen Random Positif.',
+      'Komentar naik secara alami dan bertahap.',
+      'Bisa request serta custom komentar sesuai paket.',
+      '100% real, aman, dan bergaransi sesuai ketentuan.',
+      'Produk digital, tidak ada pengiriman fisik.'
+    ],
+    terms: [
+      'Akun Instagram wajib public selama proses berlangsung.',
+      'Dilarang mengganti username selama proses.',
+      'Untuk paket custom, kirim list komentar di chat setelah checkout.',
+      'Perhatikan pilihan variasi custom atau non-custom sebelum order.',
+      'Membeli berarti setuju dengan kebijakan pada foto produk maupun deskripsi.'
+    ],
+    note: 'Untuk paket custom, siapkan list komentar agar admin dapat memproses lebih cepat.',
+    orderProduct: 'komenig',
+    orderPlan: '10-komen-custom'
   }
 };
 
@@ -429,6 +617,7 @@ if (productDetailOrder) {
 
     closeProductDetailModal();
     selectOrderPackage(detail.orderProduct, detail.orderPlan, true);
+    revealOrderForm();
 
     const orderSection = document.getElementById('order');
 
@@ -760,6 +949,9 @@ function initClickTracking() {
   };
 }
 
+const orderPanel = document.getElementById('orderPanel');
+const orderStartCard = document.getElementById('orderStartCard');
+const showOrderFormBtn = document.getElementById('showOrderFormBtn');
 const quickOrderForm = document.getElementById('quickOrderForm');
 const customerNameInput = document.getElementById('customerName');
 const customerContactInput = document.getElementById('customerContact');
@@ -811,6 +1003,12 @@ const validationMessages = {
     valueMissing: 'Nomor pesanan Shopee wajib diisi.'
   }
 };
+
+const socialMediaProductKeys = ['likeig', 'viewreelsig', 'komenig'];
+
+function isSocialMediaProduct(productKey) {
+  return socialMediaProductKeys.includes(productKey);
+}
 
 function isFieldAvailable(field) {
   return field && !field.disabled && !field.closest('.is-hidden');
@@ -1051,6 +1249,92 @@ function getOrderPackageFromUrl() {
   };
 }
 
+function focusFirstOrderField() {
+  if (!quickOrderForm) {
+    return;
+  }
+
+  const firstField = quickOrderForm.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)');
+
+  if (!firstField) {
+    return;
+  }
+
+  try {
+    firstField.focus({ preventScroll: true });
+  } catch (error) {
+    firstField.focus();
+  }
+}
+
+function revealOrderForm({ shouldFocus = false } = {}) {
+  if (orderPanel) {
+    orderPanel.classList.remove('is-hidden');
+  }
+
+  if (orderStartCard) {
+    orderStartCard.classList.add('is-hidden');
+  }
+
+  if (showOrderFormBtn) {
+    showOrderFormBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  if (shouldFocus) {
+    window.setTimeout(focusFirstOrderField, 120);
+  }
+}
+
+function shouldRevealOrderFromUrl() {
+  return window.location.hash === '#order' || getOrderPackageFromUrl() !== null;
+}
+
+function isOrderSectionLink(link) {
+  const href = link.getAttribute('href');
+
+  if (!href || link.dataset.orderProduct) {
+    return false;
+  }
+
+  try {
+    return new URL(href, window.location.href).hash === '#order';
+  } catch (error) {
+    return href.includes('#order');
+  }
+}
+
+function initOrderRevealTriggers() {
+  if (showOrderFormBtn) {
+    showOrderFormBtn.addEventListener('click', () => {
+      revealOrderForm({ shouldFocus: true });
+
+      if (orderPanel) {
+        orderPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  document.querySelectorAll('a[href]').forEach((link) => {
+    if (!isOrderSectionLink(link)) {
+      return;
+    }
+
+    link.addEventListener('click', () => {
+      revealOrderForm();
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#order') {
+      revealOrderForm();
+    }
+  });
+
+  if (shouldRevealOrderFromUrl()) {
+    revealOrderForm();
+  }
+}
+
 function updateOrderUrl(productKey, planKey, mode = 'replace') {
   if (!productPackages[productKey]) {
     return;
@@ -1103,8 +1387,8 @@ function updateOrderSummary() {
 
   const { product, plan } = getSelectedPackage();
   const isCanvaOrder = orderProductSelect.value === 'canva';
-  const isLikeIgOrder = orderProductSelect.value === 'likeig';
-  const isShopeeOrder = isLikeIgOrder && likeIgOrderStatusSelect?.value === 'sudah-order-shopee';
+  const isSocialMediaOrder = isSocialMediaProduct(orderProductSelect.value);
+  const isShopeeOrder = isSocialMediaOrder && likeIgOrderStatusSelect?.value === 'sudah-order-shopee';
 
   summaryProduct.textContent = product.name;
   summaryPrice.textContent = plan.price;
@@ -1120,11 +1404,11 @@ function updateOrderSummary() {
   }
 
   if (likeIgFields && instagramPostLinkInput && likeIgOrderStatusSelect) {
-    likeIgFields.classList.toggle('is-hidden', !isLikeIgOrder);
-    instagramPostLinkInput.required = isLikeIgOrder;
-    instagramPostLinkInput.disabled = !isLikeIgOrder;
-    likeIgOrderStatusSelect.required = isLikeIgOrder;
-    likeIgOrderStatusSelect.disabled = !isLikeIgOrder;
+    likeIgFields.classList.toggle('is-hidden', !isSocialMediaOrder);
+    instagramPostLinkInput.required = isSocialMediaOrder;
+    instagramPostLinkInput.disabled = !isSocialMediaOrder;
+    likeIgOrderStatusSelect.required = isSocialMediaOrder;
+    likeIgOrderStatusSelect.disabled = !isSocialMediaOrder;
     clearFieldError(instagramPostLinkInput);
     clearFieldError(likeIgOrderStatusSelect);
   }
@@ -1137,8 +1421,8 @@ function updateOrderSummary() {
   }
 
   if (orderFormStatus) {
-    orderFormStatus.textContent = isLikeIgOrder
-      ? 'Untuk Like IG, isi link postingan. Jika sudah order di Shopee, masukkan nomor pesanan agar admin bisa mencocokkan transaksi.'
+    orderFormStatus.textContent = isSocialMediaOrder
+      ? 'Untuk produk Instagram, isi link postingan atau Reels. Jika sudah order di Shopee, masukkan nomor pesanan agar admin bisa mencocokkan transaksi.'
       : 'Pesan WhatsApp akan dibuat otomatis sesuai pilihan paket.';
   }
 }
@@ -1182,7 +1466,7 @@ function buildOrderMessage() {
     messageLines.push(`Email Canva untuk aktivasi: ${canvaActivationEmail || '-'}`);
   }
 
-  if (orderProductSelect.value === 'likeig') {
+  if (isSocialMediaProduct(orderProductSelect.value)) {
     messageLines.push(
       `Link postingan Instagram: ${instagramPostLink || '-'}`,
       `Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`
@@ -1222,7 +1506,7 @@ function buildConsultationMessage() {
     `Harga paket: ${plan.price}`
   ];
 
-  if (orderProductSelect.value === 'likeig') {
+  if (isSocialMediaProduct(orderProductSelect.value)) {
     messageLines.push(`Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`);
 
     if (instagramPostLink) {
@@ -1257,6 +1541,10 @@ function initQuickOrderForm() {
   }
 
   updateOrderSummary();
+
+  if (shouldRevealOrderFromUrl()) {
+    revealOrderForm();
+  }
 
   orderProductSelect.addEventListener('change', () => {
     populatePlanOptions();
@@ -1338,6 +1626,7 @@ function initQuickOrderForm() {
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
       selectOrderPackage(trigger.dataset.orderProduct, trigger.dataset.orderPlan, true);
+      revealOrderForm();
 
       const orderSection = document.getElementById('order');
 
@@ -1493,6 +1782,138 @@ function initProductOrderButtons() {
   });
 }
 
+function initProductFilters() {
+  const filters = document.querySelectorAll('[data-product-filter]');
+  const cards = document.querySelectorAll('[data-product-category]');
+
+  if (!filters.length || !cards.length) {
+    return;
+  }
+
+  filters.forEach((filter) => {
+    filter.addEventListener('click', () => {
+      const selectedCategory = filter.dataset.productFilter;
+
+      filters.forEach((item) => {
+        item.classList.toggle('active', item === filter);
+      });
+
+      cards.forEach((card) => {
+        const shouldShow = selectedCategory === 'all' || card.dataset.productCategory === selectedCategory;
+        card.classList.toggle('is-filter-hidden', !shouldShow);
+      });
+    });
+  });
+}
+
+const orderNotificationItems = [
+  {
+    initial: 'C',
+    title: 'Canva Pro',
+    text: 'Paket 1 Bulan'
+  },
+  {
+    initial: 'G',
+    title: 'ChatGPT Plus',
+    text: 'Sharing 4 User'
+  },
+  {
+    initial: 'I',
+    title: 'Like IG Bergaransi',
+    text: '500 Like'
+  },
+  {
+    initial: 'V',
+    title: 'View Reels IG',
+    text: '5.000 View'
+  },
+  {
+    initial: 'K',
+    title: 'Komen IG',
+    text: '50 Komen Random Positif'
+  },
+  {
+    initial: 'V',
+    title: 'CapCut Pro',
+    text: 'Private 1 Bulan'
+  },
+  {
+    initial: 'O',
+    title: 'Microsoft Office',
+    text: 'Office 2021 Pro Plus'
+  },
+  {
+    initial: 'A',
+    title: 'After Effects Assets',
+    text: 'Assets Pack 5000+'
+  },
+  {
+    initial: 'A',
+    title: 'ChatGPT Plus',
+    text: 'Konsultasi Private'
+  }
+];
+
+const orderNotificationUsernames = [
+  '@nadia.creative',
+  '@arya.design',
+  '@putri.store',
+  '@fajar.ai',
+  '@dina.content',
+  '@raka.edits',
+  '@meysocial',
+  '@bagas.studio'
+];
+
+function initOrderNotification() {
+  const notification = document.getElementById('orderNotification');
+  const icon = document.getElementById('orderNotificationIcon');
+  const username = document.getElementById('orderNotificationUsername');
+  const title = document.getElementById('orderNotificationTitle');
+  const text = document.getElementById('orderNotificationText');
+  const closeButton = document.getElementById('closeOrderNotification');
+
+  if (!notification || !icon || !username || !title || !text || !closeButton) {
+    return;
+  }
+
+  let activeIndex = 0;
+  let isClosed = false;
+
+  function renderNotification() {
+    if (isClosed) {
+      return;
+    }
+
+    const item = orderNotificationItems[activeIndex % orderNotificationItems.length];
+    const randomUsername = orderNotificationUsernames[Math.floor(Math.random() * orderNotificationUsernames.length)];
+
+    notification.classList.remove('is-visible');
+
+    window.setTimeout(() => {
+      if (isClosed) {
+        return;
+      }
+
+      icon.textContent = item.initial;
+      username.textContent = randomUsername;
+      title.textContent = item.title;
+      text.textContent = item.text;
+      notification.classList.add('is-visible');
+      activeIndex += 1;
+    }, 320);
+  }
+
+  window.setTimeout(renderNotification, 1800);
+  const intervalId = window.setInterval(renderNotification, 7800);
+
+  closeButton.addEventListener('click', () => {
+    isClosed = true;
+    window.clearInterval(intervalId);
+    notification.classList.remove('is-visible');
+  });
+}
+
 if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint && emailStatus && copyEmailBtn && openMailBtn) {
   emailAliasInput.addEventListener('input', updateEmailPreview);
   emailDomainInput.addEventListener('input', updateEmailPreview);
@@ -1505,9 +1926,12 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 }
 
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
+window.addEventListener('DOMContentLoaded', initProductFilters);
 window.addEventListener('DOMContentLoaded', initClickTracking);
 window.addEventListener('DOMContentLoaded', initThemedFormValidation);
+window.addEventListener('DOMContentLoaded', initOrderRevealTriggers);
 window.addEventListener('DOMContentLoaded', initQuickOrderForm);
+window.addEventListener('DOMContentLoaded', initOrderNotification);
 window.addEventListener('DOMContentLoaded', () => {
   updateAdminStatus();
   setInterval(updateAdminStatus, 60000);

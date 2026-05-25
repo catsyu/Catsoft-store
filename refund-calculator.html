@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Refund Calculator</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="refund-calculator.css" />
+</head>
+<body>
+  <main class="refund-page">
+    <header class="refund-header">
+      <div class="brand-mark">
+        <img src="logo.png" alt="Catsoft" />
+        <div>
+          <span>Catsoft Tools</span>
+          <h1>Refund Calculator</h1>
+        </div>
+      </div>
+      <button class="ghost-button" id="resetBtn" type="button">Reset</button>
+    </header>
+
+    <section class="refund-layout">
+      <form class="refund-form" id="refundForm">
+        <div class="panel-heading">
+          <span class="section-kicker">Input data</span>
+          <h2>Hitung refund langganan</h2>
+        </div>
+
+        <div class="upload-panel" id="uploadPanel">
+          <input id="screenshotInput" type="file" accept="image/*" />
+          <label for="screenshotInput">
+            <strong>Upload screenshot rincian pesanan</strong>
+            <span>OCR akan mencoba mengambil penghasilan akhir, paket, dan tanggal order.</span>
+          </label>
+          <div class="ocr-progress" id="ocrProgress" hidden>
+            <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+          </div>
+          <p class="status-text" id="ocrStatus">Belum ada screenshot dipilih.</p>
+        </div>
+
+        <div class="screenshot-preview is-hidden" id="screenshotPreviewWrap">
+          <img id="screenshotPreview" alt="Preview screenshot pesanan" />
+        </div>
+
+        <div class="form-grid">
+          <label class="field-group">
+            <span>Penghasilan akhir</span>
+            <input id="incomeAmount" type="text" inputmode="numeric" placeholder="Rp18.162" required />
+          </label>
+
+          <label class="field-group">
+            <span>Produk yang diorder</span>
+            <input id="productName" type="text" placeholder="Contoh: Canva Pro 1 Bulan" />
+          </label>
+
+          <label class="field-group">
+            <span>Paket</span>
+            <select id="packagePreset">
+              <option value="30">1 bulan (30 hari)</option>
+              <option value="90">3 bulan (90 hari)</option>
+              <option value="180">6 bulan (180 hari)</option>
+              <option value="365">1 tahun (365 hari)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Durasi paket</span>
+            <input id="durationDays" type="number" min="1" step="1" value="30" required />
+          </label>
+
+          <label class="field-group">
+            <span>Tanggal mulai/order</span>
+            <input id="startDate" type="date" required />
+          </label>
+
+          <div class="field-group">
+            <label for="stopDate">Tanggal berhenti</label>
+            <div class="date-inline">
+              <input id="stopDate" type="date" required />
+              <button class="mini-button" id="todayBtn" type="button">Hari ini</button>
+            </div>
+          </div>
+
+          <label class="field-group">
+            <span>Potongan refund</span>
+            <input id="refundCut" type="number" min="0" max="100" step="1" value="30" required />
+          </label>
+
+          <label class="field-group">
+            <span>No. pesanan</span>
+            <input id="orderNumber" type="text" placeholder="Opsional" />
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button class="primary-button" type="submit">Hitung Refund</button>
+          <button class="secondary-button" id="copyBtn" type="button">Copy Hasil</button>
+        </div>
+      </form>
+
+      <aside class="result-panel" aria-live="polite">
+        <div class="panel-heading">
+          <span class="section-kicker">Output</span>
+          <h2>Hasil refund</h2>
+        </div>
+
+        <div class="result-cards">
+          <div class="result-card primary">
+            <span>Refund customer</span>
+            <strong id="refundValue">Rp0</strong>
+          </div>
+          <div class="result-card">
+            <span>Sisa langganan</span>
+            <strong id="remainingValue">0 hari</strong>
+          </div>
+          <div class="result-card">
+            <span>Kapan habis</span>
+            <strong id="expiryValue">-</strong>
+          </div>
+        </div>
+
+        <pre class="result-text" id="resultText">Isi data order untuk melihat rincian refund.</pre>
+      </aside>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="refund-calculator.js" defer></script>
+</body>
+</html>

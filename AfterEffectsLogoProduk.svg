@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">After Effects</title>
+  <desc id="desc">Ikon After Effects untuk produk Catsoft</desc>
+  <rect width="256" height="256" rx="56" fill="#1f1645"/>
+  <rect x="28" y="28" width="200" height="200" rx="38" fill="#2e225f"/>
+  <path fill="#d8b4fe" d="M82.8 168H64.6l32-82h19.8l32 82h-19l-7.2-19.6H90L82.8 168Zm12-34.8h22.4L106 102.8l-11.2 30.4Z"/>
+  <path fill="#d8b4fe" d="M163.7 169.4c-8.7 0-15.5-2.6-20.5-7.7-5-5.2-7.5-12.2-7.5-21.2 0-8.6 2.4-15.6 7.2-21 4.8-5.4 11.2-8.1 19.2-8.1 7.7 0 13.8 2.5 18.2 7.4 4.5 4.9 6.7 11.8 6.7 20.5v5h-35.4c.4 4.2 1.8 7.4 4.2 9.6 2.4 2.2 5.7 3.3 9.8 3.3 5.8 0 11.3-1.4 16.5-4.3v13c-4.9 2.3-11 3.5-18.4 3.5Zm-1.4-46.4c-3 0-5.4 1-7.2 3-1.8 2-2.9 4.8-3.3 8.4h20.8c-.1-3.6-1-6.4-2.8-8.4-1.8-2-4.3-3-7.5-3Z"/>
+</svg>

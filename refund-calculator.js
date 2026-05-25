@@ -95,11 +95,11 @@ function diffDays(startDate, stopDate) {
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
+  const safeValue = Number.isFinite(value) ? value : 0;
+
+  return `Rp${new Intl.NumberFormat('id-ID', {
     maximumFractionDigits: 0
-  }).format(Number.isFinite(value) ? value : 0);
+  }).format(safeValue)}`;
 }
 
 function formatDate(date) {
@@ -110,6 +110,14 @@ function formatDate(date) {
   return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+function formatShortDate(date) {
+  if (!date) {
+    return '-';
+  }
+
+  return `${date.getDate()} ${monthNames[date.getMonth()]}`;
+}
+
 function parseCurrency(value) {
   const digits = String(value || '').replace(/[^\d]/g, '');
   return digits ? Number(digits) : 0;
@@ -117,19 +125,19 @@ function parseCurrency(value) {
 
 function packageLabel(durationDays) {
   if (durationDays === 30) {
-    return '1 bulan (30 hari)';
+    return '1 bulan = 30 hari';
   }
 
   if (durationDays === 90) {
-    return '3 bulan (90 hari)';
+    return '3 bulan = 90 hari';
   }
 
   if (durationDays === 180) {
-    return '6 bulan (180 hari)';
+    return '6 bulan = 180 hari';
   }
 
   if (durationDays === 365) {
-    return '1 tahun (365 hari)';
+    return '1 tahun = 365 hari';
   }
 
   return `${durationDays} hari`;
@@ -146,12 +154,12 @@ function getCalculation() {
     return null;
   }
 
-  const percentageAfterCut = Math.max(0, Math.min(100, 100 - refundCut));
-  const refundBase = Math.round(income * (percentageAfterCut / 100));
   const usedDays = diffDays(startDate, stopDate);
   const remainingDays = Math.max(0, durationDays - usedDays);
   const expiryDate = addDays(startDate, durationDays);
-  const refundAmount = Math.round(refundBase * (remainingDays / durationDays));
+  const remainingSubscriptionValue = Math.round(income * remainingDays / durationDays);
+  const operationalCutAmount = Math.round(remainingSubscriptionValue * refundCut / 100);
+  const refundAmount = Math.max(0, remainingSubscriptionValue - operationalCutAmount);
 
   return {
     income,
@@ -159,14 +167,14 @@ function getCalculation() {
     startDate,
     stopDate,
     refundCut,
-    percentageAfterCut,
-    refundBase,
+    remainingSubscriptionValue,
+    operationalCutAmount,
     usedDays,
     remainingDays,
     expiryDate,
     refundAmount,
-    productName: productNameInput.value.trim() || '-',
-    orderNumber: orderNumberInput.value.trim() || '-'
+    productName: productNameInput.value.trim() || 'xxx',
+    orderNumber: orderNumberInput.value.trim() || 'xxxx'
   };
 }
 
@@ -176,33 +184,29 @@ function buildResultText(calculation) {
   }
 
   return [
-    'Data:',
+    `* Penghasilan akhir tercatat: ${formatCurrency(calculation.income)}`,
+    `* Durasi langganan: ${packageLabel(calculation.durationDays)}`,
+    `* Masa terpakai: ${calculation.usedDays} hari (${formatShortDate(calculation.startDate)} → ${formatShortDate(calculation.stopDate)})`,
+    `* Sisa masa aktif: ${calculation.remainingDays} hari`,
+    `* Nomor Pesanan : ${calculation.orderNumber}`,
+    `* Produk : ${calculation.productName}`,
     '',
-    `* Penghasilan akhir: ${formatCurrency(calculation.income)}`,
-    `* Produk: ${calculation.productName}`,
-    `* No. pesanan: ${calculation.orderNumber}`,
-    `* Paket: ${packageLabel(calculation.durationDays)}`,
-    `* Mulai: ${formatDate(calculation.startDate)}`,
-    `* Berhenti: ${formatDate(calculation.stopDate)}`,
-    `* Potongan refund: ${calculation.refundCut}%`,
+    'Nilai sisa langganan:',
     '',
-    `1. Setelah potongan ${calculation.refundCut}%`,
+    `= ${formatCurrency(calculation.income)} × ${calculation.remainingDays} ÷ ${calculation.durationDays}`,
+    `= ${formatCurrency(calculation.remainingSubscriptionValue)}`,
     '',
-    `${formatCurrency(calculation.income)} x ${calculation.percentageAfterCut}% = ${formatCurrency(calculation.refundBase)}`,
+    `Potongan administrasi & operasional ${calculation.refundCut}%:`,
     '',
-    '2. Pemakaian',
+    `= ${formatCurrency(calculation.remainingSubscriptionValue)} × ${calculation.refundCut}%`,
+    `= ${formatCurrency(calculation.operationalCutAmount)}`,
     '',
-    `${formatDate(calculation.startDate)} -> ${formatDate(calculation.stopDate)} = ${calculation.usedDays} hari`,
+    'Nominal refund:',
     '',
-    'Sisa masa aktif:',
-    `${calculation.durationDays} - ${calculation.usedDays} = ${calculation.remainingDays} hari`,
+    `= ${formatCurrency(calculation.remainingSubscriptionValue)} − ${formatCurrency(calculation.operationalCutAmount)}`,
+    `= ${formatCurrency(calculation.refundAmount)}`,
     '',
-    `Tanggal habis: ${formatDate(calculation.expiryDate)}`,
-    '',
-    '3. Refund',
-    '',
-    `${formatCurrency(calculation.refundBase)} x ${calculation.remainingDays}/${calculation.durationDays}`,
-    `= ${formatCurrency(calculation.refundAmount)}`
+    `✅ Nominal refund: ${formatCurrency(calculation.refundAmount)}`
   ].join('\n');
 }
 

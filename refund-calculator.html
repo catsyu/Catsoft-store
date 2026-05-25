@@ -19,7 +19,10 @@
           <h1>Refund Calculator</h1>
         </div>
       </div>
-      <button class="ghost-button" id="resetBtn" type="button">Reset</button>
+      <div class="header-actions">
+        <a class="ghost-button" href="admin-tools.html">Home</a>
+        <button class="ghost-button" id="resetBtn" type="button">Reset</button>
+      </div>
     </header>
 
     <section class="refund-layout">
@@ -52,6 +55,14 @@
           </label>
 
           <label class="field-group">
+            <span>Metode pembayaran</span>
+            <select id="paymentMethod">
+              <option value="regular">Reguler / marketplace</option>
+              <option value="qris">QRIS / bukti bayar bank (MDR 0,3%)</option>
+            </select>
+          </label>
+
+          <label class="field-group">
             <span>Produk yang diorder</span>
             <input id="productName" type="text" placeholder="Contoh: Canva Pro 1 Bulan" />
           </label>
@@ -67,7 +78,7 @@
             </select>
           </label>
 
-          <label class="field-group">
+          <label class="field-group is-hidden" id="durationDaysGroup">
             <span>Durasi paket</span>
             <input id="durationDays" type="number" min="1" step="1" value="30" required />
           </label>

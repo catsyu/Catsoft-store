@@ -7,8 +7,10 @@ const ocrStatus = document.getElementById('ocrStatus');
 const ocrProgress = document.getElementById('ocrProgress');
 const ocrProgressBar = document.getElementById('ocrProgressBar');
 const incomeAmountInput = document.getElementById('incomeAmount');
+const paymentMethodSelect = document.getElementById('paymentMethod');
 const productNameInput = document.getElementById('productName');
 const packagePresetSelect = document.getElementById('packagePreset');
+const durationDaysGroup = document.getElementById('durationDaysGroup');
 const durationDaysInput = document.getElementById('durationDays');
 const startDateInput = document.getElementById('startDate');
 const stopDateInput = document.getElementById('stopDate');
@@ -20,6 +22,11 @@ const refundValue = document.getElementById('refundValue');
 const remainingValue = document.getElementById('remainingValue');
 const expiryValue = document.getElementById('expiryValue');
 const resultText = document.getElementById('resultText');
+
+const qrisMdrRate = 0.3;
+const maxAutoDetectedIncome = 50000000;
+const ocrCurrencyAmountPattern = '([0-9OoIl]{1,3}(?:(?:[.,]|[^\\S\\r\\n])[0-9OoIl]{3})+(?:[,.][0-9OoIl]{2})?|[0-9OoIl]+)';
+const ocrStandaloneCurrencyPattern = '([0-9OoIl]{1,3}(?:(?:[.,]|[^\\S\\r\\n])[0-9OoIl]{3})+(?:[,.][0-9OoIl]{2})?)';
 
 const monthMap = {
   januari: 0,
@@ -102,6 +109,14 @@ function formatCurrency(value) {
   }).format(safeValue)}`;
 }
 
+function formatPercent(value) {
+  const safeValue = Number.isFinite(value) ? value : 0;
+
+  return `${new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: 2
+  }).format(safeValue)}%`;
+}
+
 function formatDate(date) {
   if (!date) {
     return '-';
@@ -121,6 +136,30 @@ function formatShortDate(date) {
 function parseCurrency(value) {
   const digits = String(value || '').replace(/[^\d]/g, '');
   return digits ? Number(digits) : 0;
+}
+
+function parseOcrCurrency(value) {
+  const groups = String(value || '')
+    .replace(/[Oo]/g, '0')
+    .replace(/[Il]/g, '1')
+    .match(/\d+/g);
+
+  if (!groups) {
+    return 0;
+  }
+
+  if (groups.length > 1 && groups[groups.length - 1].length === 2) {
+    groups.pop();
+  }
+
+  let amount = Number(groups.join(''));
+
+  while (amount > maxAutoDetectedIncome && groups.length > 1) {
+    groups.pop();
+    amount = Number(groups.join(''));
+  }
+
+  return Number.isFinite(amount) ? amount : 0;
 }
 
 function packageLabel(durationDays) {
@@ -143,8 +182,21 @@ function packageLabel(durationDays) {
   return `${durationDays} hari`;
 }
 
+function paymentMethodLabel(paymentMethod) {
+  if (paymentMethod === 'qris' || paymentMethod === 'qris-gopay') {
+    return `QRIS / bukti bayar bank (MDR ${formatPercent(qrisMdrRate)})`;
+  }
+
+  return 'Reguler / marketplace';
+}
+
+function getMdrRate(paymentMethod) {
+  return paymentMethod === 'qris' || paymentMethod === 'qris-gopay' ? qrisMdrRate : 0;
+}
+
 function getCalculation() {
   const income = parseCurrency(incomeAmountInput.value);
+  const paymentMethod = paymentMethodSelect.value;
   const durationDays = Number(durationDaysInput.value);
   const startDate = fromDateInput(startDateInput.value);
   const stopDate = fromDateInput(stopDateInput.value);
@@ -157,12 +209,19 @@ function getCalculation() {
   const usedDays = diffDays(startDate, stopDate);
   const remainingDays = Math.max(0, durationDays - usedDays);
   const expiryDate = addDays(startDate, durationDays);
-  const remainingSubscriptionValue = Math.round(income * remainingDays / durationDays);
+  const mdrRate = getMdrRate(paymentMethod);
+  const mdrAmount = Math.round(income * mdrRate / 100);
+  const incomeAfterMdr = Math.max(0, income - mdrAmount);
+  const remainingSubscriptionValue = Math.round(incomeAfterMdr * remainingDays / durationDays);
   const operationalCutAmount = Math.round(remainingSubscriptionValue * refundCut / 100);
   const refundAmount = Math.max(0, remainingSubscriptionValue - operationalCutAmount);
 
   return {
     income,
+    paymentMethod,
+    mdrRate,
+    mdrAmount,
+    incomeAfterMdr,
     durationDays,
     startDate,
     stopDate,
@@ -183,22 +242,25 @@ function buildResultText(calculation) {
     return 'Isi data order untuk melihat rincian refund.';
   }
 
-  return [
-    `* Penghasilan akhir tercatat: ${formatCurrency(calculation.income)}`,
+  const lines = [
+    `* Penghasilan akhir tercatat: ${formatCurrency(calculation.incomeAfterMdr)}`,
     `* Durasi langganan: ${packageLabel(calculation.durationDays)}`,
     `* Masa terpakai: ${calculation.usedDays} hari (${formatShortDate(calculation.startDate)} → ${formatShortDate(calculation.stopDate)})`,
     `* Sisa masa aktif: ${calculation.remainingDays} hari`,
     `* Nomor Pesanan : ${calculation.orderNumber}`,
-    `* Produk : ${calculation.productName}`,
+    `* Produk : ${calculation.productName}`
+  ];
+
+  lines.push(
     '',
     'Nilai sisa langganan:',
     '',
-    `= ${formatCurrency(calculation.income)} × ${calculation.remainingDays} ÷ ${calculation.durationDays}`,
+    `= ${formatCurrency(calculation.incomeAfterMdr)} × ${calculation.remainingDays} ÷ ${calculation.durationDays}`,
     `= ${formatCurrency(calculation.remainingSubscriptionValue)}`,
     '',
-    `Potongan administrasi & operasional ${calculation.refundCut}%:`,
+    `Potongan administrasi & operasional ${formatPercent(calculation.refundCut)}:`,
     '',
-    `= ${formatCurrency(calculation.remainingSubscriptionValue)} × ${calculation.refundCut}%`,
+    `= ${formatCurrency(calculation.remainingSubscriptionValue)} × ${formatPercent(calculation.refundCut)}`,
     `= ${formatCurrency(calculation.operationalCutAmount)}`,
     '',
     'Nominal refund:',
@@ -207,7 +269,9 @@ function buildResultText(calculation) {
     `= ${formatCurrency(calculation.refundAmount)}`,
     '',
     `✅ Nominal refund: ${formatCurrency(calculation.refundAmount)}`
-  ].join('\n');
+  );
+
+  return lines.join('\n');
 }
 
 function renderCalculation() {
@@ -227,9 +291,16 @@ function renderCalculation() {
   resultText.textContent = buildResultText(calculation);
 }
 
+function syncDurationVisibility() {
+  durationDaysGroup.classList.toggle('is-hidden', packagePresetSelect.value !== 'custom');
+}
+
 function syncPackagePreset() {
+  syncDurationVisibility();
+
   if (packagePresetSelect.value === 'custom') {
     durationDaysInput.focus();
+    renderCalculation();
     return;
   }
 
@@ -240,6 +311,7 @@ function syncPackagePreset() {
 function syncDurationPreset() {
   const matchingOption = Array.from(packagePresetSelect.options).find((option) => option.value === durationDaysInput.value);
   packagePresetSelect.value = matchingOption ? matchingOption.value : 'custom';
+  syncDurationVisibility();
 }
 
 function setTodayStopDate() {
@@ -278,15 +350,23 @@ function findDateAfterLabel(text, label) {
 }
 
 function findAmountAfterLabel(text, labelPattern) {
-  const pattern = new RegExp(`${labelPattern}[\\s\\S]{0,140}?Rp\\s*([0-9][0-9.\\s]*)`, 'i');
+  const pattern = new RegExp(`${labelPattern}[\\s\\S]{0,140}?Rp\\s*${ocrCurrencyAmountPattern}`, 'i');
   const match = text.match(pattern);
 
-  return match ? parseCurrency(match[1]) : 0;
+  return match ? parseOcrCurrency(match[1]) : 0;
 }
 
 function findFirstAmount(text) {
-  const match = text.match(/Rp\s*([0-9][0-9.\s]*)/i);
-  return match ? parseCurrency(match[1]) : 0;
+  const pattern = new RegExp(`Rp\\s*${ocrCurrencyAmountPattern}`, 'i');
+  const match = text.match(pattern);
+  return match ? parseOcrCurrency(match[1]) : 0;
+}
+
+function findFirstStandaloneAmount(text) {
+  const pattern = new RegExp(ocrStandaloneCurrencyPattern, 'i');
+  const match = text.match(pattern);
+
+  return match ? parseOcrCurrency(match[1]) : 0;
 }
 
 function getDurationFromPackageText(text) {
@@ -321,7 +401,7 @@ function findProductName(text) {
     .filter(Boolean);
 
   const productLine = lines.find((line) => {
-    const hasProductHint = /canva|chatgpt|capcut|office|template|after effects|like|view|reels|komen/i.test(line);
+    const hasProductHint = /adobe|canva|chatgpt|capcut|office|template|after effects|like|view|reels|komen/i.test(line);
     const hasLabelNoise = /penghasilan|pembayaran|pesanan|waktu|metode|hubungi|salin|subtotal|ongkos/i.test(line);
     return hasProductHint && !hasLabelNoise && line.length > 8;
   });
@@ -330,8 +410,41 @@ function findProductName(text) {
 }
 
 function findOrderNumber(text) {
-  const match = text.match(/No\.?\s*Pesanan\s*([A-Z0-9]+)/i);
+  const match = text.match(/(?:No\.?\s*Pesanan|Transaction\s*ID|Reference\s*Number)\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{3,})/i);
   return match ? match[1].trim() : '';
+}
+
+function detectQrisPayment(text) {
+  const compactText = String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ');
+  const bankReceiptSignals = [
+    /\bqris\b/,
+    /pembayaran qris berhasil/,
+    /pembayaran berhasil/,
+    /merchant pan/,
+    /customer pan/,
+    /terminal id/,
+    /\brrn\b/,
+    /\bref\b/,
+    /pengakuisisi/,
+    /lokasi merchant/,
+    /pembayaran ke/,
+    /\bbca\b/,
+    /\bbri\b/,
+    /\bbni\b/,
+    /\bmandiri\b/,
+    /\bcimb\b/,
+    /\bpermata\b/,
+    /\bseabank\b/,
+    /\bgopay\b|\bgo pay\b/,
+    /\bovo\b/,
+    /\bdana\b/,
+    /shopeepay/
+  ];
+  const signalCount = bankReceiptSignals.filter((pattern) => pattern.test(compactText)).length;
+
+  return /\bqris\b/.test(compactText) || signalCount >= 2;
 }
 
 function applyOcrText(rawText) {
@@ -341,9 +454,11 @@ function applyOcrText(rawText) {
     .replace(/\r/g, '\n');
 
   const compactText = normalizedText.replace(/[ \t]+/g, ' ');
+  const isQrisPayment = detectQrisPayment(compactText);
   const income = findAmountAfterLabel(compactText, 'Penghasilan\\s*Akhir') ||
     findAmountAfterLabel(compactText, 'Lihat\\s+Rincian\\s+Penghasilan') ||
-    findFirstAmount(compactText);
+    findFirstAmount(compactText) ||
+    (isQrisPayment ? findFirstStandaloneAmount(compactText) : 0);
   const duration = getDurationFromPackageText(compactText);
   const startDate = findDateAfterLabel(compactText, 'Waktu pemesanan') ||
     findDateAfterLabel(compactText, 'Waktu pembayaran') ||
@@ -351,6 +466,8 @@ function applyOcrText(rawText) {
     parseIndonesianDate(compactText);
   const productName = findProductName(normalizedText);
   const orderNumber = findOrderNumber(compactText);
+
+  paymentMethodSelect.value = isQrisPayment ? 'qris' : 'regular';
 
   if (income) {
     incomeAmountInput.value = formatCurrency(income);
@@ -374,6 +491,10 @@ function applyOcrText(rawText) {
   }
 
   renderCalculation();
+
+  return {
+    isQrisPayment
+  };
 }
 
 async function readScreenshot(file) {
@@ -403,8 +524,10 @@ async function readScreenshot(file) {
       }
     });
 
-    applyOcrText(result.data.text || '');
-    ocrStatus.textContent = 'Screenshot berhasil dibaca. Cek kembali field sebelum copy hasil.';
+    const ocrResult = applyOcrText(result.data.text || '');
+    ocrStatus.textContent = ocrResult.isQrisPayment
+      ? 'Screenshot berhasil dibaca. QRIS atau bukti bayar bank terdeteksi, MDR 0,3% diterapkan.'
+      : 'Screenshot berhasil dibaca. Cek kembali field sebelum copy hasil.';
     ocrProgressBar.style.width = '100%';
   } catch (error) {
     ocrStatus.textContent = 'OCR gagal membaca screenshot. Isi atau koreksi data secara manual.';
@@ -419,6 +542,8 @@ function resetForm() {
   form.reset();
   durationDaysInput.value = '30';
   packagePresetSelect.value = '30';
+  syncDurationVisibility();
+  paymentMethodSelect.value = 'regular';
   refundCutInput.value = '30';
   setTodayStopDate();
   startDateInput.value = '';
@@ -458,6 +583,7 @@ form.addEventListener('submit', (event) => {
 
 [
   incomeAmountInput,
+  paymentMethodSelect,
   productNameInput,
   durationDaysInput,
   startDateInput,
@@ -506,5 +632,6 @@ copyBtn.addEventListener('click', async () => {
   }
 });
 
+syncDurationVisibility();
 setTodayStopDate();
 renderCalculation();

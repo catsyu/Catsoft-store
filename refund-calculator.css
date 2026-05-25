@@ -5,6 +5,10 @@
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   min-height: 100vh;
   background:
@@ -13,6 +17,7 @@ body {
     linear-gradient(180deg, #f8fbff 0%, #eff6ff 48%, #f8fafc 100%);
   color: #0f172a;
   line-height: 1.55;
+  overflow-x: hidden;
 }
 
 button,
@@ -23,6 +28,10 @@ select {
 
 button {
   cursor: pointer;
+}
+
+a {
+  color: inherit;
 }
 
 .refund-page {
@@ -66,6 +75,14 @@ button {
   font-size: clamp(24px, 4vw, 38px);
   line-height: 1.1;
   letter-spacing: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .refund-layout {
@@ -230,11 +247,15 @@ button {
 .ghost-button,
 .primary-button,
 .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
   border: none;
   border-radius: 999px;
   padding: 11px 16px;
   font-weight: 900;
+  text-decoration: none;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
@@ -262,6 +283,14 @@ button {
 .mini-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.ghost-button:focus-visible,
+.mini-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 2px;
 }
 
 .action-row {
@@ -330,14 +359,179 @@ button {
   }
 }
 
+@media (max-width: 760px) {
+  .refund-page {
+    width: 100%;
+    padding: 16px 12px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .refund-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .brand-mark {
+    gap: 12px;
+  }
+
+  .brand-mark img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-mark h1 {
+    font-size: 28px;
+  }
+
+  .header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .refund-layout {
+    gap: 16px;
+  }
+
+  .refund-form,
+  .result-panel {
+    padding: 16px;
+    border-radius: 14px;
+    box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+  }
+
+  .panel-heading {
+    margin-bottom: 16px;
+  }
+
+  .panel-heading h2 {
+    font-size: 23px;
+    line-height: 1.2;
+  }
+
+  .upload-panel,
+  .screenshot-preview,
+  .result-card,
+  .result-text {
+    border-radius: 12px;
+  }
+
+  .upload-panel {
+    margin-bottom: 16px;
+  }
+
+  .upload-panel label {
+    padding: 16px;
+  }
+
+  .status-text {
+    padding: 0 16px 15px;
+  }
+
+  .ocr-progress {
+    margin: 0 16px 10px;
+  }
+
+  .screenshot-preview img {
+    max-height: 240px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .field-group {
+    gap: 7px;
+  }
+
+  .field-group span,
+  .field-group label {
+    font-size: 13px;
+  }
+
+  .field-group input,
+  .field-group select {
+    min-height: 48px;
+    border-radius: 10px;
+    padding: 12px 13px;
+    font-size: 16px;
+  }
+
+  .field-group select {
+    background-position: right 13px center;
+    padding-right: 42px;
+  }
+
+  .date-inline {
+    grid-template-columns: minmax(0, 1fr) minmax(82px, auto);
+    gap: 8px;
+  }
+
+  .mini-button,
+  .ghost-button,
+  .primary-button,
+  .secondary-button {
+    min-height: 46px;
+    border-radius: 10px;
+    padding: 11px 13px;
+  }
+
+  .action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .action-row button {
+    width: 100%;
+  }
+
+  .result-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .result-card {
+    min-width: 0;
+    padding: 14px;
+  }
+
+  .result-card.primary {
+    grid-column: 1 / -1;
+  }
+
+  .result-card span {
+    font-size: 12px;
+  }
+
+  .result-card strong {
+    font-size: 21px;
+    overflow-wrap: anywhere;
+  }
+
+  .result-text {
+    min-height: 260px;
+    max-height: 430px;
+    padding: 14px;
+    font-size: 12.5px;
+    line-height: 1.72;
+  }
+}
+
 @media (max-width: 620px) {
   .refund-page {
-    width: min(100% - 24px, 1180px);
+    width: 100%;
     padding-top: 18px;
   }
 
   .refund-header {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
   }
 
@@ -347,17 +541,33 @@ button {
 
   .refund-form,
   .result-panel {
-    padding: 20px;
-    border-radius: 20px;
+    padding: 16px;
+    border-radius: 14px;
   }
 
+  .header-actions,
   .action-row,
   .action-row button,
+  .header-actions .ghost-button,
   .ghost-button {
     width: 100%;
   }
+}
 
+@media (max-width: 380px) {
+  .brand-mark h1 {
+    font-size: 25px;
+  }
+
+  .header-actions,
+  .action-row,
+  .result-cards,
   .date-inline {
     grid-template-columns: 1fr;
+  }
+
+  .refund-form,
+  .result-panel {
+    padding: 14px;
   }
 }

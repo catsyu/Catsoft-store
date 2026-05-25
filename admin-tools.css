@@ -1,0 +1,366 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 34%),
+    linear-gradient(180deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+  color: #0f172a;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+.admin-page {
+  width: min(1060px, 94vw);
+  margin: 0 auto;
+  padding: 28px 0 44px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(37, 99, 235, 0.16));
+}
+
+.brand-mark span,
+.section-kicker,
+.tool-status {
+  display: block;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.brand-mark h1 {
+  font-size: clamp(24px, 4vw, 38px);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.admin-nav {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.overview-band {
+  margin-bottom: 30px;
+  padding: 26px 0 4px;
+}
+
+.panel-heading {
+  max-width: 680px;
+}
+
+.panel-heading h2,
+.section-title-row h2 {
+  margin-top: 7px;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.panel-heading p {
+  margin-top: 12px;
+  max-width: 620px;
+  color: #475569;
+  font-size: 16px;
+}
+
+.tools-section {
+  padding-top: 6px;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-title-row h2 {
+  font-size: 26px;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.tool-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  min-height: 230px;
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+}
+
+.tool-card-content {
+  min-width: 0;
+}
+
+.tool-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.tool-category {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.tool-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eff6ff;
+}
+
+.tool-card h3 {
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.tool-card p {
+  margin-top: 10px;
+  max-width: 640px;
+  color: #475569;
+  font-size: 15px;
+}
+
+.tool-features {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-left: 18px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.tool-card-actions {
+  display: flex;
+  align-items: end;
+}
+
+.ghost-button,
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.ghost-button {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid #dbeafe;
+  color: #1e40af;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  color: #fff;
+  box-shadow: 0 16px 38px rgba(37, 99, 235, 0.26);
+}
+
+.ghost-button:hover,
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+
+@media (max-width: 760px) {
+  .admin-page {
+    width: 100%;
+    padding: 16px 12px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .admin-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .brand-mark {
+    gap: 12px;
+  }
+
+  .brand-mark img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-mark h1 {
+    font-size: 28px;
+  }
+
+  .admin-nav,
+  .admin-nav .ghost-button {
+    width: 100%;
+  }
+
+  .overview-band {
+    margin-bottom: 22px;
+    padding: 10px 0 2px;
+  }
+
+  .panel-heading h2,
+  .section-title-row h2 {
+    font-size: 30px;
+    line-height: 1.12;
+  }
+
+  .panel-heading p {
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .section-title-row {
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .section-title-row h2 {
+    font-size: 24px;
+  }
+
+  .tools-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tool-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    min-height: 0;
+    padding: 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .tool-card-top {
+    margin-bottom: 8px;
+  }
+
+  .tool-card h3 {
+    font-size: 22px;
+  }
+
+  .tool-card p {
+    font-size: 14px;
+    line-height: 1.62;
+  }
+
+  .tool-features {
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .tool-card-actions,
+  .primary-button,
+  .ghost-button {
+    width: 100%;
+  }
+
+  .primary-button,
+  .ghost-button {
+    min-height: 46px;
+    border-radius: 10px;
+    padding: 11px 14px;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-page {
+    width: 100%;
+    padding-top: 18px;
+  }
+
+  .admin-header,
+  .tool-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .overview-band {
+    gap: 18px;
+    margin-bottom: 26px;
+  }
+
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ghost-button,
+  .primary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand-mark h1 {
+    font-size: 25px;
+  }
+
+  .panel-heading h2,
+  .section-title-row h2 {
+    font-size: 26px;
+  }
+
+  .tool-card {
+    padding: 14px;
+  }
+}

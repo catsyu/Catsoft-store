@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Customer Database</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="customer-database.css" />
+</head>
+<body>
+  <main class="customer-page">
+    <header class="customer-header">
+      <div class="brand-mark">
+        <img src="logo.png" alt="Catsoft" />
+        <div>
+          <span>Catsoft Tools</span>
+          <h1>Customer Database</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a class="ghost-button" href="admin-tools.html">Home</a>
+        <button class="ghost-button" id="resetFormBtn" type="button">Reset</button>
+      </div>
+    </header>
+
+    <section class="customer-layout">
+      <form class="customer-form" id="customerForm">
+        <input id="recordId" type="hidden" />
+
+        <div class="panel-heading">
+          <span class="section-kicker">Input customer</span>
+          <h2>Data langganan</h2>
+        </div>
+
+        <div class="upload-panel">
+          <input id="screenshotInput" type="file" accept="image/*" />
+          <label for="screenshotInput">
+            <strong>Upload screenshot pesanan</strong>
+            <span>OCR akan mencoba mengambil user, produk singkat, durasi, tanggal, dan nomor pesanan/WA.</span>
+          </label>
+          <div class="ocr-progress" id="ocrProgress" hidden>
+            <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+          </div>
+          <p class="status-text" id="ocrStatus">Belum ada screenshot dipilih.</p>
+        </div>
+
+        <div class="screenshot-preview is-hidden" id="screenshotPreviewWrap">
+          <img id="screenshotPreview" alt="Preview screenshot pesanan" />
+        </div>
+
+        <div class="form-grid">
+          <label class="field-group">
+            <span>Nama/User customer</span>
+            <input id="customerName" type="text" placeholder="Contoh: adhiesetiawan44" />
+          </label>
+
+          <label class="field-group">
+            <span>Email aktivasi</span>
+            <input id="activatedEmail" type="email" placeholder="email@customer.com" />
+          </label>
+
+          <input id="whatsappNumber" type="hidden" />
+          <input id="orderNumber" type="hidden" />
+
+          <label class="field-group">
+            <span>Sumber order</span>
+            <select id="orderSource">
+              <option value="shopee">Shopee</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span id="orderReferenceLabel">No. pesanan</span>
+            <input id="orderReference" type="text" placeholder="26052127RS304V" autocomplete="off" />
+          </label>
+
+          <label class="field-group wide-field">
+            <span>Produk yang diorder</span>
+            <input id="productName" type="text" placeholder="Contoh: Canva Pro 1 Bulan" required />
+          </label>
+
+          <label class="field-group">
+            <span>Paket</span>
+            <select id="packagePreset">
+              <option value="30">1 bulan (30 hari)</option>
+              <option value="90">3 bulan (90 hari)</option>
+              <option value="180">6 bulan (180 hari)</option>
+              <option value="365">1 tahun (365 hari)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label class="field-group is-hidden" id="durationDaysGroup">
+            <span>Durasi hari</span>
+            <input id="durationDays" type="number" min="1" step="1" value="30" required />
+          </label>
+
+          <label class="field-group">
+            <span>Tanggal mulai</span>
+            <input id="startDate" type="date" required />
+          </label>
+
+          <label class="field-group">
+            <span>Tanggal expire</span>
+            <input id="expiryDate" type="date" required />
+          </label>
+
+          <label class="field-group">
+            <span>Status</span>
+            <select id="subscriptionStatus">
+              <option value="active">Aktif</option>
+              <option value="expired">Expired</option>
+              <option value="removed">Removed</option>
+              <option value="refund">Refund</option>
+              <option value="problem">Bermasalah</option>
+            </select>
+          </label>
+
+          <label class="field-group wide-field">
+            <span>Catatan admin</span>
+            <textarea id="adminNotes" rows="3" placeholder="Catatan akun, tim, kendala, atau follow up"></textarea>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button class="primary-button" type="submit">Simpan Data</button>
+          <button class="secondary-button" id="clearBtn" type="button">Kosongkan</button>
+        </div>
+      </form>
+
+      <aside class="database-panel">
+        <div class="panel-heading">
+          <span class="section-kicker">Database</span>
+          <h2>Customer aktif</h2>
+        </div>
+
+        <div class="stats-grid" aria-label="Ringkasan customer">
+          <div class="stat-card">
+            <span>Total</span>
+            <strong id="totalCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Aktif</span>
+            <strong id="activeCount">0</strong>
+          </div>
+          <div class="stat-card urgent">
+            <span>Expire hari ini</span>
+            <strong id="expireTodayCount">0</strong>
+          </div>
+        </div>
+
+        <div class="filter-grid">
+          <label class="field-group">
+            <span>Search</span>
+            <div class="search-controls">
+              <input id="searchInput" type="search" placeholder="Cari produk, email, WA, pesanan" />
+              <button class="secondary-button" id="searchBtn" type="button">Search</button>
+            </div>
+          </label>
+
+          <label class="field-group">
+            <span>Expire</span>
+            <input id="dateFilter" type="date" placeholder="Pilih tanggal expire" />
+          </label>
+
+          <label class="field-group">
+            <span>Status</span>
+            <select id="statusFilter">
+              <option value="all">Semua status</option>
+              <option value="active">Aktif</option>
+              <option value="expired">Expired</option>
+              <option value="removed">Removed</option>
+              <option value="refund">Refund</option>
+              <option value="problem">Bermasalah</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="database-actions">
+          <button class="secondary-button" id="exportCsvBtn" type="button">Export CSV</button>
+          <button class="secondary-button" id="exportJsonBtn" type="button">Export JSON</button>
+          <button class="secondary-button" id="importJsonBtn" type="button">Import JSON</button>
+          <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
+        </div>
+
+        <div class="records-list" id="recordsList" aria-live="polite">
+          <p class="empty-state">Belum ada data customer.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="customer-database.js" defer></script>
+</body>
+</html>

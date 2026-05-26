@@ -6,7 +6,7 @@ const xlsxBulkApiTimeoutMs = 120000;
 const customerFetchLimit = 500;
 const autoRefreshMs = 10000;
 const xlsxImportBatchSize = 8;
-const xlsxBulkImportChunkSize = 300;
+const xlsxBulkImportChunkSize = 50;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 
@@ -2154,11 +2154,32 @@ async function pushRecordsToBulkImportInChunks(nextRecords, onProgress) {
 
   for (let index = 0; index < total; index += xlsxBulkImportChunkSize) {
     const chunk = nextRecords.slice(index, index + xlsxBulkImportChunkSize);
-    await pushBulkImportRecordsToApi(chunk, { timeoutMs: xlsxBulkApiTimeoutMs });
+    await pushBulkImportChunkWithFallback(chunk, { timeoutMs: xlsxBulkApiTimeoutMs });
 
     if (onProgress) {
       onProgress(Math.min(index + chunk.length, total), total);
     }
+  }
+}
+
+async function pushBulkImportChunkWithFallback(chunk, options = {}) {
+  try {
+    await pushBulkImportRecordsToApi(chunk, { timeoutMs: options.timeoutMs });
+  } catch (error) {
+    if (chunk.length > 10 && isAbortOrTimeoutError(error)) {
+      const splitIndex = Math.ceil(chunk.length / 2);
+      await pushBulkImportChunkWithFallback(chunk.slice(0, splitIndex), options);
+      await pushBulkImportChunkWithFallback(chunk.slice(splitIndex), options);
+      return;
+    }
+
+    if (isAbortOrTimeoutError(error) && !options.isRetry) {
+      await wait(1200);
+      await pushBulkImportChunkWithFallback(chunk, { ...options, isRetry: true });
+      return;
+    }
+
+    throw error;
   }
 }
 
@@ -2337,15 +2358,23 @@ async function importShopeeXlsx(file) {
     records = sortRecords(stagedRecords);
     saveRecords();
     renderRecords();
-    await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
-    ocrStatus.textContent = `XLSX Shopee diproses. ${importSummary}`;
-    setSyncStatus(`Update XLSX selesai (${records.length})`, 'success');
-    syncStatus.title = 'Import XLSX selesai. Tidak ada proses update XLSX yang berjalan di latar belakang.';
+    let finalSyncMessage = '';
+
+    try {
+      await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
+    } catch (finalSyncError) {
+      finalSyncMessage = ' Final sync dilewati karena koneksi lambat; data upload tetap sudah selesai.';
+      syncStatus.title = finalSyncError.message;
+    }
+
+    ocrStatus.textContent = `XLSX Shopee diproses. ${importSummary}${finalSyncMessage}`;
+    setSyncStatus(`Update XLSX selesai (${records.length})`, finalSyncMessage ? 'warning' : 'success');
+    syncStatus.title = finalSyncMessage || 'Import XLSX selesai. Tidak ada proses update XLSX yang berjalan di latar belakang.';
     updateXlsxImportOverlay({
       title: 'Update selesai',
-      message: 'Database sudah bisa diedit lagi. File XLSX tidak akan diproses ulang otomatis.',
+      message: finalSyncMessage || 'Database sudah bisa diedit lagi. File XLSX tidak akan diproses ulang otomatis.',
       progress: 100,
-      summary: importSummary,
+      summary: `${importSummary}${finalSyncMessage}`,
       mode: 'success'
     });
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1100);

@@ -4,8 +4,8 @@ const MAX_LIMIT = 500;
 const OFFICE_SELLER_PAGE_URL = 'https://lastorialicense.com/get-conf-catsyu/';
 const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.php';
 const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem', 'incomplete']);
-const customerImportBatchSize = 80;
-const customerImportLookupSize = 80;
+const customerImportBatchSize = 25;
+const customerImportLookupSize = 50;
 const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
 
 const categoryRules = [

@@ -30,15 +30,24 @@
       <form class="activation-form" id="activationForm">
         <div class="panel-heading">
           <span class="section-kicker">Aktivasi Office</span>
-          <h2>Auto Confirmation ID</h2>
-          <p>Upload screenshot dari customer. Sistem akan membaca Installation ID, mengirimnya ke seller lewat endpoint Catsoft, lalu menampilkan Confirmation ID di halaman ini.</p>
+          <h2>Get Confirmation ID</h2>
+          <p>Upload screenshot dari customer. OCR akan membaca Installation ID, lalu kode tersebut dikirim ke Lastoria dan hasil paling bawahnya ditampilkan kembali di halaman ini.</p>
+        </div>
+
+        <label class="field-group activation-id-field">
+          <span>Installation ID</span>
+          <input id="installationId" type="text" placeholder="4980291 4373570 2266174 ..." autocomplete="off" />
+        </label>
+
+        <div class="action-row">
+          <button class="primary-button" id="generateBtn" type="submit">Submit</button>
         </div>
 
         <div class="upload-panel" id="uploadPanel">
           <input id="screenshotInput" type="file" accept="image/*" />
           <label for="screenshotInput">
             <strong>Upload screenshot Installation ID</strong>
-            <span>OCR akan otomatis membaca kode dan menjalankan aktivasi.</span>
+            <span>OCR akan otomatis membaca kode, mengisi Installation ID, lalu submit ke Lastoria.</span>
           </label>
           <div class="ocr-progress" id="ocrProgress" hidden>
             <div class="ocr-progress-bar" id="ocrProgressBar"></div>
@@ -50,39 +59,14 @@
           <img id="screenshotPreview" alt="Preview screenshot Installation ID" />
         </div>
 
-        <div class="form-grid">
-          <label class="field-group">
-            <span>Nama customer</span>
-            <input id="customerName" type="text" placeholder="Contoh: Budi" autocomplete="off" />
-          </label>
-
-          <label class="field-group">
-            <span>No. pesanan</span>
-            <input id="orderNumber" type="text" placeholder="Opsional" autocomplete="off" />
-          </label>
-
-          <label class="field-group wide-field">
-            <span>Installation ID</span>
-            <textarea id="installationId" rows="4" placeholder="OCR akan mengisi otomatis. Bisa juga paste manual jika hasil OCR perlu dikoreksi." autocomplete="off"></textarea>
-          </label>
-
-          <label class="field-group wide-field">
-            <span>Confirmation ID output</span>
-            <textarea id="confirmationId" rows="4" placeholder="Hasil dari seller akan muncul otomatis di sini" autocomplete="off" readonly></textarea>
-          </label>
-
-          <label class="field-group wide-field">
-            <span>Catatan internal</span>
-            <textarea id="adminNotes" rows="3" placeholder="Catatan kendala, key, atau follow up seller" autocomplete="off"></textarea>
-          </label>
-        </div>
-
-        <div class="action-row">
-          <button class="primary-button" id="generateBtn" type="submit">Ambil Confirmation ID</button>
-          <button class="secondary-button" id="copyConfirmationBtn" type="button">Copy Confirmation ID</button>
-        </div>
+        <input id="confirmationId" type="hidden" />
 
         <p class="status-text" id="copyStatus" aria-live="polite">Siap dipakai untuk proses aktivasi Office.</p>
+
+        <section class="seller-result is-hidden" id="sellerResult" aria-live="polite">
+          <pre id="sellerOutput">Belum ada hasil.</pre>
+          <button class="secondary-button" id="copyConfirmationBtn" type="button">Copy Confirmation ID</button>
+        </section>
       </form>
 
       <aside class="workflow-panel">

@@ -4,11 +4,8 @@
 
   const elements = {
     form: document.getElementById("activationForm"),
-    customerName: document.getElementById("customerName"),
-    orderNumber: document.getElementById("orderNumber"),
     installationId: document.getElementById("installationId"),
     confirmationId: document.getElementById("confirmationId"),
-    adminNotes: document.getElementById("adminNotes"),
     screenshotInput: document.getElementById("screenshotInput"),
     screenshotPreviewWrap: document.getElementById("screenshotPreviewWrap"),
     screenshotPreview: document.getElementById("screenshotPreview"),
@@ -16,6 +13,8 @@
     ocrProgressBar: document.getElementById("ocrProgressBar"),
     ocrStatus: document.getElementById("ocrStatus"),
     copyStatus: document.getElementById("copyStatus"),
+    sellerResult: document.getElementById("sellerResult"),
+    sellerOutput: document.getElementById("sellerOutput"),
     resetBtn: document.getElementById("resetBtn"),
     generateBtn: document.getElementById("generateBtn"),
     copyConfirmationBtn: document.getElementById("copyConfirmationBtn")
@@ -115,7 +114,13 @@
 
   function setLoading(isLoading) {
     elements.generateBtn.disabled = isLoading;
-    elements.generateBtn.textContent = isLoading ? "Memproses..." : "Ambil Confirmation ID";
+    elements.generateBtn.textContent = isLoading ? "Processing..." : "Submit";
+  }
+
+  function showSellerResult(message, isError = false) {
+    elements.sellerOutput.textContent = message || "Tidak ada response dari seller.";
+    elements.sellerResult.classList.remove("is-hidden");
+    elements.sellerResult.classList.toggle("is-error", Boolean(isError));
   }
 
   function setOcrProgress(percent) {
@@ -220,6 +225,7 @@
     elements.confirmationId.value = "";
     setStatus("Mengambil Confirmation ID...");
     setLoading(true);
+    showSellerResult("Mengirim Installation ID ke Lastoria...");
 
     try {
       const response = await fetch(apiEndpoint, {
@@ -227,10 +233,7 @@
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
         body: JSON.stringify({
-          installationId: formattedId,
-          customerName: valueOf(elements.customerName),
-          orderNumber: valueOf(elements.orderNumber),
-          notes: valueOf(elements.adminNotes)
+          installationId: formattedId
         })
       });
 
@@ -240,18 +243,21 @@
         return;
       }
 
-      if (!response.ok || payload.ok === false) {
-        const errorMessage = payload.error || payload.message || "Gagal mengambil Confirmation ID dari seller.";
-        setStatus(errorMessage);
+      const message = htmlToText(payload.message || payload.html || payload.error || payload.raw || "");
+      const confirmationId = payload.confirmationId || extractConfirmationId(message);
+      const isError = !response.ok || payload.ok === false;
+
+      elements.confirmationId.value = confirmationId || "";
+      showSellerResult(message || payload.error || "Hasil aktivasi diterima.", isError);
+
+      if (isError) {
+        setStatus(payload.error || message || "Lastoria mengembalikan pesan error.");
         return;
       }
 
-      const message = htmlToText(payload.message || payload.html || payload.raw || "");
-      const confirmationId = payload.confirmationId || extractConfirmationId(message);
-
-      elements.confirmationId.value = confirmationId || "";
-      setStatus(confirmationId ? "Confirmation ID berhasil diambil." : "Response diterima, tetapi Confirmation ID belum terbaca.");
+      setStatus(confirmationId ? "Hasil seller berhasil diterima." : "Hasil seller diterima, tetapi Confirmation ID belum terbaca.");
     } catch (error) {
+      showSellerResult("Gagal menghubungi endpoint Catsoft.", true);
       setStatus("Gagal menghubungi endpoint Catsoft.");
     } finally {
       if (requestId === activeRequestId) {
@@ -262,14 +268,14 @@
 
   function resetForm() {
     activeRequestId += 1;
-    elements.customerName.value = "";
-    elements.orderNumber.value = "";
     elements.installationId.value = "";
     elements.confirmationId.value = "";
-    elements.adminNotes.value = "";
     elements.screenshotInput.value = "";
     elements.screenshotPreview.removeAttribute("src");
     elements.screenshotPreviewWrap.classList.add("is-hidden");
+    elements.sellerResult.classList.add("is-hidden");
+    elements.sellerResult.classList.remove("is-error");
+    elements.sellerOutput.textContent = "Belum ada hasil.";
     elements.ocrStatus.textContent = "Belum ada screenshot dipilih.";
     setStatus("Form sudah dikosongkan.");
     resetOcrProgress();

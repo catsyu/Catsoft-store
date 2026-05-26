@@ -319,6 +319,8 @@ const productDetailContent = {
       'Garansi tidak berlaku jika key digunakan melebihi batas perangkat, sistem tidak kompatibel, atau terjadi penyalahgunaan key.'
     ],
     note: 'Mohon chat admin setelah pembelian untuk mendapatkan panduan instalasi dan aktivasi dengan benar.',
+    tutorialUrl: 'office-tutorial.html',
+    tutorialLabel: 'Tutorial aktivasi',
     orderProduct: 'office',
     orderPlan: 'office-2024'
   },
@@ -543,6 +545,7 @@ const productDetailSummary = document.getElementById('productDetailSummary');
 const productDetailTerms = document.getElementById('productDetailTerms');
 const productDetailNote = document.getElementById('productDetailNote');
 const productDetailPolicy = document.getElementById('productDetailPolicy');
+const productDetailTutorial = document.getElementById('productDetailTutorial');
 const productDetailOrder = document.getElementById('productDetailOrder');
 const closeProductDetail = document.getElementById('closeProductDetail');
 const closeProductDetailBtn = document.getElementById('closeProductDetailBtn');
@@ -665,6 +668,16 @@ function openProductDetail(productKey) {
   createDetailListItems(productDetailSummary, detail.summary);
   createDetailListItems(productDetailTerms, detail.terms);
   productDetailNote.textContent = detail.note;
+
+  if (productDetailTutorial) {
+    productDetailTutorial.hidden = !detail.tutorialUrl;
+
+    if (detail.tutorialUrl) {
+      productDetailTutorial.href = detail.tutorialUrl;
+      productDetailTutorial.textContent = detail.tutorialLabel || 'Tutorial';
+    }
+  }
+
   renderProductPolicy(productKey);
   productDetailModal.classList.add('active');
   productDetailModal.setAttribute('aria-hidden', 'false');

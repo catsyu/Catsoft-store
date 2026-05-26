@@ -1826,11 +1826,11 @@ footer {
   }
 
   .product-card .button-group {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
 
   .product-card .button-group .detail-btn {
-    width: auto;
+    width: 100%;
   }
 }
 

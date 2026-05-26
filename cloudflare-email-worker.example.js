@@ -1,6 +1,8 @@
 const MAX_BODY_CHARS = 50000;
 const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 500;
+const OFFICE_SELLER_PAGE_URL = 'https://lastorialicense.com/get-conf-catsyu/';
+const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.php';
 
 const categoryRules = [
   {
@@ -71,6 +73,10 @@ export default {
 
     if (url.pathname === '/api/email-messages/health' && request.method === 'GET') {
       return healthCheck(request, env);
+    }
+
+    if (url.pathname === '/api/office-confirmation' && request.method === 'POST') {
+      return generateOfficeConfirmation(request, env);
     }
 
     const detailMatch = url.pathname.match(/^\/api\/email-messages\/([^/]+)$/);
@@ -358,6 +364,169 @@ async function markEmailRead(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
+async function generateOfficeConfirmation(request, env) {
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const installationDigits = normalizeOfficeDigits(payload.installationId || payload.installation_id);
+
+  if (installationDigits.length !== 63) {
+    return json({
+      ok: false,
+      error: 'Installation ID harus 63 digit atau 9 grup angka.'
+    }, 400, request);
+  }
+
+  try {
+    const sellerConfig = await getOfficeSellerConfig(env);
+    const sellerBody = new URLSearchParams({
+      action: 'proxy_generate_cid',
+      nonce: sellerConfig.nonce,
+      installation_id: formatOfficeInstallationId(installationDigits),
+      page_slug: sellerConfig.pageSlug
+    });
+
+    const sellerResponse = await fetch(OFFICE_SELLER_AJAX_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/javascript, */*; q=0.01',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: sellerBody
+    });
+
+    const sellerText = await sellerResponse.text();
+    const sellerPayload = parseJson(sellerText);
+
+    if (!sellerPayload) {
+      return json({
+        ok: false,
+        error: 'Response seller tidak berbentuk JSON.',
+        message: sellerText.slice(0, 1000)
+      }, 502, request);
+    }
+
+    const sellerMessageHtml = String(sellerPayload.data || sellerPayload.message || '');
+    const sellerMessage = compactText(stripHtml(sellerMessageHtml));
+    const confirmationId = extractOfficeConfirmationId(sellerMessage);
+
+    if (sellerPayload.success === false) {
+      return json({
+        ok: false,
+        error: sellerMessage || 'Seller menolak Installation ID.',
+        message: sellerMessage,
+        html: sellerMessageHtml
+      }, 422, request);
+    }
+
+    return json({
+      ok: true,
+      message: sellerMessage,
+      html: sellerMessageHtml,
+      confirmationId
+    }, 200, request);
+  } catch (error) {
+    return json({
+      ok: false,
+      error: error.message || 'Gagal menghubungi seller.'
+    }, 502, request);
+  }
+}
+
+async function getOfficeSellerConfig(env) {
+  if (env.OFFICE_ACTIVATION_NONCE) {
+    return {
+      nonce: env.OFFICE_ACTIVATION_NONCE,
+      pageSlug: env.OFFICE_ACTIVATION_PAGE_SLUG || 'get-conf-catsyu'
+    };
+  }
+
+  const pageResponse = await fetch(OFFICE_SELLER_PAGE_URL, {
+    headers: {
+      Accept: 'text/html'
+    }
+  });
+
+  if (!pageResponse.ok) {
+    throw new Error(`Gagal membuka halaman seller (${pageResponse.status}).`);
+  }
+
+  const pageHtml = await pageResponse.text();
+  const nonce = extractOfficeSellerNonce(pageHtml);
+  const pageSlug = extractOfficePageSlug(pageHtml) || env.OFFICE_ACTIVATION_PAGE_SLUG || 'get-conf-catsyu';
+
+  if (!nonce) {
+    throw new Error('Nonce seller tidak ditemukan. Cek ulang halaman seller.');
+  }
+
+  return { nonce, pageSlug };
+}
+
+function extractOfficeSellerNonce(html) {
+  const patterns = [
+    /nonce:\s*['"]([^'"]+)['"]/i,
+    /name=["']nonce["']\s+value=["']([^"']+)["']/i,
+    /nonce=([A-Za-z0-9_-]+)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = String(html || '').match(pattern);
+
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return '';
+}
+
+function extractOfficePageSlug(html) {
+  const match = String(html || '').match(/pageSlug\s*=\s*['"]([^'"]+)['"]/i);
+  return match ? match[1] : '';
+}
+
+function normalizeOfficeDigits(value) {
+  return String(value || '')
+    .replace(/[Oo]/g, '0')
+    .replace(/[Il|]/g, '1')
+    .replace(/[Ss]/g, '5')
+    .replace(/[Bb]/g, '8')
+    .replace(/\D/g, '');
+}
+
+function formatOfficeInstallationId(value) {
+  return normalizeOfficeDigits(value).slice(0, 63).match(/.{1,7}/g).join(' ');
+}
+
+function extractOfficeConfirmationId(value) {
+  const runs = String(value || '').match(/\d+/g) || [];
+  const groupedRuns = runs.filter((run) => run.length >= 5 && run.length <= 7);
+
+  for (let index = 0; index <= groupedRuns.length - 8; index += 1) {
+    const candidate = groupedRuns.slice(index, index + 8).join('');
+
+    if (candidate.length >= 48) {
+      return candidate.slice(0, 48).match(/.{1,6}/g).join(' ');
+    }
+  }
+
+  const digits = normalizeOfficeDigits(value);
+  return digits.length >= 48 ? digits.slice(0, 48).match(/.{1,6}/g).join(' ') : '';
+}
+
+function parseJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
 function isAuthorized(request, env) {
   if (request.headers.get('Cf-Access-Authenticated-User-Email')) {
     return true;
@@ -389,7 +558,7 @@ function corsHeaders(request) {
   const origin = request ? request.headers.get('Origin') : '';
   const headers = {
     Vary: 'Origin',
-    'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PATCH, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-catsoft-inbox-key'
   };
 

@@ -1,0 +1,389 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 34%),
+    linear-gradient(225deg, rgba(20, 184, 166, 0.1), transparent 30%),
+    linear-gradient(180deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+  color: #0f172a;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.activation-page {
+  width: min(1120px, 94vw);
+  margin: 0 auto;
+  padding: 28px 0 44px;
+}
+
+.activation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(37, 99, 235, 0.16));
+}
+
+.brand-mark span,
+.section-kicker {
+  display: block;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.brand-mark h1 {
+  font-size: clamp(24px, 4vw, 38px);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.activation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+  gap: 18px;
+  align-items: start;
+}
+
+.activation-form,
+.workflow-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+}
+
+.activation-form,
+.workflow-panel {
+  padding: 24px;
+}
+
+.panel-heading {
+  max-width: 720px;
+}
+
+.panel-heading h2 {
+  margin-top: 7px;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.panel-heading p {
+  margin-top: 12px;
+  max-width: 650px;
+  color: #475569;
+  font-size: 15px;
+}
+
+.upload-panel {
+  margin-top: 22px;
+  border: 2px dashed #bfdbfe;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 18px;
+}
+
+.upload-panel input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.upload-panel label {
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.upload-panel strong {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.upload-panel span {
+  color: #475569;
+  font-size: 14px;
+}
+
+.ocr-progress {
+  height: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+.ocr-progress-bar {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  transition: width 0.18s ease;
+}
+
+.screenshot-preview {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.screenshot-preview img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  background: #f8fafc;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.field-group {
+  display: grid;
+  gap: 8px;
+}
+
+.field-group span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.field-group input,
+.field-group textarea {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  padding: 12px 13px;
+  outline: none;
+  transition: border 0.18s ease, box-shadow 0.18s ease;
+}
+
+.field-group textarea {
+  resize: vertical;
+}
+
+.field-group textarea[readonly] {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.field-group input:focus,
+.field-group textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.ghost-button,
+.primary-button,
+.secondary-button,
+.mini-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.ghost-button,
+.secondary-button {
+  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.88);
+  color: #1e40af;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  color: #fff;
+  box-shadow: 0 16px 38px rgba(37, 99, 235, 0.26);
+}
+
+.mini-button {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid #bae6fd;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 12px;
+}
+
+.ghost-button:hover,
+.primary-button:hover,
+.secondary-button:hover,
+.mini-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+
+.status-text {
+  min-height: 24px;
+  margin-top: 12px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.workflow-panel {
+  position: sticky;
+  top: 24px;
+}
+
+.activation-link {
+  margin-top: 18px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .activation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .activation-page {
+    width: 100%;
+    padding: 18px 12px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .activation-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .brand-mark img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-mark h1 {
+    font-size: 28px;
+  }
+
+  .header-actions,
+  .header-actions .ghost-button,
+  .action-row,
+  .action-row .primary-button,
+  .action-row .secondary-button {
+    width: 100%;
+  }
+
+  .activation-form,
+  .workflow-panel {
+    padding: 16px;
+  }
+
+  .panel-heading h2 {
+    font-size: 30px;
+    line-height: 1.12;
+  }
+
+  .panel-heading p {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .ghost-button {
+    min-height: 46px;
+    border-radius: 10px;
+    padding: 11px 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand-mark h1 {
+    font-size: 25px;
+  }
+
+  .panel-heading h2 {
+    font-size: 26px;
+  }
+}

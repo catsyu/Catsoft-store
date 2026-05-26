@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Office Activation</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="office-activation.css" />
+</head>
+<body>
+  <main class="activation-page">
+    <header class="activation-header">
+      <div class="brand-mark">
+        <img src="logo.png" alt="Catsoft" />
+        <div>
+          <span>Catsoft Tools</span>
+          <h1>Office Activation</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a class="ghost-button" href="admin-tools.html">Home</a>
+        <a class="ghost-button" href="office-tutorial.html">Tutorial Customer</a>
+        <button class="ghost-button" id="resetBtn" type="button">Reset</button>
+      </div>
+    </header>
+
+    <section class="activation-layout">
+      <form class="activation-form" id="activationForm">
+        <div class="panel-heading">
+          <span class="section-kicker">Aktivasi Office</span>
+          <h2>Auto Confirmation ID</h2>
+          <p>Upload screenshot dari customer. Sistem akan membaca Installation ID, mengirimnya ke seller lewat endpoint Catsoft, lalu menampilkan Confirmation ID di halaman ini.</p>
+        </div>
+
+        <div class="upload-panel" id="uploadPanel">
+          <input id="screenshotInput" type="file" accept="image/*" />
+          <label for="screenshotInput">
+            <strong>Upload screenshot Installation ID</strong>
+            <span>OCR akan otomatis membaca kode dan menjalankan aktivasi.</span>
+          </label>
+          <div class="ocr-progress" id="ocrProgress" hidden>
+            <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+          </div>
+          <p class="status-text" id="ocrStatus">Belum ada screenshot dipilih.</p>
+        </div>
+
+        <div class="screenshot-preview is-hidden" id="screenshotPreviewWrap">
+          <img id="screenshotPreview" alt="Preview screenshot Installation ID" />
+        </div>
+
+        <div class="form-grid">
+          <label class="field-group">
+            <span>Nama customer</span>
+            <input id="customerName" type="text" placeholder="Contoh: Budi" autocomplete="off" />
+          </label>
+
+          <label class="field-group">
+            <span>No. pesanan</span>
+            <input id="orderNumber" type="text" placeholder="Opsional" autocomplete="off" />
+          </label>
+
+          <label class="field-group wide-field">
+            <span>Installation ID</span>
+            <textarea id="installationId" rows="4" placeholder="OCR akan mengisi otomatis. Bisa juga paste manual jika hasil OCR perlu dikoreksi." autocomplete="off"></textarea>
+          </label>
+
+          <label class="field-group wide-field">
+            <span>Confirmation ID output</span>
+            <textarea id="confirmationId" rows="4" placeholder="Hasil dari seller akan muncul otomatis di sini" autocomplete="off" readonly></textarea>
+          </label>
+
+          <label class="field-group wide-field">
+            <span>Catatan internal</span>
+            <textarea id="adminNotes" rows="3" placeholder="Catatan kendala, key, atau follow up seller" autocomplete="off"></textarea>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button class="primary-button" id="generateBtn" type="submit">Ambil Confirmation ID</button>
+          <button class="secondary-button" id="copyConfirmationBtn" type="button">Copy Confirmation ID</button>
+        </div>
+
+        <p class="status-text" id="copyStatus" aria-live="polite">Siap dipakai untuk proses aktivasi Office.</p>
+      </form>
+
+      <aside class="workflow-panel">
+        <div class="panel-heading">
+          <span class="section-kicker">Link aktivasi</span>
+          <h2>Lastoria License</h2>
+          <p>Gunakan link ini jika perlu membuka halaman aktivasi seller secara manual.</p>
+        </div>
+
+        <a class="primary-button activation-link" href="https://lastorialicense.com/get-conf-catsyu/" target="_blank" rel="noopener">Buka Link Aktivasi</a>
+      </aside>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="office-activation.js" defer></script>
+</body>
+</html>

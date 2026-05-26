@@ -1,0 +1,384 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 32%),
+    linear-gradient(225deg, rgba(20, 184, 166, 0.1), transparent 30%),
+    linear-gradient(180deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+  color: #0f172a;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+.tutorial-shell {
+  width: min(1080px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.tutorial-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.82);
+  background: rgba(248, 251, 255, 0.86);
+  backdrop-filter: blur(16px);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.brand-mark img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.header-actions,
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ghost-button,
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  color: #fff;
+  box-shadow: 0 16px 38px rgba(37, 99, 235, 0.24);
+}
+
+.ghost-button {
+  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e40af;
+}
+
+.ghost-button:hover,
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+
+.hero-section {
+  padding: 54px 0 28px;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.hero-copy,
+.product-panel,
+.guide-panel,
+.note-panel,
+.help-card {
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 54px rgba(15, 23, 42, 0.08);
+}
+
+.hero-copy {
+  padding: 34px;
+}
+
+.section-kicker {
+  display: block;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.hero-copy h1 {
+  margin-top: 10px;
+  max-width: 680px;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 1.02;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.hero-copy p {
+  margin-top: 16px;
+  max-width: 680px;
+  color: #475569;
+  font-size: 17px;
+}
+
+.hero-actions {
+  margin-top: 24px;
+}
+
+.product-panel {
+  display: grid;
+  align-content: center;
+  gap: 22px;
+  padding: 28px;
+}
+
+.product-panel img {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  padding: 12px;
+  border-radius: 18px;
+  background: #eff6ff;
+}
+
+.product-panel span {
+  display: block;
+  margin-bottom: 10px;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.product-panel ul,
+.help-card p,
+.note-panel p {
+  color: #475569;
+}
+
+.product-panel li {
+  margin: 8px 0 8px 20px;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 22px;
+  align-items: start;
+  padding: 18px 0 34px;
+}
+
+.guide-panel,
+.note-panel {
+  padding: 28px;
+}
+
+.panel-heading h2,
+.note-panel h2,
+.compact-section h2 {
+  margin-top: 8px;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.step-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  list-style: none;
+  counter-reset: tutorial-step;
+}
+
+.step-list li {
+  position: relative;
+  min-height: 94px;
+  padding: 18px 18px 18px 82px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  counter-increment: tutorial-step;
+}
+
+.step-list li::before {
+  content: counter(tutorial-step);
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.step-list strong {
+  display: block;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.step-list p {
+  margin-top: 6px;
+  color: #475569;
+}
+
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.download-link:hover {
+  background: #bae6fd;
+  transform: translateY(-1px);
+}
+
+.note-panel {
+  position: sticky;
+  top: 96px;
+}
+
+.note-panel p {
+  margin: 14px 0 20px;
+}
+
+.compact-section {
+  padding: 10px 0 56px;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.help-card {
+  padding: 20px;
+}
+
+.help-card h3 {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.help-card p {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .hero-grid,
+  .guide-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .note-panel {
+    position: static;
+  }
+
+  .help-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .tutorial-shell {
+    width: min(360px, calc(100% - 28px));
+  }
+
+  .header-inner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .header-actions,
+  .header-actions .ghost-button,
+  .header-actions .primary-button,
+  .hero-actions,
+  .hero-actions .ghost-button,
+  .hero-actions .primary-button,
+  .note-panel .primary-button {
+    width: 100%;
+  }
+
+  .hero-section {
+    padding-top: 28px;
+  }
+
+  .hero-copy h1 {
+    font-size: 32px;
+    line-height: 1.08;
+  }
+
+  .hero-copy,
+  .product-panel,
+  .guide-panel,
+  .note-panel,
+  .help-card {
+    border-radius: 12px;
+  }
+
+  .hero-copy,
+  .product-panel,
+  .guide-panel,
+  .note-panel {
+    padding: 20px;
+  }
+
+  .step-list li {
+    min-height: 0;
+    padding: 72px 16px 16px;
+  }
+
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+}

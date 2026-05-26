@@ -1809,7 +1809,6 @@ function resetForm() {
 }
 
 function findDuplicateRecord(recordToCheck, recordList = records) {
-  const activatedEmail = normalizeUniqueEmail(recordToCheck.activatedEmail);
   const orderNumber = normalizeUniqueOrderNumber(recordToCheck.orderNumber);
 
   return recordList.find((record) => {
@@ -1817,24 +1816,26 @@ function findDuplicateRecord(recordToCheck, recordList = records) {
       return false;
     }
 
-    if (activatedEmail && normalizeUniqueEmail(record.activatedEmail) === activatedEmail) {
+    if (orderNumber && normalizeUniqueOrderNumber(record.orderNumber) === orderNumber) {
       return true;
     }
 
-    return orderNumber && normalizeUniqueOrderNumber(record.orderNumber) === orderNumber;
+    return shouldBlockActivationEmailDuplicate(recordToCheck, record);
   });
 }
 
 function getDuplicateIndex(recordList = records) {
-  const emailCounts = new Map();
+  const emailRecords = new Map();
   const orderCounts = new Map();
 
   recordList.forEach((record) => {
     const activatedEmail = normalizeUniqueEmail(record.activatedEmail);
     const orderNumber = normalizeUniqueOrderNumber(record.orderNumber);
 
-    if (activatedEmail) {
-      emailCounts.set(activatedEmail, (emailCounts.get(activatedEmail) || 0) + 1);
+    if (activatedEmail && shouldCheckActivationEmailDuplicate(record)) {
+      const matchingRecords = emailRecords.get(activatedEmail) || [];
+      matchingRecords.push(record);
+      emailRecords.set(activatedEmail, matchingRecords);
     }
 
     if (orderNumber) {
@@ -1842,7 +1843,7 @@ function getDuplicateIndex(recordList = records) {
     }
   });
 
-  return { emailCounts, orderCounts };
+  return { emailRecords, orderCounts };
 }
 
 function getDuplicateFields(record, duplicateIndex = getDuplicateIndex(records)) {
@@ -1850,8 +1851,15 @@ function getDuplicateFields(record, duplicateIndex = getDuplicateIndex(records))
   const activatedEmail = normalizeUniqueEmail(record.activatedEmail);
   const orderNumber = normalizeUniqueOrderNumber(record.orderNumber);
 
-  if (activatedEmail && (duplicateIndex.emailCounts.get(activatedEmail) || 0) > 1) {
-    duplicateFields.push(`Email: ${record.activatedEmail}`);
+  if (activatedEmail && shouldCheckActivationEmailDuplicate(record)) {
+    const matchingEmailRecords = duplicateIndex.emailRecords.get(activatedEmail) || [];
+    const hasOverlappingEmailRecord = matchingEmailRecords.some((matchingRecord) => {
+      return matchingRecord.id !== record.id && shouldBlockActivationEmailDuplicate(record, matchingRecord);
+    });
+
+    if (hasOverlappingEmailRecord) {
+      duplicateFields.push(`Email periode bentrok: ${record.activatedEmail}`);
+    }
   }
 
   if (orderNumber && (duplicateIndex.orderCounts.get(orderNumber) || 0) > 1) {
@@ -1870,12 +1878,16 @@ function getDuplicateMessage(recordToCheck, duplicateRecord) {
     return '';
   }
 
-  if (recordToCheck.activatedEmail &&
-    normalizeUniqueEmail(recordToCheck.activatedEmail) === normalizeUniqueEmail(duplicateRecord.activatedEmail)) {
-    return `Email aktivasi ${recordToCheck.activatedEmail} sudah ada di database.`;
+  if (recordToCheck.orderNumber &&
+    normalizeUniqueOrderNumber(recordToCheck.orderNumber) === normalizeUniqueOrderNumber(duplicateRecord.orderNumber)) {
+    return `Nomor pesanan ${recordToCheck.orderNumber} sudah ada di database.`;
   }
 
-  return `Nomor pesanan ${recordToCheck.orderNumber} sudah ada di database.`;
+  if (shouldBlockActivationEmailDuplicate(recordToCheck, duplicateRecord)) {
+    return `Email aktivasi ${recordToCheck.activatedEmail} sudah dipakai pada periode langganan yang bentrok.`;
+  }
+
+  return 'Data sudah ada di database.';
 }
 
 async function submitRecord(event) {
@@ -2205,6 +2217,10 @@ function getAiProductType(productText) {
   const hasChatAi = /\bchat\s*(with|bot)?\b.*\b(ai|asisten virtual|assistant virtual|virtual ai)\b/.test(text) ||
     /\b(ai|asisten virtual|assistant virtual|virtual ai)\b.*\bchat\b/.test(text);
 
+  if (/chat\s*gpt|chatgpt|openai/.test(text)) {
+    return 'chatgpt';
+  }
+
   if (hasChatAi) {
     return 'chat-ai';
   }
@@ -2217,7 +2233,7 @@ function getAiProductType(productText) {
 }
 
 function getAiProductLabel(productType) {
-  if (productType === 'chat-ai' || productType === 'virtual-ai') {
+  if (productType === 'chatgpt' || productType === 'chat-ai' || productType === 'virtual-ai') {
     return 'ChatGPT';
   }
 
@@ -2231,7 +2247,43 @@ function normalizeStoredProductName(productText) {
 }
 
 function isActivationEmailRequired(record) {
-  return !getAiProductType(record.productName);
+  return !isSharedActivationEmailProduct(record);
+}
+
+function isSharedActivationEmailProduct(record) {
+  return Boolean(getAiProductType(record.productName));
+}
+
+function shouldCheckActivationEmailDuplicate(record) {
+  return Boolean(normalizeUniqueEmail(record.activatedEmail)) && !isSharedActivationEmailProduct(record);
+}
+
+function doSubscriptionPeriodsOverlap(firstRecord, secondRecord) {
+  const firstStart = fromDateInput(firstRecord.startDate);
+  const firstExpiry = fromDateInput(firstRecord.expiryDate);
+  const secondStart = fromDateInput(secondRecord.startDate);
+  const secondExpiry = fromDateInput(secondRecord.expiryDate);
+
+  if (!firstStart || !firstExpiry || !secondStart || !secondExpiry) {
+    return true;
+  }
+
+  return firstStart < secondExpiry && secondStart < firstExpiry;
+}
+
+function shouldBlockActivationEmailDuplicate(firstRecord, secondRecord) {
+  const firstEmail = normalizeUniqueEmail(firstRecord.activatedEmail);
+  const secondEmail = normalizeUniqueEmail(secondRecord.activatedEmail);
+
+  if (!firstEmail || firstEmail !== secondEmail) {
+    return false;
+  }
+
+  if (!shouldCheckActivationEmailDuplicate(firstRecord) || !shouldCheckActivationEmailDuplicate(secondRecord)) {
+    return false;
+  }
+
+  return doSubscriptionPeriodsOverlap(firstRecord, secondRecord);
 }
 
 function hasProductHint(line) {

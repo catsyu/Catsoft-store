@@ -665,26 +665,12 @@ function getCustomerDb(env) {
 }
 
 function findCustomerRecordBatchConflict(records) {
-  const emails = new Map();
+  const emailRecords = new Map();
   const orderNumbers = new Map();
 
   for (const record of records) {
     const email = normalizeCustomerUniqueEmail(record.activatedEmail);
     const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
-
-    if (email) {
-      const existingRecord = emails.get(email);
-
-      if (existingRecord && existingRecord.id !== record.id) {
-        return {
-          field: 'activatedEmail',
-          value: record.activatedEmail,
-          existingRecord
-        };
-      }
-
-      emails.set(email, record);
-    }
 
     if (orderNumber) {
       const existingRecord = orderNumbers.get(orderNumber);
@@ -699,6 +685,24 @@ function findCustomerRecordBatchConflict(records) {
 
       orderNumbers.set(orderNumber, record);
     }
+
+    if (email && shouldCheckCustomerActivationEmailDuplicate(record)) {
+      const matchingRecords = emailRecords.get(email) || [];
+      const existingRecord = matchingRecords.find((matchingRecord) => {
+        return matchingRecord.id !== record.id && shouldBlockCustomerActivationEmailDuplicate(record, matchingRecord);
+      });
+
+      if (existingRecord) {
+        return {
+          field: 'activatedEmail',
+          value: record.activatedEmail,
+          existingRecord
+        };
+      }
+
+      matchingRecords.push(record);
+      emailRecords.set(email, matchingRecords);
+    }
   }
 
   return null;
@@ -707,55 +711,62 @@ function findCustomerRecordBatchConflict(records) {
 async function findCustomerRecordConflict(customerDb, record) {
   const email = normalizeCustomerUniqueEmail(record.activatedEmail);
   const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
-  const checks = [];
-  const params = [record.id];
-
-  if (email) {
-    checks.push('LOWER(activated_email) = ?');
-    params.push(email);
-  }
 
   if (orderNumber) {
-    checks.push('LOWER(order_number) = ?');
-    params.push(orderNumber);
-  }
-
-  if (!checks.length) {
-    return null;
-  }
-
-  const row = await customerDb.prepare(`
-    SELECT id, activated_email, order_number
+    const orderRow = await customerDb.prepare(`
+    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
     FROM customer_records
-    WHERE id <> ? AND (${checks.join(' OR ')})
+    WHERE id <> ? AND LOWER(order_number) = ?
     LIMIT 1
-  `).bind(...params).first();
+  `).bind(record.id, orderNumber).first();
 
-  if (!row) {
+    if (orderRow) {
+      return {
+        field: 'orderNumber',
+        value: record.orderNumber,
+        existingRecord: mapCustomerRecordRow(orderRow)
+      };
+    }
+  }
+
+  if (!email || !shouldCheckCustomerActivationEmailDuplicate(record)) {
     return null;
   }
 
-  if (email && normalizeCustomerUniqueEmail(row.activated_email) === email) {
-    return {
-      field: 'activatedEmail',
-      value: record.activatedEmail,
-      existingRecord: mapCustomerRecordRow(row)
-    };
+  const emailRows = await customerDb.prepare(`
+    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
+    FROM customer_records
+    WHERE id <> ? AND LOWER(activated_email) = ?
+  `).bind(record.id, email).all();
+
+  for (const row of emailRows.results || []) {
+    const existingRecord = mapCustomerRecordRow(row);
+
+    if (shouldBlockCustomerActivationEmailDuplicate(record, existingRecord)) {
+      return {
+        field: 'activatedEmail',
+        value: record.activatedEmail,
+        existingRecord
+      };
+    }
   }
 
-  return {
-    field: 'orderNumber',
-    value: record.orderNumber,
-    existingRecord: mapCustomerRecordRow(row)
-  };
+  return null;
 }
 
 function customerRecordConflictResponse(conflict, request) {
   const label = conflict.field === 'activatedEmail' ? 'Email aktivasi' : 'Nomor pesanan';
+  const message = conflict.field === 'activatedEmail' ?
+    `${label} ${conflict.value} sudah dipakai pada periode langganan yang bentrok.` :
+    `${label} ${conflict.value} sudah ada di database.`;
 
   return json({
     ok: false,
-    error: `${label} ${conflict.value} sudah ada di database.`,
+    error: message,
     field: conflict.field,
     existingId: conflict.existingRecord ? conflict.existingRecord.id : ''
   }, 409, request);
@@ -790,15 +801,17 @@ async function mergeCustomerImportRecords(customerDb, records) {
 }
 
 async function findCustomerRecordBulkConflict(customerDb, records) {
-  const emailRecords = new Map();
+  const recordsByEmail = new Map();
   const orderRecords = new Map();
 
   records.forEach((record) => {
     const email = normalizeCustomerUniqueEmail(record.activatedEmail);
     const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
 
-    if (email) {
-      emailRecords.set(email, record);
+    if (email && shouldCheckCustomerActivationEmailDuplicate(record)) {
+      const matchingRecords = recordsByEmail.get(email) || [];
+      matchingRecords.push(record);
+      recordsByEmail.set(email, matchingRecords);
     }
 
     if (orderNumber) {
@@ -812,7 +825,7 @@ async function findCustomerRecordBulkConflict(customerDb, records) {
     return orderConflict;
   }
 
-  return findCustomerRecordBulkConflictByField(customerDb, 'activated_email', emailRecords, 'activatedEmail');
+  return findCustomerRecordBulkEmailConflict(customerDb, recordsByEmail);
 }
 
 async function findCustomerRecordBulkConflictByField(customerDb, columnName, recordMap, field) {
@@ -837,6 +850,40 @@ async function findCustomerRecordBulkConflictByField(customerDb, columnName, rec
           field,
           value: field === 'activatedEmail' ? record.activatedEmail : record.orderNumber,
           existingRecord: mapCustomerRecordRow(row)
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+async function findCustomerRecordBulkEmailConflict(customerDb, recordsByEmail) {
+  const values = [...recordsByEmail.keys()];
+
+  for (const chunk of chunkArray(values, customerImportLookupSize)) {
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await customerDb.prepare(`
+      SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+        order_source, product_name, duration_days, start_date, expiry_date,
+        status, notes, created_at, updated_at
+      FROM customer_records
+      WHERE LOWER(activated_email) IN (${placeholders})
+    `).bind(...chunk).all();
+
+    for (const row of result.results || []) {
+      const existingRecord = mapCustomerRecordRow(row);
+      const email = normalizeCustomerUniqueEmail(existingRecord.activatedEmail);
+      const matchingRecords = recordsByEmail.get(email) || [];
+      const conflictingRecord = matchingRecords.find((record) => {
+        return row.id !== record.id && shouldBlockCustomerActivationEmailDuplicate(record, existingRecord);
+      });
+
+      if (conflictingRecord) {
+        return {
+          field: 'activatedEmail',
+          value: conflictingRecord.activatedEmail,
+          existingRecord
         };
       }
     }
@@ -1054,7 +1101,21 @@ function chunkArray(items, size) {
 
 function normalizeCustomerProductName(value) {
   const productName = cleanValue(value, 240);
-  const text = productName
+  const productType = getCustomerAiProductType(productName);
+
+  if (!productName) {
+    return '';
+  }
+
+  if (productType) {
+    return 'ChatGPT';
+  }
+
+  return productName;
+}
+
+function getCustomerAiProductType(value) {
+  const text = cleanValue(value, 240)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s{2,}/g, ' ')
@@ -1064,20 +1125,66 @@ function normalizeCustomerProductName(value) {
     return '';
   }
 
+  if (/chat\s*gpt|chatgpt|openai/.test(text)) {
+    return 'chatgpt';
+  }
+
   const hasVirtualAi = /\b(asisten|assistant)?\s*virtual\s*ai\b/.test(text) ||
     /\bvirtual\s*(asisten|assistant)?\s*ai\b/.test(text);
   const hasChatAi = /\bchat\s*(with|bot)?\b.*\b(ai|asisten virtual|assistant virtual|virtual ai)\b/.test(text) ||
     /\b(ai|asisten virtual|assistant virtual|virtual ai)\b.*\bchat\b/.test(text);
 
-  if (hasChatAi || hasVirtualAi) {
-    return 'ChatGPT';
+  if (hasChatAi) {
+    return 'chat-ai';
   }
 
-  if (/chat\s*gpt|chatgpt/.test(text)) {
-    return /plus/.test(text) ? 'ChatGPT Plus' : 'ChatGPT';
+  if (hasVirtualAi) {
+    return 'virtual-ai';
   }
 
-  return productName;
+  return '';
+}
+
+function isCustomerSharedActivationEmailProduct(record) {
+  return Boolean(getCustomerAiProductType(record.productName || record.product_name));
+}
+
+function shouldCheckCustomerActivationEmailDuplicate(record) {
+  return Boolean(normalizeCustomerUniqueEmail(record.activatedEmail || record.activated_email)) &&
+    !isCustomerSharedActivationEmailProduct(record);
+}
+
+function customerDateValue(value) {
+  const date = new Date(`${cleanDate(value)}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+}
+
+function doCustomerSubscriptionPeriodsOverlap(firstRecord, secondRecord) {
+  const firstStart = customerDateValue(firstRecord.startDate || firstRecord.start_date);
+  const firstExpiry = customerDateValue(firstRecord.expiryDate || firstRecord.expiry_date);
+  const secondStart = customerDateValue(secondRecord.startDate || secondRecord.start_date);
+  const secondExpiry = customerDateValue(secondRecord.expiryDate || secondRecord.expiry_date);
+
+  if (firstStart === null || firstExpiry === null || secondStart === null || secondExpiry === null) {
+    return true;
+  }
+
+  return firstStart < secondExpiry && secondStart < firstExpiry;
+}
+
+function shouldBlockCustomerActivationEmailDuplicate(firstRecord, secondRecord) {
+  const firstEmail = normalizeCustomerUniqueEmail(firstRecord.activatedEmail || firstRecord.activated_email);
+  const secondEmail = normalizeCustomerUniqueEmail(secondRecord.activatedEmail || secondRecord.activated_email);
+
+  if (!firstEmail || firstEmail !== secondEmail) {
+    return false;
+  }
+
+  if (!shouldCheckCustomerActivationEmailDuplicate(firstRecord) || !shouldCheckCustomerActivationEmailDuplicate(secondRecord)) {
+    return false;
+  }
+
+  return doCustomerSubscriptionPeriodsOverlap(firstRecord, secondRecord);
 }
 
 function normalizeCustomerUniqueEmail(value) {

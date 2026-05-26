@@ -58,7 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_customer_records_order_number
 CREATE INDEX IF NOT EXISTS idx_customer_records_whatsapp_number
   ON customer_records (whatsapp_number);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_activated_email_unique
+CREATE INDEX IF NOT EXISTS idx_customer_records_activated_email
   ON customer_records (LOWER(activated_email))
   WHERE activated_email IS NOT NULL AND activated_email != '';
 
@@ -69,6 +69,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
 -- Run these if the table already existed before the full schema was added.
 -- D1 will error if a column already exists, so use the dashboard Console and
 -- run only the ALTER statements for columns that are missing.
+-- DROP INDEX IF EXISTS idx_customer_records_activated_email_unique;
+-- CREATE INDEX IF NOT EXISTS idx_customer_records_activated_email
+--   ON customer_records (LOWER(activated_email))
+--   WHERE activated_email IS NOT NULL AND activated_email != '';
 -- ALTER TABLE email_messages ADD COLUMN subject TEXT;
 -- ALTER TABLE email_messages ADD COLUMN category TEXT NOT NULL DEFAULT 'other';
 -- ALTER TABLE email_messages ADD COLUMN size INTEGER NOT NULL DEFAULT 0;

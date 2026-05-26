@@ -4,6 +4,9 @@ const MAX_LIMIT = 500;
 const OFFICE_SELLER_PAGE_URL = 'https://lastorialicense.com/get-conf-catsyu/';
 const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.php';
 const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem', 'incomplete']);
+const customerImportBatchSize = 80;
+const customerImportLookupSize = 80;
+const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
 
 const categoryRules = [
   {
@@ -82,6 +85,10 @@ export default {
 
     if (url.pathname === '/api/customer-records' && request.method === 'POST') {
       return upsertCustomerRecords(request, env);
+    }
+
+    if (url.pathname === '/api/customer-records/bulk-import' && request.method === 'POST') {
+      return bulkImportCustomerRecords(request, env);
     }
 
     if (url.pathname === '/api/customer-records/health' && request.method === 'GET') {
@@ -478,6 +485,45 @@ async function upsertCustomerRecords(request, env) {
   }, 200, request);
 }
 
+async function bulkImportCustomerRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const inputRecords = Array.isArray(payload.records) ? payload.records : (Array.isArray(payload) ? payload : []);
+  const records = inputRecords.map(normalizeCustomerRecord).filter(Boolean);
+  const batchConflict = findCustomerRecordBatchConflict(records);
+
+  if (batchConflict) {
+    return customerRecordConflictResponse(batchConflict, request);
+  }
+
+  const mergedRecords = await mergeCustomerImportRecords(customerDb, records);
+  const existingConflict = await findCustomerRecordBulkConflict(customerDb, mergedRecords);
+
+  if (existingConflict) {
+    return customerRecordConflictResponse(existingConflict, request);
+  }
+
+  await saveCustomerRecordsBatch(customerDb, mergedRecords);
+
+  return json({
+    ok: true,
+    mode: 'bulk-import',
+    total: mergedRecords.length
+  }, 200, request);
+}
+
 async function patchCustomerRecord(request, env, id) {
   const customerDb = getCustomerDb(env);
 
@@ -634,6 +680,111 @@ function customerRecordConflictResponse(conflict, request) {
   }, 409, request);
 }
 
+async function mergeCustomerImportRecords(customerDb, records) {
+  if (!records.length) {
+    return [];
+  }
+
+  const orderNumbers = uniqueValues(records.map((record) => normalizeCustomerUniqueOrderNumber(record.orderNumber)).filter(Boolean));
+  const existingByOrder = await getCustomerRecordsByOrderNumbers(customerDb, orderNumbers);
+
+  return records.map((record) => {
+    const existingRecord = existingByOrder.get(normalizeCustomerUniqueOrderNumber(record.orderNumber));
+
+    if (!existingRecord) {
+      return record;
+    }
+
+    return {
+      ...record,
+      id: existingRecord.id || record.id,
+      customerName: record.customerName || existingRecord.customerName,
+      activatedEmail: record.activatedEmail || existingRecord.activatedEmail,
+      whatsappNumber: record.whatsappNumber || existingRecord.whatsappNumber,
+      status: customerProtectedStatuses.has(existingRecord.status) ? existingRecord.status : record.status,
+      notes: record.notes || existingRecord.notes,
+      createdAt: existingRecord.createdAt || record.createdAt
+    };
+  });
+}
+
+async function findCustomerRecordBulkConflict(customerDb, records) {
+  const emailRecords = new Map();
+  const orderRecords = new Map();
+
+  records.forEach((record) => {
+    const email = normalizeCustomerUniqueEmail(record.activatedEmail);
+    const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
+
+    if (email) {
+      emailRecords.set(email, record);
+    }
+
+    if (orderNumber) {
+      orderRecords.set(orderNumber, record);
+    }
+  });
+
+  const orderConflict = await findCustomerRecordBulkConflictByField(customerDb, 'order_number', orderRecords, 'orderNumber');
+
+  if (orderConflict) {
+    return orderConflict;
+  }
+
+  return findCustomerRecordBulkConflictByField(customerDb, 'activated_email', emailRecords, 'activatedEmail');
+}
+
+async function findCustomerRecordBulkConflictByField(customerDb, columnName, recordMap, field) {
+  const values = [...recordMap.keys()];
+
+  for (const chunk of chunkArray(values, customerImportLookupSize)) {
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await customerDb.prepare(`
+      SELECT id, activated_email, order_number
+      FROM customer_records
+      WHERE LOWER(${columnName}) IN (${placeholders})
+    `).bind(...chunk).all();
+
+    for (const row of result.results || []) {
+      const value = field === 'activatedEmail' ?
+        normalizeCustomerUniqueEmail(row.activated_email) :
+        normalizeCustomerUniqueOrderNumber(row.order_number);
+      const record = recordMap.get(value);
+
+      if (record && row.id !== record.id) {
+        return {
+          field,
+          value: field === 'activatedEmail' ? record.activatedEmail : record.orderNumber,
+          existingRecord: mapCustomerRecordRow(row)
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+async function getCustomerRecordsByOrderNumbers(customerDb, orderNumbers) {
+  const rowsByOrder = new Map();
+
+  for (const chunk of chunkArray(orderNumbers, customerImportLookupSize)) {
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await customerDb.prepare(`
+      SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+        order_source, product_name, duration_days, start_date, expiry_date,
+        status, notes, created_at, updated_at
+      FROM customer_records
+      WHERE LOWER(order_number) IN (${placeholders})
+    `).bind(...chunk).all();
+
+    for (const row of result.results || []) {
+      rowsByOrder.set(normalizeCustomerUniqueOrderNumber(row.order_number), mapCustomerRecordRow(row));
+    }
+  }
+
+  return rowsByOrder;
+}
+
 function mapCustomerRecordRow(row) {
   return {
     id: row.id,
@@ -722,8 +873,69 @@ async function saveCustomerRecord(customerDb, record) {
   ).run();
 }
 
+async function saveCustomerRecordsBatch(customerDb, records) {
+  if (!records.length) {
+    return;
+  }
+
+  const statement = customerDb.prepare(`
+    INSERT INTO customer_records (
+      id, customer_name, activated_email, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      customer_name = excluded.customer_name,
+      activated_email = excluded.activated_email,
+      whatsapp_number = excluded.whatsapp_number,
+      order_number = excluded.order_number,
+      order_source = excluded.order_source,
+      product_name = excluded.product_name,
+      duration_days = excluded.duration_days,
+      start_date = excluded.start_date,
+      expiry_date = excluded.expiry_date,
+      status = excluded.status,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `);
+
+  for (const chunk of chunkArray(records, customerImportBatchSize)) {
+    await customerDb.batch(chunk.map((record) => statement.bind(
+      record.id,
+      record.customerName,
+      record.activatedEmail,
+      record.whatsappNumber,
+      record.orderNumber,
+      record.orderSource,
+      record.productName,
+      record.durationDays,
+      record.startDate,
+      record.expiryDate,
+      record.status,
+      record.notes,
+      record.createdAt,
+      record.updatedAt
+    )));
+  }
+}
+
 function cleanValue(value, maxLength = 500) {
   return String(value || '').trim().slice(0, maxLength);
+}
+
+function uniqueValues(values) {
+  return [...new Set(values)];
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 function normalizeCustomerProductName(value) {

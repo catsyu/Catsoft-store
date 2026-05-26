@@ -1,9 +1,12 @@
 const productionApiEndpoint = 'https://catsoft.store/api/customer-records';
 const apiEndpoint = window.CATSOFT_CUSTOMER_DATABASE_API || getDefaultApiEndpoint();
 const apiTimeoutMs = 8000;
+const xlsxApiTimeoutMs = 45000;
+const xlsxBulkApiTimeoutMs = 120000;
 const customerFetchLimit = 500;
 const autoRefreshMs = 10000;
-const xlsxImportBatchSize = 25;
+const xlsxImportBatchSize = 8;
+const xlsxBulkImportChunkSize = 300;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 
@@ -131,6 +134,7 @@ const statusLabels = {
 };
 
 const statusOptions = ['active', 'expired', 'removed', 'refund', 'problem'];
+const protectedStatusOptions = new Set(['removed', 'refund', 'problem']);
 const statusFilterLabels = {
   ...statusLabels,
   duplicate: 'Data ganda'
@@ -498,6 +502,13 @@ function buildCustomerApiUrl(id, params = {}) {
   return url;
 }
 
+function buildCustomerApiActionUrl(action) {
+  const url = new URL(apiEndpoint, window.location.href);
+  url.pathname = `${url.pathname.replace(/\/$/, '')}/${action}`;
+  url.searchParams.set('_', String(Date.now()));
+  return url;
+}
+
 function setSyncStatus(message, mode = '') {
   syncStatus.textContent = message;
   syncStatus.classList.toggle('success', mode === 'success');
@@ -593,6 +604,25 @@ function guardDatabaseMutation(message = 'Tunggu update XLSX selesai, database s
   return true;
 }
 
+function isAbortOrTimeoutError(error) {
+  const message = String(error && error.message ? error.message : '').toLowerCase();
+  return error && (error.name === 'AbortError' || error.name === 'TimeoutError' || /abort|aborted|timeout|signal/.test(message));
+}
+
+function getFriendlyErrorMessage(error) {
+  if (isAbortOrTimeoutError(error)) {
+    return 'Koneksi database timeout saat upload. Sistem sudah mengirim XLSX bertahap; coba ulang setelah koneksi stabil.';
+  }
+
+  return error && error.message ? error.message : 'Terjadi error tidak dikenal.';
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 function getCustomerApiErrorMessage(status) {
   const messages = {
     401: 'API 401 unauthorized, cek Cloudflare Access atau ALLOW_UNAUTHENTICATED_API',
@@ -615,22 +645,35 @@ async function getApiErrorMessage(response) {
 }
 
 async function fetchWithTimeout(url, options = {}) {
+  const { timeoutMs = apiTimeoutMs, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), apiTimeoutMs);
+  let timedOut = false;
+  const timeoutId = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   try {
     return await fetch(url, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal
     });
+  } catch (error) {
+    if (timedOut || error.name === 'AbortError') {
+      const timeoutSeconds = Math.round(timeoutMs / 1000);
+      throw new Error(`Koneksi database timeout setelah ${timeoutSeconds} detik. Coba ulang; jika file besar, sistem akan mengirim data bertahap lebih kecil.`);
+    }
+
+    throw error;
   } finally {
     window.clearTimeout(timeoutId);
   }
 }
 
-async function fetchApiRecordsPage(offset = 0, limit = customerFetchLimit) {
+async function fetchApiRecordsPage(offset = 0, limit = customerFetchLimit, options = {}) {
   const response = await fetchWithTimeout(buildCustomerApiUrl(null, { limit, offset }), {
     cache: 'no-store',
+    timeoutMs: options.timeoutMs,
     headers: {
       'Cache-Control': 'no-cache'
     }
@@ -645,12 +688,12 @@ async function fetchApiRecordsPage(offset = 0, limit = customerFetchLimit) {
   return parseRecordsResponse(await response.json());
 }
 
-async function fetchApiRecords() {
+async function fetchApiRecords(options = {}) {
   const allRecords = [];
   let offset = 0;
 
   while (offset <= 10000) {
-    const pageRecords = await fetchApiRecordsPage(offset, customerFetchLimit);
+    const pageRecords = await fetchApiRecordsPage(offset, customerFetchLimit, options);
     allRecords.push(...pageRecords);
 
     if (pageRecords.length < customerFetchLimit) {
@@ -663,10 +706,11 @@ async function fetchApiRecords() {
   return allRecords;
 }
 
-async function pushRecordToApi(record) {
+async function pushRecordToApi(record, options = {}) {
   const response = await fetchWithTimeout(buildCustomerApiUrl(), {
     method: 'POST',
     cache: 'no-store',
+    timeoutMs: options.timeoutMs,
     headers: {
       'Content-Type': 'application/json'
     },
@@ -682,10 +726,11 @@ async function pushRecordToApi(record) {
   return response.json();
 }
 
-async function pushRecordsToApi(nextRecords) {
+async function pushRecordsToApi(nextRecords, options = {}) {
   const response = await fetchWithTimeout(buildCustomerApiUrl(), {
     method: 'POST',
     cache: 'no-store',
+    timeoutMs: options.timeoutMs,
     headers: {
       'Content-Type': 'application/json'
     },
@@ -701,10 +746,34 @@ async function pushRecordsToApi(nextRecords) {
   return response.json();
 }
 
-async function deleteRecordFromApi(id) {
+async function pushBulkImportRecordsToApi(nextRecords, options = {}) {
+  const response = await fetchWithTimeout(buildCustomerApiActionUrl('bulk-import'), {
+    method: 'POST',
+    cache: 'no-store',
+    timeoutMs: options.timeoutMs,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      source: 'shopee-xlsx',
+      records: normalizeRecordList(nextRecords)
+    })
+  });
+
+  if (!response.ok) {
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}
+
+async function deleteRecordFromApi(id, options = {}) {
   const response = await fetchWithTimeout(buildCustomerApiUrl(id), {
     method: 'DELETE',
-    cache: 'no-store'
+    cache: 'no-store',
+    timeoutMs: options.timeoutMs
   });
 
   if (!response.ok) {
@@ -717,7 +786,7 @@ async function deleteRecordFromApi(id) {
 }
 
 async function replaceRecordsFromApi(options = {}) {
-  const apiRecords = await fetchApiRecords();
+  const apiRecords = await fetchApiRecords({ timeoutMs: options.timeoutMs });
 
   if (typeof options.expectedMutationVersion === 'number' && options.expectedMutationVersion !== recordsMutationVersion) {
     return records;
@@ -2002,6 +2071,7 @@ function isShopeeCanceledRow(row) {
 
 function buildShopeeRecord(row, existingRecord = {}) {
   const now = new Date().toISOString();
+  const existingStatus = getStoredStatus(existingRecord);
   const orderNumber = getShopeeCell(row, ['No. Pesanan', 'Nomor Pesanan', 'Order ID']);
   const productText = getShopeeCell(row, ['Nama Produk', 'Produk']);
   const variationText = getShopeeCell(row, ['Nama Variasi', 'Variasi']);
@@ -2032,7 +2102,7 @@ function buildShopeeRecord(row, existingRecord = {}) {
     durationDays: durationDays || existingRecord.durationDays || 30,
     startDate: startDateValue,
     expiryDate: expiryDateValue,
-    status: getStoredStatus(existingRecord),
+    status: protectedStatusOptions.has(existingStatus) ? existingStatus : 'active',
     notes: existingRecord.notes || noteParts.join(' | '),
     createdAt: existingRecord.createdAt || now,
     updatedAt: now
@@ -2041,16 +2111,88 @@ function buildShopeeRecord(row, existingRecord = {}) {
   return applyCompletenessStatus(nextRecord, existingRecord.status);
 }
 
-async function pushRecordsToApiInBatches(nextRecords, onProgress) {
+const shopeeImportCompareFields = [
+  'customerName',
+  'activatedEmail',
+  'whatsappNumber',
+  'orderNumber',
+  'orderSource',
+  'productName',
+  'durationDays',
+  'startDate',
+  'expiryDate',
+  'status',
+  'notes'
+];
+
+function normalizeComparableRecordValue(value) {
+  return String(value ?? '').trim();
+}
+
+function hasShopeeRecordChanged(existingRecord, nextRecord) {
+  if (!existingRecord || !existingRecord.id) {
+    return true;
+  }
+
+  return shopeeImportCompareFields.some((field) => {
+    return normalizeComparableRecordValue(existingRecord[field]) !== normalizeComparableRecordValue(nextRecord[field]);
+  });
+}
+
+function uniqueRecordsById(recordList) {
+  const recordMap = new Map();
+
+  recordList.forEach((record) => {
+    recordMap.set(record.id, record);
+  });
+
+  return [...recordMap.values()];
+}
+
+async function pushRecordsToBulkImportInChunks(nextRecords, onProgress) {
+  const total = nextRecords.length;
+
+  for (let index = 0; index < total; index += xlsxBulkImportChunkSize) {
+    const chunk = nextRecords.slice(index, index + xlsxBulkImportChunkSize);
+    await pushBulkImportRecordsToApi(chunk, { timeoutMs: xlsxBulkApiTimeoutMs });
+
+    if (onProgress) {
+      onProgress(Math.min(index + chunk.length, total), total);
+    }
+  }
+}
+
+async function pushRecordsToApiInBatches(nextRecords, onProgress, options = {}) {
   const total = nextRecords.length;
 
   for (let index = 0; index < total; index += xlsxImportBatchSize) {
     const batch = nextRecords.slice(index, index + xlsxImportBatchSize);
-    await pushRecordsToApi(batch);
+    await pushXlsxBatchWithFallback(batch, options);
 
     if (onProgress) {
       onProgress(Math.min(index + batch.length, total), total);
     }
+  }
+}
+
+async function pushXlsxBatchWithFallback(batch, options = {}) {
+  try {
+    await pushRecordsToApi(batch, { timeoutMs: options.timeoutMs });
+  } catch (error) {
+    if (batch.length > 1 && isAbortOrTimeoutError(error)) {
+      const splitIndex = Math.ceil(batch.length / 2);
+      await pushXlsxBatchWithFallback(batch.slice(0, splitIndex), options);
+      await pushXlsxBatchWithFallback(batch.slice(splitIndex), options);
+      return;
+    }
+
+    if (isAbortOrTimeoutError(error) && !options.isRetry) {
+      await wait(900);
+      await pushXlsxBatchWithFallback(batch, { ...options, isRetry: true });
+      return;
+    }
+
+    throw error;
   }
 }
 
@@ -2097,7 +2239,7 @@ async function importShopeeXlsx(file) {
       progress: 18,
       summary: `${rows.length} baris XLSX terbaca`
     });
-    await replaceRecordsFromApi();
+    await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
 
     const stagedRecords = [...records];
     const changedRecords = [];
@@ -2106,6 +2248,7 @@ async function importShopeeXlsx(file) {
     let incompleteRows = 0;
     let skippedRows = 0;
     let canceledRows = 0;
+    let unchangedRows = 0;
 
     rows.forEach((row) => {
       if (isShopeeCanceledRow(row)) {
@@ -2129,33 +2272,60 @@ async function importShopeeXlsx(file) {
       }
 
       if (existingIndex >= 0) {
-        stagedRecords[existingIndex] = nextRecord;
-        updatedCount += 1;
+        if (hasShopeeRecordChanged(existingRecord, nextRecord)) {
+          stagedRecords[existingIndex] = nextRecord;
+          updatedCount += 1;
+          changedRecords.push(nextRecord);
+        } else {
+          unchangedRows += 1;
+        }
       } else {
         stagedRecords.push(nextRecord);
         createdCount += 1;
+        changedRecords.push(nextRecord);
       }
-
-      changedRecords.push(nextRecord);
     });
 
-    const importSummary = `${updatedCount} update, ${createdCount} baru, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
+    const uploadRecords = uniqueRecordsById(changedRecords);
+    const importSummary = `${updatedCount} update, ${createdCount} baru${unchangedRows ? `, ${unchangedRows} sama dilewati` : ''}, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
 
-    if (changedRecords.length) {
+    if (uploadRecords.length) {
       updateXlsxImportOverlay({
         title: 'Mengirim update ke web',
-        message: 'Data sedang dikirim bertahap. Edit, hapus, dan bulk action dikunci sementara.',
+        message: 'Data besar dikirim lewat jalur bulk import. Edit, hapus, dan bulk action dikunci sementara.',
         progress: 35,
-        summary: `0/${changedRecords.length} data dikirim`
+        summary: `0/${uploadRecords.length} data dikirim`
       });
-      await pushRecordsToApiInBatches(changedRecords, (sent, total) => {
-        updateXlsxImportOverlay({
-          title: 'Mengirim update ke web',
-          message: 'Data sedang dikirim bertahap. Edit, hapus, dan bulk action dikunci sementara.',
-          progress: 35 + ((sent / total) * 55),
-          summary: `${sent}/${total} data dikirim`
+
+      try {
+        await pushRecordsToBulkImportInChunks(uploadRecords, (sent, total) => {
+          updateXlsxImportOverlay({
+            title: 'Mengirim update ke web',
+            message: 'Data besar dikirim lewat jalur bulk import. Edit, hapus, dan bulk action dikunci sementara.',
+            progress: 35 + ((sent / total) * 55),
+            summary: `${sent}/${total} data dikirim`
+          });
         });
-      });
+      } catch (error) {
+        if (error.status !== 404 && error.status !== 405) {
+          throw error;
+        }
+
+        updateXlsxImportOverlay({
+          title: 'Mode kompatibilitas',
+          message: 'Endpoint bulk import belum aktif. Data dikirim dengan mode lama yang lebih pelan.',
+          progress: 35,
+          summary: `0/${uploadRecords.length} data dikirim`
+        });
+        await pushRecordsToApiInBatches(uploadRecords, (sent, total) => {
+          updateXlsxImportOverlay({
+            title: 'Mode kompatibilitas',
+            message: 'Endpoint bulk import belum aktif. Data dikirim dengan mode lama yang lebih pelan.',
+            progress: 35 + ((sent / total) * 55),
+            summary: `${sent}/${total} data dikirim`
+          });
+        }, { timeoutMs: xlsxApiTimeoutMs });
+      }
     }
 
     updateXlsxImportOverlay({
@@ -2167,7 +2337,7 @@ async function importShopeeXlsx(file) {
     records = sortRecords(stagedRecords);
     saveRecords();
     renderRecords();
-    await replaceRecordsFromApi();
+    await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
     ocrStatus.textContent = `XLSX Shopee diproses. ${importSummary}`;
     setSyncStatus(`Update XLSX selesai (${records.length})`, 'success');
     syncStatus.title = 'Import XLSX selesai. Tidak ada proses update XLSX yang berjalan di latar belakang.';
@@ -2180,14 +2350,15 @@ async function importShopeeXlsx(file) {
     });
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1100);
   } catch (error) {
-    ocrStatus.textContent = `Import XLSX Shopee gagal: ${error.message}`;
+    const errorMessage = getFriendlyErrorMessage(error);
+    ocrStatus.textContent = `Import XLSX Shopee gagal: ${errorMessage}`;
     setSyncStatus('Gagal import web', 'warning');
-    syncStatus.title = error.message;
+    syncStatus.title = errorMessage;
     updateXlsxImportOverlay({
       title: 'Update gagal',
       message: 'Proses sudah dihentikan. Klik Tutup sebelum mencoba import ulang.',
       progress: 100,
-      summary: error.message,
+      summary: errorMessage,
       mode: 'error',
       canClose: true
     });

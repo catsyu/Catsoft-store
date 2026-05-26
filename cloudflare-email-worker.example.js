@@ -3,7 +3,7 @@ const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 500;
 const OFFICE_SELLER_PAGE_URL = 'https://lastorialicense.com/get-conf-catsyu/';
 const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.php';
-const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem']);
+const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem', 'incomplete']);
 
 const categoryRules = [
   {
@@ -455,8 +455,19 @@ async function upsertCustomerRecords(request, env) {
 
   const inputRecords = Array.isArray(payload.records) ? payload.records : (Array.isArray(payload) ? payload : [payload]);
   const records = inputRecords.map(normalizeCustomerRecord).filter(Boolean);
+  const batchConflict = findCustomerRecordBatchConflict(records);
+
+  if (batchConflict) {
+    return customerRecordConflictResponse(batchConflict, request);
+  }
 
   for (const record of records) {
+    const conflict = await findCustomerRecordConflict(customerDb, record);
+
+    if (conflict) {
+      return customerRecordConflictResponse(conflict, request);
+    }
+
     await saveCustomerRecord(customerDb, record);
   }
 
@@ -499,6 +510,11 @@ async function patchCustomerRecord(request, env, id) {
     ...payload,
     id
   });
+  const conflict = await findCustomerRecordConflict(customerDb, record);
+
+  if (conflict) {
+    return customerRecordConflictResponse(conflict, request);
+  }
 
   await saveCustomerRecord(customerDb, record);
 
@@ -519,6 +535,103 @@ async function deleteCustomerRecord(request, env, id) {
 
 function getCustomerDb(env) {
   return env.CUSTOMER_DB || env.EMAIL_DB;
+}
+
+function findCustomerRecordBatchConflict(records) {
+  const emails = new Map();
+  const orderNumbers = new Map();
+
+  for (const record of records) {
+    const email = normalizeCustomerUniqueEmail(record.activatedEmail);
+    const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
+
+    if (email) {
+      const existingRecord = emails.get(email);
+
+      if (existingRecord && existingRecord.id !== record.id) {
+        return {
+          field: 'activatedEmail',
+          value: record.activatedEmail,
+          existingRecord
+        };
+      }
+
+      emails.set(email, record);
+    }
+
+    if (orderNumber) {
+      const existingRecord = orderNumbers.get(orderNumber);
+
+      if (existingRecord && existingRecord.id !== record.id) {
+        return {
+          field: 'orderNumber',
+          value: record.orderNumber,
+          existingRecord
+        };
+      }
+
+      orderNumbers.set(orderNumber, record);
+    }
+  }
+
+  return null;
+}
+
+async function findCustomerRecordConflict(customerDb, record) {
+  const email = normalizeCustomerUniqueEmail(record.activatedEmail);
+  const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
+  const checks = [];
+  const params = [record.id];
+
+  if (email) {
+    checks.push('LOWER(activated_email) = ?');
+    params.push(email);
+  }
+
+  if (orderNumber) {
+    checks.push('LOWER(order_number) = ?');
+    params.push(orderNumber);
+  }
+
+  if (!checks.length) {
+    return null;
+  }
+
+  const row = await customerDb.prepare(`
+    SELECT id, activated_email, order_number
+    FROM customer_records
+    WHERE id <> ? AND (${checks.join(' OR ')})
+    LIMIT 1
+  `).bind(...params).first();
+
+  if (!row) {
+    return null;
+  }
+
+  if (email && normalizeCustomerUniqueEmail(row.activated_email) === email) {
+    return {
+      field: 'activatedEmail',
+      value: record.activatedEmail,
+      existingRecord: mapCustomerRecordRow(row)
+    };
+  }
+
+  return {
+    field: 'orderNumber',
+    value: record.orderNumber,
+    existingRecord: mapCustomerRecordRow(row)
+  };
+}
+
+function customerRecordConflictResponse(conflict, request) {
+  const label = conflict.field === 'activatedEmail' ? 'Email aktivasi' : 'Nomor pesanan';
+
+  return json({
+    ok: false,
+    error: `${label} ${conflict.value} sudah ada di database.`,
+    field: conflict.field,
+    existingId: conflict.existingRecord ? conflict.existingRecord.id : ''
+  }, 409, request);
 }
 
 function mapCustomerRecordRow(row) {
@@ -611,6 +724,14 @@ async function saveCustomerRecord(customerDb, record) {
 
 function cleanValue(value, maxLength = 500) {
   return String(value || '').trim().slice(0, maxLength);
+}
+
+function normalizeCustomerUniqueEmail(value) {
+  return cleanValue(value, 240).toLowerCase();
+}
+
+function normalizeCustomerUniqueOrderNumber(value) {
+  return cleanValue(value, 120).toLowerCase();
 }
 
 function cleanDate(value) {

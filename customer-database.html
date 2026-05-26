@@ -146,9 +146,42 @@
             <span>Aktif</span>
             <strong id="activeCount">0</strong>
           </div>
+          <div class="stat-card warning">
+            <span>Expired</span>
+            <strong id="expiredCount">0</strong>
+          </div>
           <div class="stat-card urgent">
             <span>Expire hari ini</span>
             <strong id="expireTodayCount">0</strong>
+          </div>
+          <div class="stat-card danger">
+            <span>Tidak lengkap</span>
+            <strong id="incompleteCount">0</strong>
+          </div>
+        </div>
+
+        <div class="lookup-panel">
+          <div class="lookup-head">
+            <span class="section-kicker">Lookup</span>
+            <button class="secondary-button compact-button" id="clearLookupBtn" type="button">Bersihkan</button>
+          </div>
+
+          <div class="lookup-grid">
+            <label class="field-group lookup-upload">
+              <span>Screenshot email</span>
+              <input id="lookupScreenshotInput" type="file" accept="image/*" />
+              <span class="file-control">Pilih Screenshot</span>
+            </label>
+
+            <label class="field-group lookup-email-field">
+              <span>Data email</span>
+              <textarea id="emailLookupInput" rows="3" placeholder="email@domain.com"></textarea>
+            </label>
+          </div>
+
+          <div class="lookup-result-row">
+            <span class="lookup-status" id="lookupStatus">0 email</span>
+            <div class="lookup-chips" id="lookupChips" aria-live="polite"></div>
           </div>
         </div>
 
@@ -175,6 +208,28 @@
               <option value="removed">Removed</option>
               <option value="refund">Refund</option>
               <option value="problem">Bermasalah</option>
+              <option value="incomplete">Data tidak lengkap</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Urutkan</span>
+            <select id="sortBy">
+              <option value="updatedAt">Update</option>
+              <option value="expiryDate">Expire</option>
+              <option value="startDate">Mulai</option>
+              <option value="customerName">Nama</option>
+              <option value="activatedEmail">Email</option>
+              <option value="productName">Produk</option>
+              <option value="status">Status</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Arah</span>
+            <select id="sortDirection">
+              <option value="desc">Menurun</option>
+              <option value="asc">Menaik</option>
             </select>
           </label>
         </div>
@@ -184,8 +239,38 @@
           <button class="secondary-button" id="exportCsvBtn" type="button">Export CSV</button>
           <button class="secondary-button" id="exportJsonBtn" type="button">Export JSON</button>
           <button class="secondary-button" id="importJsonBtn" type="button">Import JSON</button>
+          <button class="secondary-button" id="importShopeeXlsxBtn" type="button">Update XLSX</button>
           <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
+          <input id="importShopeeXlsxInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
           <span class="sync-status" id="syncStatus">Mode lokal</span>
+        </div>
+
+        <div class="results-bar">
+          <strong id="resultCount">0 data</strong>
+          <span id="resultContext">Semua data</span>
+        </div>
+
+        <div class="bulk-toolbar" id="bulkToolbar">
+          <label class="bulk-select-all">
+            <input id="selectVisibleRecords" type="checkbox" />
+            <span>Pilih hasil tampil</span>
+          </label>
+
+          <strong id="selectedCount">0 dipilih</strong>
+
+          <select id="bulkStatusSelect" aria-label="Status bulk">
+            <option value="">Ubah status</option>
+            <option value="active">Aktif</option>
+            <option value="expired">Expired</option>
+            <option value="removed">Removed</option>
+            <option value="refund">Refund</option>
+            <option value="problem">Bermasalah</option>
+          </select>
+
+          <button class="secondary-button" id="bulkApplyStatusBtn" type="button">Apply</button>
+          <button class="secondary-button" id="bulkExportCsvBtn" type="button">Export</button>
+          <button class="danger-button" id="bulkDeleteBtn" type="button">Hapus</button>
+          <button class="secondary-button" id="clearSelectionBtn" type="button">Clear</button>
         </div>
 
         <div class="records-list" id="recordsList" aria-live="polite">
@@ -196,6 +281,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="customer-database.js" defer></script>
 </body>
 </html>

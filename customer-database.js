@@ -32,17 +32,38 @@ const subscriptionStatusSelect = document.getElementById('subscriptionStatus');
 const adminNotesInput = document.getElementById('adminNotes');
 const totalCount = document.getElementById('totalCount');
 const activeCount = document.getElementById('activeCount');
+const expiredCount = document.getElementById('expiredCount');
 const expireTodayCount = document.getElementById('expireTodayCount');
+const incompleteCount = document.getElementById('incompleteCount');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const dateFilter = document.getElementById('dateFilter');
 const statusFilter = document.getElementById('statusFilter');
+const sortBySelect = document.getElementById('sortBy');
+const sortDirectionSelect = document.getElementById('sortDirection');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const importJsonBtn = document.getElementById('importJsonBtn');
 const importJsonInput = document.getElementById('importJsonInput');
+const importShopeeXlsxBtn = document.getElementById('importShopeeXlsxBtn');
+const importShopeeXlsxInput = document.getElementById('importShopeeXlsxInput');
 const syncRecordsBtn = document.getElementById('syncRecordsBtn');
 const syncStatus = document.getElementById('syncStatus');
+const lookupScreenshotInput = document.getElementById('lookupScreenshotInput');
+const emailLookupInput = document.getElementById('emailLookupInput');
+const clearLookupBtn = document.getElementById('clearLookupBtn');
+const lookupStatus = document.getElementById('lookupStatus');
+const lookupChips = document.getElementById('lookupChips');
+const resultCount = document.getElementById('resultCount');
+const resultContext = document.getElementById('resultContext');
+const bulkToolbar = document.getElementById('bulkToolbar');
+const selectVisibleRecords = document.getElementById('selectVisibleRecords');
+const selectedCount = document.getElementById('selectedCount');
+const bulkStatusSelect = document.getElementById('bulkStatusSelect');
+const bulkApplyStatusBtn = document.getElementById('bulkApplyStatusBtn');
+const bulkExportCsvBtn = document.getElementById('bulkExportCsvBtn');
+const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+const clearSelectionBtn = document.getElementById('clearSelectionBtn');
 const recordsList = document.getElementById('recordsList');
 
 const monthMap = {
@@ -95,7 +116,8 @@ const statusLabels = {
   expired: 'Expired',
   removed: 'Removed',
   refund: 'Refund',
-  problem: 'Bermasalah'
+  problem: 'Bermasalah',
+  incomplete: 'Data tidak lengkap'
 };
 
 const statusOptions = ['active', 'expired', 'removed', 'refund', 'problem'];
@@ -109,6 +131,8 @@ let localStorageWarning = '';
 let records = loadRecords();
 let activeOrderSource = 'shopee';
 let isSyncingRecords = false;
+let selectedRecordIds = new Set();
+let lastRenderedRecordIds = [];
 
 function padNumber(value) {
   return String(value).padStart(2, '0');
@@ -161,6 +185,22 @@ function formatDate(dateValue) {
   return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+function formatDateTime(dateValue) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+}
+
 function createId() {
   if (window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
@@ -180,6 +220,30 @@ function escapeHtml(value) {
 
 function normalizeSearch(value) {
   return String(value || '').toLowerCase().trim();
+}
+
+function normalizeUniqueEmail(value) {
+  return String(value || '').toLowerCase().trim();
+}
+
+function normalizeUniqueOrderNumber(value) {
+  return String(value || '').toUpperCase().trim();
+}
+
+function extractEmails(text) {
+  const matches = String(text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  const seen = new Set();
+
+  return matches
+    .map((email) => email.toLowerCase().trim())
+    .filter((email) => {
+      if (seen.has(email)) {
+        return false;
+      }
+
+      seen.add(email);
+      return true;
+    });
 }
 
 function getDefaultApiEndpoint() {
@@ -351,7 +415,7 @@ function normalizeStoredRecord(record) {
   const hasOrderReference = Boolean(record.orderNumber || record.order_number);
   const orderSource = rawOrderSource === 'whatsapp' || (!rawOrderSource && hasWhatsappReference && !hasOrderReference) ? 'whatsapp' : 'shopee';
 
-  return {
+  const normalizedRecord = {
     id: String(record.id || createId()),
     customerName: String(record.customerName ?? record.customer_name ?? '').trim(),
     activatedEmail: String(record.activatedEmail ?? record.activated_email ?? '').trim(),
@@ -367,6 +431,8 @@ function normalizeStoredRecord(record) {
     createdAt,
     updatedAt: String(record.updatedAt || record.updated_at || createdAt)
   };
+
+  return applyCompletenessStatus(normalizedRecord, status);
 }
 
 function getRecordUpdatedTime(record) {
@@ -438,10 +504,20 @@ function getCustomerApiErrorMessage(status) {
     401: 'API 401 unauthorized, cek Cloudflare Access atau ALLOW_UNAUTHENTICATED_API',
     403: 'API 403 forbidden, cek permission Access/route Worker',
     404: 'API 404, route /api/customer-records belum menuju Worker',
+    409: 'Data duplikat',
     500: 'API 500, cek D1 binding/schema dan Worker logs'
   };
 
   return messages[status] || `API ${status}`;
+}
+
+async function getApiErrorMessage(response) {
+  try {
+    const payload = await response.json();
+    return payload.error || payload.message || getCustomerApiErrorMessage(response.status);
+  } catch (error) {
+    return getCustomerApiErrorMessage(response.status);
+  }
 }
 
 async function fetchWithTimeout(url, options = {}) {
@@ -467,7 +543,9 @@ async function fetchApiRecords() {
   });
 
   if (!response.ok) {
-    throw new Error(getCustomerApiErrorMessage(response.status));
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
   }
 
   return parseRecordsResponse(await response.json());
@@ -484,7 +562,9 @@ async function pushRecordToApi(record) {
   });
 
   if (!response.ok) {
-    throw new Error(getCustomerApiErrorMessage(response.status));
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
@@ -501,7 +581,9 @@ async function pushRecordsToApi(nextRecords) {
   });
 
   if (!response.ok) {
-    throw new Error(getCustomerApiErrorMessage(response.status));
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
@@ -514,7 +596,9 @@ async function deleteRecordFromApi(id) {
   });
 
   if (!response.ok) {
-    throw new Error(getCustomerApiErrorMessage(response.status));
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
@@ -574,6 +658,279 @@ async function removeSingleRecordFromApi(id) {
     setSyncStatus('Hapus lokal saja', 'warning');
     syncStatus.title = error.message;
   }
+}
+
+function getLookupEmailSet() {
+  return new Set(extractEmails(emailLookupInput.value).map(normalizeUniqueEmail));
+}
+
+function setLookupEmails(emails, title = '') {
+  emailLookupInput.value = emails.join('\n');
+  lookupStatus.title = title;
+  renderRecords();
+}
+
+function clearLookup() {
+  emailLookupInput.value = '';
+  lookupScreenshotInput.value = '';
+  lookupStatus.title = '';
+  renderRecords();
+}
+
+function renderLookupState(filteredRecords = []) {
+  const emails = extractEmails(emailLookupInput.value);
+  const emailSet = new Set(emails.map(normalizeUniqueEmail));
+  const matchedEmails = new Set(
+    filteredRecords
+      .map((record) => normalizeUniqueEmail(record.activatedEmail))
+      .filter((email) => emailSet.has(email))
+  );
+
+  lookupStatus.textContent = emailSet.size ? `${matchedEmails.size}/${emailSet.size} email cocok` : '0 email';
+
+  if (!emails.length) {
+    lookupChips.innerHTML = '';
+    return;
+  }
+
+  const visibleEmails = emails.slice(0, 8);
+  const moreCount = Math.max(0, emails.length - visibleEmails.length);
+
+  lookupChips.innerHTML = [
+    ...visibleEmails.map((email) => `<span class="lookup-chip">${escapeHtml(email)}</span>`),
+    moreCount ? `<span class="lookup-chip is-more">+${moreCount}</span>` : ''
+  ].join('');
+}
+
+function renderResultSummary(filteredRecords) {
+  const total = filteredRecords.length;
+  const lookupCount = getLookupEmailSet().size;
+  const filters = [];
+
+  if (lookupCount) {
+    filters.push(`${lookupCount} email`);
+  }
+
+  if (searchInput.value.trim()) {
+    filters.push('search');
+  }
+
+  if (dateFilter.value) {
+    filters.push('expire');
+  }
+
+  if (statusFilter.value !== 'all') {
+    filters.push(statusLabels[statusFilter.value] || statusFilter.value);
+  }
+
+  resultCount.textContent = `${total} data`;
+  resultContext.textContent = filters.length ? filters.join(' / ') : 'Semua data';
+}
+
+function getRecordSortValue(record, sortBy) {
+  if (sortBy === 'expiryDate' || sortBy === 'startDate') {
+    const date = fromDateInput(record[sortBy]);
+    return date ? date.getTime() : null;
+  }
+
+  if (sortBy === 'updatedAt') {
+    const time = Date.parse(record.updatedAt || record.createdAt || '');
+    return Number.isNaN(time) ? null : time;
+  }
+
+  if (sortBy === 'status') {
+    return getRecordStatusSummary(record);
+  }
+
+  return normalizeSearch(record[sortBy]);
+}
+
+function sortFilteredRecords(recordList) {
+  const sortBy = sortBySelect.value || 'updatedAt';
+  const direction = sortDirectionSelect.value === 'asc' ? 1 : -1;
+
+  return [...recordList].sort((first, second) => {
+    const firstValue = getRecordSortValue(first, sortBy);
+    const secondValue = getRecordSortValue(second, sortBy);
+
+    if (firstValue === secondValue) {
+      return getRecordUpdatedTime(second) - getRecordUpdatedTime(first);
+    }
+
+    if (firstValue === null || firstValue === '') {
+      return 1;
+    }
+
+    if (secondValue === null || secondValue === '') {
+      return -1;
+    }
+
+    return firstValue > secondValue ? direction : -direction;
+  });
+}
+
+function getSelectedRecords() {
+  return records.filter((record) => selectedRecordIds.has(record.id));
+}
+
+function pruneSelection() {
+  const existingIds = new Set(records.map((record) => record.id));
+  selectedRecordIds = new Set([...selectedRecordIds].filter((id) => existingIds.has(id)));
+}
+
+function renderBulkState() {
+  pruneSelection();
+
+  const selectedRecords = getSelectedRecords();
+  const visibleSelectedCount = lastRenderedRecordIds.filter((id) => selectedRecordIds.has(id)).length;
+  const hasVisibleRecords = lastRenderedRecordIds.length > 0;
+  const hasSelection = selectedRecords.length > 0;
+
+  selectedCount.textContent = `${selectedRecords.length} dipilih`;
+  bulkToolbar.classList.toggle('has-selection', hasSelection);
+  selectVisibleRecords.checked = hasVisibleRecords && visibleSelectedCount === lastRenderedRecordIds.length;
+  selectVisibleRecords.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < lastRenderedRecordIds.length;
+  selectVisibleRecords.disabled = !hasVisibleRecords;
+  bulkApplyStatusBtn.disabled = !hasSelection;
+  bulkExportCsvBtn.disabled = !hasSelection;
+  bulkDeleteBtn.disabled = !hasSelection;
+  clearSelectionBtn.disabled = !hasSelection;
+}
+
+function clearSelection() {
+  selectedRecordIds.clear();
+  renderRecords();
+}
+
+function toggleVisibleSelection(checked) {
+  lastRenderedRecordIds.forEach((id) => {
+    if (checked) {
+      selectedRecordIds.add(id);
+    } else {
+      selectedRecordIds.delete(id);
+    }
+  });
+
+  renderRecords();
+}
+
+async function bulkApplyStatus() {
+  const nextStatus = bulkStatusSelect.value;
+  const selectedRecords = getSelectedRecords();
+
+  if (!nextStatus || !statusLabels[nextStatus] || !selectedRecords.length) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const updatedRecords = [];
+
+  records = records.map((record) => {
+    if (!selectedRecordIds.has(record.id)) {
+      return record;
+    }
+
+    const updatedRecord = applyCompletenessStatus({
+      ...record,
+      status: nextStatus,
+      updatedAt: now
+    }, nextStatus);
+    updatedRecords.push(updatedRecord);
+    return updatedRecord;
+  });
+
+  saveRecords();
+  renderRecords();
+
+  try {
+    await pushRecordsToApi(updatedRecords);
+    setSyncStatus(`${updatedRecords.length} status tersimpan`, 'success');
+    syncStatus.title = 'Update status bulk tersimpan di Cloudflare D1.';
+  } catch (error) {
+    setSyncStatus('Bulk status lokal', 'warning');
+    syncStatus.title = error.message;
+  }
+}
+
+function getRecordsCsv(recordList) {
+  const header = [
+    'Nama/User',
+    'Email Aktivasi',
+    'Sumber Order',
+    'WhatsApp',
+    'No Pesanan',
+    'Produk',
+    'Durasi Hari',
+    'Tanggal Mulai',
+    'Tanggal Expire',
+    'Status',
+    'Last Update',
+    'Catatan'
+  ];
+  const rows = recordList.map((record) => [
+    record.customerName,
+    record.activatedEmail,
+    orderSourceLabels[getRecordOrderSource(record)] || '',
+    record.whatsappNumber,
+    record.orderNumber,
+    record.productName,
+    record.durationDays,
+    record.startDate,
+    record.expiryDate,
+    getRecordStatusSummary(record),
+    record.updatedAt,
+    record.notes
+  ]);
+
+  return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
+}
+
+function exportSelectedCsv() {
+  const selectedRecords = getSelectedRecords();
+
+  if (!selectedRecords.length) {
+    return;
+  }
+
+  downloadFile(`catsoft-customer-selected-${toDateInputValue(new Date())}.csv`, getRecordsCsv(selectedRecords), 'text/csv;charset=utf-8');
+}
+
+async function bulkDeleteSelected() {
+  const idsToDelete = new Set(selectedRecordIds);
+  const selectedTotal = idsToDelete.size;
+
+  if (!selectedTotal || !window.confirm(`Hapus ${selectedTotal} data terpilih?`)) {
+    return;
+  }
+
+  records = records.filter((record) => !idsToDelete.has(record.id));
+  selectedRecordIds.clear();
+  saveRecords();
+  renderRecords();
+
+  try {
+    const results = await Promise.allSettled([...idsToDelete].map((id) => deleteRecordFromApi(id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (failedCount) {
+      throw new Error(`${failedCount} data gagal dihapus dari web.`);
+    }
+
+    setSyncStatus(`${selectedTotal} data terhapus`, 'success');
+    syncStatus.title = 'Hapus bulk sudah dikirim ke Cloudflare D1.';
+  } catch (error) {
+    setSyncStatus('Hapus bulk lokal', 'warning');
+    syncStatus.title = error.message;
+  }
+}
+
+function debounce(callback, delay = 350) {
+  let timerId;
+
+  return (...args) => {
+    window.clearTimeout(timerId);
+    timerId = window.setTimeout(() => callback(...args), delay);
+  };
 }
 
 function getDurationLabel(days) {
@@ -637,6 +994,77 @@ function updateStatusByDate() {
   }
 }
 
+function getIncompleteFields(record) {
+  const missingFields = [];
+
+  if (!record.activatedEmail) {
+    missingFields.push('email aktivasi');
+  }
+
+  if (!record.orderNumber && !record.whatsappNumber) {
+    missingFields.push('nomor pesanan/WA');
+  }
+
+  if (!record.productName) {
+    missingFields.push('produk');
+  }
+
+  if (!record.startDate) {
+    missingFields.push('tanggal mulai');
+  }
+
+  if (!record.expiryDate) {
+    missingFields.push('tanggal expire');
+  }
+
+  return missingFields;
+}
+
+function isRecordIncomplete(record) {
+  return getIncompleteFields(record).length > 0;
+}
+
+function getStoredStatus(record) {
+  const status = record.status || 'active';
+  return statusLabels[status] && status !== 'incomplete' ? status : 'active';
+}
+
+function getLifecycleStatus(record) {
+  const status = getStoredStatus(record);
+
+  if (status === 'removed' || status === 'refund' || status === 'problem') {
+    return status;
+  }
+
+  const expiryDate = fromDateInput(record.expiryDate);
+
+  if (status === 'expired' || (expiryDate && expiryDate < todayDate())) {
+    return 'expired';
+  }
+
+  return 'active';
+}
+
+function getRecordStatusSummary(record) {
+  const labels = [statusLabels[getLifecycleStatus(record)] || 'Aktif'];
+
+  if (isRecordIncomplete(record)) {
+    labels.push(statusLabels.incomplete);
+  }
+
+  return labels.join(' + ');
+}
+
+function applyCompletenessStatus(record, previousStatus = '') {
+  const fallbackStatus = previousStatus && previousStatus !== 'incomplete' ? previousStatus : 'active';
+  const status = record.status === 'incomplete' ? fallbackStatus : record.status;
+
+  return {
+    ...record,
+    status: statusLabels[status] && status !== 'incomplete' ? status : 'active'
+  };
+}
+
 function getFormRecord() {
   updateStatusByDate();
   syncOrderReferenceInput();
@@ -645,7 +1073,8 @@ function getFormRecord() {
   const orderReference = orderReferenceInput.value.trim();
   const productName = productNameInput.value.trim();
 
-  return {
+  const previousRecord = records.find((record) => record.id === recordIdInput.value) || {};
+  const formRecord = {
     id: recordIdInput.value || createId(),
     customerName: customerNameInput.value.trim(),
     activatedEmail: activatedEmailInput.value.trim(),
@@ -659,8 +1088,10 @@ function getFormRecord() {
     status: subscriptionStatusSelect.value,
     notes: adminNotesInput.value.trim(),
     updatedAt: new Date().toISOString(),
-    createdAt: recordIdInput.value ? (records.find((record) => record.id === recordIdInput.value) || {}).createdAt || new Date().toISOString() : new Date().toISOString()
+    createdAt: recordIdInput.value ? previousRecord.createdAt || new Date().toISOString() : new Date().toISOString()
   };
+
+  return applyCompletenessStatus(formRecord, previousRecord.status);
 }
 
 function fillForm(record) {
@@ -675,7 +1106,7 @@ function fillForm(record) {
   syncDurationPreset();
   startDateInput.value = record.startDate || '';
   expiryDateInput.value = record.expiryDate || '';
-  subscriptionStatusSelect.value = record.status || 'active';
+  subscriptionStatusSelect.value = getStoredStatus(record);
   adminNotesInput.value = record.notes || '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -696,7 +1127,37 @@ function resetForm() {
   ocrStatus.textContent = 'Belum ada screenshot dipilih.';
 }
 
-function submitRecord(event) {
+function findDuplicateRecord(recordToCheck, recordList = records) {
+  const activatedEmail = normalizeUniqueEmail(recordToCheck.activatedEmail);
+  const orderNumber = normalizeUniqueOrderNumber(recordToCheck.orderNumber);
+
+  return recordList.find((record) => {
+    if (record.id === recordToCheck.id) {
+      return false;
+    }
+
+    if (activatedEmail && normalizeUniqueEmail(record.activatedEmail) === activatedEmail) {
+      return true;
+    }
+
+    return orderNumber && normalizeUniqueOrderNumber(record.orderNumber) === orderNumber;
+  });
+}
+
+function getDuplicateMessage(recordToCheck, duplicateRecord) {
+  if (!duplicateRecord) {
+    return '';
+  }
+
+  if (recordToCheck.activatedEmail &&
+    normalizeUniqueEmail(recordToCheck.activatedEmail) === normalizeUniqueEmail(duplicateRecord.activatedEmail)) {
+    return `Email aktivasi ${recordToCheck.activatedEmail} sudah ada di database.`;
+  }
+
+  return `Nomor pesanan ${recordToCheck.orderNumber} sudah ada di database.`;
+}
+
+async function submitRecord(event) {
   event.preventDefault();
 
   if (!productNameInput.value.trim() || !startDateInput.value || !expiryDateInput.value) {
@@ -705,9 +1166,46 @@ function submitRecord(event) {
   }
 
   const nextRecord = getFormRecord();
-  const existingIndex = records.findIndex((record) => record.id === nextRecord.id ||
-    (nextRecord.orderNumber && record.orderNumber === nextRecord.orderNumber) ||
-    (nextRecord.whatsappNumber && record.whatsappNumber === nextRecord.whatsappNumber && record.productName === nextRecord.productName));
+  const duplicateRecord = findDuplicateRecord(nextRecord);
+
+  if (duplicateRecord) {
+    ocrStatus.textContent = getDuplicateMessage(nextRecord, duplicateRecord);
+
+    if (nextRecord.activatedEmail &&
+      normalizeUniqueEmail(nextRecord.activatedEmail) === normalizeUniqueEmail(duplicateRecord.activatedEmail)) {
+      activatedEmailInput.focus();
+    } else {
+      orderReferenceInput.focus();
+    }
+
+    return;
+  }
+
+  let savedToApi = false;
+
+  try {
+    await pushRecordToApi(nextRecord);
+    savedToApi = true;
+  } catch (error) {
+    if (error.status === 409) {
+      ocrStatus.textContent = error.message;
+      setSyncStatus('Data duplikat', 'warning');
+      syncStatus.title = error.message;
+
+      if (normalizeUniqueEmail(nextRecord.activatedEmail) && error.message.toLowerCase().includes('email')) {
+        activatedEmailInput.focus();
+      } else {
+        orderReferenceInput.focus();
+      }
+
+      return;
+    }
+
+    setSyncStatus('Tersimpan lokal', 'warning');
+    syncStatus.title = error.message;
+  }
+
+  const existingIndex = records.findIndex((record) => record.id === nextRecord.id);
 
   if (existingIndex >= 0) {
     nextRecord.id = records[existingIndex].id;
@@ -720,15 +1218,20 @@ function submitRecord(event) {
   records = sortRecords(records);
   saveRecords();
   renderRecords();
-  syncSingleRecord(nextRecord);
   resetForm();
   ocrStatus.textContent = 'Data customer berhasil disimpan.';
+
+  if (savedToApi) {
+    setSyncStatus('Tersimpan web', 'success');
+    syncStatus.title = 'Data tersimpan di Cloudflare D1.';
+  }
 }
 
 function getFilteredRecords() {
   const term = normalizeSearch(searchInput.value);
   const statusValue = statusFilter.value;
   const dateValue = dateFilter.value;
+  const lookupEmails = getLookupEmailSet();
   return records.filter((record) => {
     const haystack = normalizeSearch([
       record.customerName,
@@ -740,7 +1243,9 @@ function getFilteredRecords() {
     ].join(' '));
     const expiryDate = fromDateInput(record.expiryDate);
     const matchesSearch = !term || haystack.includes(term);
-    const matchesStatus = statusValue === 'all' || record.status === statusValue;
+    const matchesLookup = !lookupEmails.size || lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
+    const matchesStatus = statusValue === 'all' ||
+      (statusValue === 'incomplete' ? isRecordIncomplete(record) : getLifecycleStatus(record) === statusValue);
     let matchesDate = true;
 
     // Jika user memilih tanggal, filter yang expiryDate-nya sama persis
@@ -748,15 +1253,17 @@ function getFilteredRecords() {
       matchesDate = isSameDate(expiryDate, fromDateInput(dateValue));
     }
 
-    return matchesSearch && matchesStatus && matchesDate;
+    return matchesSearch && matchesLookup && matchesStatus && matchesDate;
   });
 }
 
 function renderStats() {
   const today = todayDate();
   totalCount.textContent = records.length;
-  activeCount.textContent = records.filter((record) => record.status === 'active').length;
+  activeCount.textContent = records.filter((record) => getLifecycleStatus(record) === 'active').length;
+  expiredCount.textContent = records.filter((record) => getLifecycleStatus(record) === 'expired').length;
   expireTodayCount.textContent = records.filter((record) => isSameDate(fromDateInput(record.expiryDate), today)).length;
+  incompleteCount.textContent = records.filter(isRecordIncomplete).length;
 }
 
 function applyStatsFilter(mode) {
@@ -766,9 +1273,15 @@ function applyStatsFilter(mode) {
   } else if (mode === 'active') {
     statusFilter.value = 'active';
     dateFilter.value = '';
+  } else if (mode === 'expired') {
+    statusFilter.value = 'expired';
+    dateFilter.value = '';
   } else if (mode === 'today') {
     statusFilter.value = 'all';
     dateFilter.value = toDateInputValue(todayDate());
+  } else if (mode === 'incomplete') {
+    statusFilter.value = 'incomplete';
+    dateFilter.value = '';
   }
 
   renderRecords();
@@ -777,7 +1290,12 @@ function applyStatsFilter(mode) {
 function renderRecords() {
   renderStats();
 
-  const filteredRecords = getFilteredRecords();
+  const filteredRecords = sortFilteredRecords(getFilteredRecords());
+  const lookupEmails = getLookupEmailSet();
+  lastRenderedRecordIds = filteredRecords.map((record) => record.id);
+  renderLookupState(filteredRecords);
+  renderResultSummary(filteredRecords);
+  renderBulkState();
 
   if (!filteredRecords.length) {
     recordsList.innerHTML = '<p class="empty-state">Tidak ada data yang cocok.</p>';
@@ -785,21 +1303,33 @@ function renderRecords() {
   }
 
   recordsList.innerHTML = filteredRecords.map((record) => {
-    const status = record.status || 'active';
+    const status = getLifecycleStatus(record);
     const orderSource = getRecordOrderSource(record);
     const orderReference = getOrderReferenceValue(record);
     const orderReferenceTitle = orderSource === 'shopee' ? 'No. pesanan' : 'WA';
     const whatsapp = normalizeWhatsapp(record.whatsappNumber);
     const whatsappLink = whatsapp ? `https://wa.me/${whatsapp}` : '';
+    const isLookupMatch = lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
+    const missingFields = getIncompleteFields(record);
+    const isSelected = selectedRecordIds.has(record.id);
 
     return `
-      <article class="record-card status-${escapeHtml(status)}" data-id="${escapeHtml(record.id)}">
+      <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''}" data-id="${escapeHtml(record.id)}">
         <div class="record-top">
+          <label class="record-select" aria-label="Pilih data customer">
+            <input type="checkbox" data-select-record="${escapeHtml(record.id)}" ${isSelected ? 'checked' : ''} />
+          </label>
           <div class="record-title">
-            <h3>${escapeHtml(record.productName || '-')}</h3>
+            <div class="record-title-row">
+              <h3>${escapeHtml(record.productName || '-')}</h3>
+              ${isLookupMatch ? '<span class="match-pill">Email match</span>' : ''}
+            </div>
             <p>${escapeHtml(record.customerName || record.activatedEmail || record.whatsappNumber || 'Customer')}</p>
           </div>
-          <span class="status-badge ${escapeHtml(status)}">${escapeHtml(statusLabels[status] || status)}</span>
+          <div class="status-badges">
+            <span class="status-badge ${escapeHtml(status)}">${escapeHtml(statusLabels[status] || status)}</span>
+            ${missingFields.length ? `<span class="status-badge incomplete">${escapeHtml(statusLabels.incomplete)}</span>` : ''}
+          </div>
         </div>
         <div class="record-meta">
           <div><span>Expire</span>${escapeHtml(formatDate(record.expiryDate))}</div>
@@ -807,6 +1337,8 @@ function renderRecords() {
           <div><span>Durasi</span>${escapeHtml(getDurationLabel(record.durationDays))}</div>
           <div><span>Email</span>${escapeHtml(record.activatedEmail || '-')}</div>
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
+          <div><span>Last update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
+          ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
         </div>
         <div class="record-actions">
           ${renderStatusMenu(status)}
@@ -1004,8 +1536,7 @@ function findCustomerName(text, productName) {
 }
 
 function findEmail(text) {
-  const match = String(text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  return match ? match[0] : '';
+  return extractEmails(text)[0] || '';
 }
 
 function findWhatsapp(text) {
@@ -1056,7 +1587,8 @@ function applyOcrText(rawText) {
     parseSlashDate(compactText);
   const productName = findProductName(normalizedText);
   const customerName = findCustomerName(normalizedText, productName);
-  const email = findEmail(compactText);
+  const detectedEmails = extractEmails(compactText);
+  const email = detectedEmails[0] || '';
   const whatsapp = findWhatsapp(normalizedText);
   const orderNumber = findOrderNumber(compactText);
 
@@ -1078,6 +1610,10 @@ function applyOcrText(rawText) {
 
   if (email) {
     activatedEmailInput.value = email;
+  }
+
+  if (detectedEmails.length) {
+    setLookupEmails(detectedEmails, `${detectedEmails.length} email dari OCR input.`);
   }
 
   if (whatsapp) {
@@ -1132,6 +1668,177 @@ async function readScreenshot(file) {
   }
 }
 
+async function readLookupScreenshot(file) {
+  if (!file) {
+    return;
+  }
+
+  if (!window.Tesseract) {
+    lookupStatus.textContent = 'OCR belum tersedia';
+    return;
+  }
+
+  lookupStatus.textContent = 'Membaca screenshot...';
+
+  try {
+    const result = await Tesseract.recognize(file, 'eng+ind');
+    const emails = extractEmails(result.data.text || '');
+
+    if (!emails.length) {
+      lookupStatus.textContent = '0 email';
+      lookupStatus.title = 'Email tidak ditemukan dari screenshot.';
+      renderRecords();
+      return;
+    }
+
+    setLookupEmails(emails, `${emails.length} email dari screenshot.`);
+  } catch (error) {
+    lookupStatus.textContent = 'OCR gagal';
+    lookupStatus.title = error.message;
+  }
+}
+
+function getShopeeCell(row, labels) {
+  const entries = Object.entries(row);
+  const normalizedLabels = labels.map(normalizeSearch);
+  const match = entries.find(([key]) => normalizedLabels.includes(normalizeSearch(key)));
+  return match ? String(match[1] || '').trim() : '';
+}
+
+function parseShopeeDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  const text = String(value).trim();
+  const match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4] || 0), Number(match[5] || 0));
+  }
+
+  return parseIndonesianDate(text) || parseSlashDate(text);
+}
+
+function isShopeeCanceledRow(row) {
+  const orderStatus = getShopeeCell(row, ['Status Pesanan']);
+  const cancelReason = getShopeeCell(row, ['Alasan Pembatalan']);
+  const cancelReturnStatus = getShopeeCell(row, ['Status Pembatalan/ Pengembalian', 'Status Pembatalan/Pengembalian']);
+  const haystack = normalizeSearch(`${orderStatus} ${cancelReason} ${cancelReturnStatus}`);
+
+  return Boolean(cancelReason) || /dibatalkan|pembatalan|batal|cancel|cancelled|canceled/.test(haystack);
+}
+
+function buildShopeeRecord(row, existingRecord = {}) {
+  const now = new Date().toISOString();
+  const orderNumber = getShopeeCell(row, ['No. Pesanan', 'Nomor Pesanan', 'Order ID']);
+  const productText = getShopeeCell(row, ['Nama Produk', 'Produk']);
+  const variationText = getShopeeCell(row, ['Nama Variasi', 'Variasi']);
+  const username = getShopeeCell(row, ['Username (Pembeli)', 'Username Pembeli']);
+  const receiverName = getShopeeCell(row, ['Nama Penerima']);
+  const phone = getShopeeCell(row, ['No. Telepon', 'Nomor Telepon', 'No Telepon']).replace(/[^\d+]/g, '');
+  const orderStatus = getShopeeCell(row, ['Status Pesanan']);
+  const startDate = parseShopeeDate(
+    getShopeeCell(row, ['Waktu Pembayaran Dilakukan']) ||
+    getShopeeCell(row, ['Waktu Pesanan Dibuat']) ||
+    getShopeeCell(row, ['Waktu Pengiriman Diatur'])
+  );
+  const durationDays = getDurationFromPackageText(`${variationText} ${productText}`);
+  const startDateValue = startDate ? toDateInputValue(startDate) : existingRecord.startDate || '';
+  const expiryDateValue = startDate ? toDateInputValue(addDays(startDate, durationDays)) : existingRecord.expiryDate || '';
+  const noteParts = [
+    orderStatus ? `Shopee: ${orderStatus}` : '',
+    receiverName ? `Penerima: ${receiverName}` : ''
+  ].filter(Boolean);
+  const nextRecord = {
+    id: existingRecord.id || createId(),
+    customerName: username || existingRecord.customerName || receiverName,
+    activatedEmail: existingRecord.activatedEmail || '',
+    whatsappNumber: phone || existingRecord.whatsappNumber || '',
+    orderNumber: orderNumber || existingRecord.orderNumber || '',
+    orderSource: 'shopee',
+    productName: simplifyProductName(productText) || existingRecord.productName || productText,
+    durationDays: durationDays || existingRecord.durationDays || 30,
+    startDate: startDateValue,
+    expiryDate: expiryDateValue,
+    status: getStoredStatus(existingRecord),
+    notes: existingRecord.notes || noteParts.join(' | '),
+    createdAt: existingRecord.createdAt || now,
+    updatedAt: now
+  };
+
+  return applyCompletenessStatus(nextRecord, existingRecord.status);
+}
+
+async function importShopeeXlsx(file) {
+  if (!file) {
+    return;
+  }
+
+  if (!window.XLSX) {
+    ocrStatus.textContent = 'Reader XLSX belum tersedia. Cek koneksi CDN SheetJS.';
+    return;
+  }
+
+  try {
+    ocrStatus.textContent = 'Membaca file Shopee XLSX...';
+
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+    let createdCount = 0;
+    let updatedCount = 0;
+    let incompleteRows = 0;
+    let skippedRows = 0;
+    let canceledRows = 0;
+
+    rows.forEach((row) => {
+      if (isShopeeCanceledRow(row)) {
+        canceledRows += 1;
+        return;
+      }
+
+      const orderNumber = getShopeeCell(row, ['No. Pesanan', 'Nomor Pesanan', 'Order ID']);
+
+      if (!orderNumber) {
+        skippedRows += 1;
+        return;
+      }
+
+      const existingIndex = records.findIndex((record) => normalizeUniqueOrderNumber(record.orderNumber) === normalizeUniqueOrderNumber(orderNumber));
+      const existingRecord = existingIndex >= 0 ? records[existingIndex] : {};
+      const nextRecord = buildShopeeRecord(row, existingRecord);
+
+      if (isRecordIncomplete(nextRecord)) {
+        incompleteRows += 1;
+      }
+
+      if (existingIndex >= 0) {
+        records[existingIndex] = nextRecord;
+        updatedCount += 1;
+      } else {
+        records.push(nextRecord);
+        createdCount += 1;
+      }
+    });
+
+    records = sortRecords(records);
+    saveRecords();
+    renderRecords();
+    syncRecordsWithApi({ silent: true });
+    ocrStatus.textContent = `XLSX Shopee diproses. ${updatedCount} update, ${createdCount} baru, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
+  } catch (error) {
+    ocrStatus.textContent = 'Import XLSX Shopee gagal.';
+  } finally {
+    importShopeeXlsxInput.value = '';
+  }
+}
+
 function downloadFile(filename, content, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -1149,34 +1856,7 @@ function csvCell(value) {
 }
 
 function exportCsv() {
-  const header = [
-    'Nama/User',
-    'Email Aktivasi',
-    'Sumber Order',
-    'WhatsApp',
-    'No Pesanan',
-    'Produk',
-    'Durasi Hari',
-    'Tanggal Mulai',
-    'Tanggal Expire',
-    'Status',
-    'Catatan'
-  ];
-  const rows = records.map((record) => [
-    record.customerName,
-    record.activatedEmail,
-    orderSourceLabels[getRecordOrderSource(record)] || '',
-    record.whatsappNumber,
-    record.orderNumber,
-    record.productName,
-    record.durationDays,
-    record.startDate,
-    record.expiryDate,
-    statusLabels[record.status] || record.status,
-    record.notes
-  ]);
-  const csv = [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
-  downloadFile(`catsoft-customer-database-${toDateInputValue(new Date())}.csv`, csv, 'text/csv;charset=utf-8');
+  downloadFile(`catsoft-customer-database-${toDateInputValue(new Date())}.csv`, getRecordsCsv(records), 'text/csv;charset=utf-8');
 }
 
 function exportJson() {
@@ -1198,17 +1878,29 @@ function importJson(file) {
         throw new Error('Invalid JSON');
       }
 
+      let skippedDuplicates = 0;
+
       importedRecords.forEach((record) => {
-        const normalizedRecord = {
+        const normalizedRecord = normalizeStoredRecord({
           ...record,
           id: record.id || createId(),
           orderSource: record.orderSource || getRecordOrderSource(record),
           updatedAt: record.updatedAt || new Date().toISOString(),
           createdAt: record.createdAt || new Date().toISOString()
-        };
-        const existingIndex = records.findIndex((item) => item.id === normalizedRecord.id ||
-          (normalizedRecord.orderNumber && item.orderNumber === normalizedRecord.orderNumber) ||
-          (normalizedRecord.whatsappNumber && item.whatsappNumber === normalizedRecord.whatsappNumber && item.productName === normalizedRecord.productName));
+        });
+
+        if (!normalizedRecord) {
+          return;
+        }
+
+        const duplicateRecord = findDuplicateRecord(normalizedRecord);
+
+        if (duplicateRecord) {
+          skippedDuplicates += 1;
+          return;
+        }
+
+        const existingIndex = records.findIndex((item) => item.id === normalizedRecord.id);
 
         if (existingIndex >= 0) {
           records[existingIndex] = { ...records[existingIndex], ...normalizedRecord };
@@ -1220,7 +1912,7 @@ function importJson(file) {
       saveRecords();
       renderRecords();
       syncRecordsWithApi({ silent: true });
-      ocrStatus.textContent = 'Import JSON berhasil.';
+      ocrStatus.textContent = skippedDuplicates ? `Import JSON berhasil. ${skippedDuplicates} data duplikat dilewati.` : 'Import JSON berhasil.';
     } catch (error) {
       ocrStatus.textContent = 'Import JSON gagal.';
     } finally {
@@ -1237,6 +1929,18 @@ clearBtn.addEventListener('click', resetForm);
 screenshotInput.addEventListener('change', (event) => {
   readScreenshot(event.target.files[0]);
 });
+lookupScreenshotInput.addEventListener('change', (event) => {
+  readLookupScreenshot(event.target.files[0]);
+});
+emailLookupInput.addEventListener('input', renderRecords);
+clearLookupBtn.addEventListener('click', clearLookup);
+activatedEmailInput.addEventListener('input', debounce(() => {
+  const emails = extractEmails(activatedEmailInput.value);
+
+  if (emails.length) {
+    setLookupEmails(emails, 'Email input dicari.');
+  }
+}));
 packagePresetSelect.addEventListener('change', syncPackagePreset);
 durationDaysInput.addEventListener('input', () => {
   syncDurationPreset();
@@ -1250,12 +1954,41 @@ searchInput.addEventListener('input', renderRecords);
 searchBtn.addEventListener('click', renderRecords);
 dateFilter.addEventListener('change', renderRecords);
 statusFilter.addEventListener('change', renderRecords);
+sortBySelect.addEventListener('change', renderRecords);
+sortDirectionSelect.addEventListener('change', renderRecords);
 exportCsvBtn.addEventListener('click', exportCsv);
 exportJsonBtn.addEventListener('click', exportJson);
 importJsonBtn.addEventListener('click', () => importJsonInput.click());
+importShopeeXlsxBtn.addEventListener('click', () => importShopeeXlsxInput.click());
 syncRecordsBtn.addEventListener('click', () => syncRecordsWithApi());
 importJsonInput.addEventListener('change', (event) => {
   importJson(event.target.files[0]);
+});
+importShopeeXlsxInput.addEventListener('change', (event) => {
+  importShopeeXlsx(event.target.files[0]);
+});
+selectVisibleRecords.addEventListener('change', (event) => {
+  toggleVisibleSelection(event.target.checked);
+});
+bulkApplyStatusBtn.addEventListener('click', bulkApplyStatus);
+bulkExportCsvBtn.addEventListener('click', exportSelectedCsv);
+bulkDeleteBtn.addEventListener('click', bulkDeleteSelected);
+clearSelectionBtn.addEventListener('click', clearSelection);
+
+recordsList.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('[data-select-record]');
+
+  if (!checkbox) {
+    return;
+  }
+
+  if (checkbox.checked) {
+    selectedRecordIds.add(checkbox.dataset.selectRecord);
+  } else {
+    selectedRecordIds.delete(checkbox.dataset.selectRecord);
+  }
+
+  renderRecords();
 });
 
 recordsList.addEventListener('click', (event) => {
@@ -1316,6 +2049,7 @@ recordsList.addEventListener('click', (event) => {
 
   if (action === 'delete' && window.confirm('Hapus data customer ini?')) {
     records = records.filter((item) => item.id !== record.id);
+    selectedRecordIds.delete(record.id);
     saveRecords();
     renderRecords();
     removeSingleRecordFromApi(record.id);
@@ -1338,7 +2072,9 @@ document.addEventListener('keydown', (event) => {
 const statCards = [
   { element: totalCount.closest('.stat-card'), mode: 'all' },
   { element: activeCount.closest('.stat-card'), mode: 'active' },
-  { element: expireTodayCount.closest('.stat-card'), mode: 'today' }
+  { element: expiredCount.closest('.stat-card'), mode: 'expired' },
+  { element: expireTodayCount.closest('.stat-card'), mode: 'today' },
+  { element: incompleteCount.closest('.stat-card'), mode: 'incomplete' }
 ];
 
 statCards.forEach((card) => {

@@ -1,4 +1,9 @@
+const productionApiEndpoint = 'https://catsoft.store/api/customer-records';
+const apiEndpoint = window.CATSOFT_CUSTOMER_DATABASE_API || getDefaultApiEndpoint();
+const apiTimeoutMs = 8000;
+const customerFetchLimit = 500;
 const storageKey = 'catsoftCustomerDatabaseRecords';
+const backupStorageKey = `${storageKey}:backup`;
 
 const form = document.getElementById('customerForm');
 const resetFormBtn = document.getElementById('resetFormBtn');
@@ -36,6 +41,8 @@ const exportCsvBtn = document.getElementById('exportCsvBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const importJsonBtn = document.getElementById('importJsonBtn');
 const importJsonInput = document.getElementById('importJsonInput');
+const syncRecordsBtn = document.getElementById('syncRecordsBtn');
+const syncStatus = document.getElementById('syncStatus');
 const recordsList = document.getElementById('recordsList');
 
 const monthMap = {
@@ -98,8 +105,10 @@ const orderSourceLabels = {
   whatsapp: 'WhatsApp'
 };
 
+let localStorageWarning = '';
 let records = loadRecords();
 let activeOrderSource = 'shopee';
+let isSyncingRecords = false;
 
 function padNumber(value) {
   return String(value).padStart(2, '0');
@@ -171,6 +180,17 @@ function escapeHtml(value) {
 
 function normalizeSearch(value) {
   return String(value || '').toLowerCase().trim();
+}
+
+function getDefaultApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (isLocalPage || hostname !== 'catsoft.store') {
+    return productionApiEndpoint;
+  }
+
+  return '/api/customer-records';
 }
 
 function getSelectedOrderSource() {
@@ -276,14 +296,284 @@ function toggleStatusMenu(menu) {
 function loadRecords() {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    localStorageWarning = '';
+    return normalizeRecordList(Array.isArray(parsed) ? parsed : []);
   } catch (error) {
+    localStorageWarning = 'Backup utama rusak, memakai backup terakhir.';
+    return loadBackupRecords();
+  }
+}
+
+function loadBackupRecords() {
+  try {
+    const parsedBackup = JSON.parse(localStorage.getItem(backupStorageKey) || '[]');
+    const backupRecords = Array.isArray(parsedBackup) ? parsedBackup : parsedBackup.records;
+    return normalizeRecordList(Array.isArray(backupRecords) ? backupRecords : []);
+  } catch (error) {
+    localStorageWarning = 'Backup lokal tidak terbaca.';
     return [];
   }
 }
 
-function saveRecords() {
-  localStorage.setItem(storageKey, JSON.stringify(records));
+function saveRecords(nextRecords = records) {
+  try {
+    const previousRecords = localStorage.getItem(storageKey);
+
+    if (previousRecords) {
+      localStorage.setItem(backupStorageKey, previousRecords);
+    }
+
+    localStorage.setItem(storageKey, JSON.stringify(nextRecords));
+    return true;
+  } catch (error) {
+    setSyncStatus('Backup lokal gagal', 'warning');
+    syncStatus.title = error.message;
+    return false;
+  }
+}
+
+function normalizeRecordList(recordList) {
+  return recordList
+    .map(normalizeStoredRecord)
+    .filter(Boolean);
+}
+
+function normalizeStoredRecord(record) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const rawDuration = Number(record.durationDays ?? record.duration_days);
+  const createdAt = String(record.createdAt || record.created_at || new Date().toISOString());
+  const status = String(record.status || 'active');
+  const rawOrderSource = record.orderSource || record.order_source;
+  const hasWhatsappReference = Boolean(record.whatsappNumber || record.whatsapp_number);
+  const hasOrderReference = Boolean(record.orderNumber || record.order_number);
+  const orderSource = rawOrderSource === 'whatsapp' || (!rawOrderSource && hasWhatsappReference && !hasOrderReference) ? 'whatsapp' : 'shopee';
+
+  return {
+    id: String(record.id || createId()),
+    customerName: String(record.customerName ?? record.customer_name ?? '').trim(),
+    activatedEmail: String(record.activatedEmail ?? record.activated_email ?? '').trim(),
+    whatsappNumber: String(record.whatsappNumber ?? record.whatsapp_number ?? '').trim(),
+    orderNumber: String(record.orderNumber ?? record.order_number ?? '').trim(),
+    orderSource,
+    productName: String(record.productName ?? record.product_name ?? '').trim(),
+    durationDays: Number.isFinite(rawDuration) && rawDuration > 0 ? Math.trunc(rawDuration) : 30,
+    startDate: String(record.startDate ?? record.start_date ?? '').slice(0, 10),
+    expiryDate: String(record.expiryDate ?? record.expiry_date ?? '').slice(0, 10),
+    status: statusLabels[status] ? status : 'active',
+    notes: String(record.notes ?? '').trim(),
+    createdAt,
+    updatedAt: String(record.updatedAt || record.updated_at || createdAt)
+  };
+}
+
+function getRecordUpdatedTime(record) {
+  const updatedAt = Date.parse(record.updatedAt || record.createdAt || '');
+  return Number.isNaN(updatedAt) ? 0 : updatedAt;
+}
+
+function sortRecords(nextRecords) {
+  return [...nextRecords].sort((first, second) => getRecordUpdatedTime(second) - getRecordUpdatedTime(first));
+}
+
+function mergeRecordSets(...recordSets) {
+  const merged = new Map();
+
+  recordSets.flat().forEach((record) => {
+    const normalizedRecord = normalizeStoredRecord(record);
+
+    if (!normalizedRecord) {
+      return;
+    }
+
+    const currentRecord = merged.get(normalizedRecord.id);
+
+    if (!currentRecord || getRecordUpdatedTime(normalizedRecord) >= getRecordUpdatedTime(currentRecord)) {
+      merged.set(normalizedRecord.id, normalizedRecord);
+    }
+  });
+
+  return sortRecords([...merged.values()]);
+}
+
+function parseRecordsResponse(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data.records)) {
+    return data.records;
+  }
+
+  if (Array.isArray(data.results)) {
+    return data.results;
+  }
+
+  return [];
+}
+
+function buildCustomerApiUrl(id) {
+  const url = new URL(apiEndpoint, window.location.href);
+
+  if (id) {
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/${encodeURIComponent(id)}`;
+  } else {
+    url.searchParams.set('limit', String(customerFetchLimit));
+  }
+
+  url.searchParams.set('_', String(Date.now()));
+  return url;
+}
+
+function setSyncStatus(message, mode = '') {
+  syncStatus.textContent = message;
+  syncStatus.classList.toggle('success', mode === 'success');
+  syncStatus.classList.toggle('warning', mode === 'warning');
+}
+
+function getCustomerApiErrorMessage(status) {
+  const messages = {
+    401: 'API 401 unauthorized, cek Cloudflare Access atau ALLOW_UNAUTHENTICATED_API',
+    403: 'API 403 forbidden, cek permission Access/route Worker',
+    404: 'API 404, route /api/customer-records belum menuju Worker',
+    500: 'API 500, cek D1 binding/schema dan Worker logs'
+  };
+
+  return messages[status] || `API ${status}`;
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), apiTimeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchApiRecords() {
+  const response = await fetchWithTimeout(buildCustomerApiUrl(), {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(getCustomerApiErrorMessage(response.status));
+  }
+
+  return parseRecordsResponse(await response.json());
+}
+
+async function pushRecordToApi(record) {
+  const response = await fetchWithTimeout(buildCustomerApiUrl(), {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(normalizeStoredRecord(record))
+  });
+
+  if (!response.ok) {
+    throw new Error(getCustomerApiErrorMessage(response.status));
+  }
+
+  return response.json();
+}
+
+async function pushRecordsToApi(nextRecords) {
+  const response = await fetchWithTimeout(buildCustomerApiUrl(), {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ records: normalizeRecordList(nextRecords) })
+  });
+
+  if (!response.ok) {
+    throw new Error(getCustomerApiErrorMessage(response.status));
+  }
+
+  return response.json();
+}
+
+async function deleteRecordFromApi(id) {
+  const response = await fetchWithTimeout(buildCustomerApiUrl(id), {
+    method: 'DELETE',
+    cache: 'no-store'
+  });
+
+  if (!response.ok) {
+    throw new Error(getCustomerApiErrorMessage(response.status));
+  }
+
+  return response.json();
+}
+
+async function syncRecordsWithApi(options = {}) {
+  if (isSyncingRecords) {
+    return;
+  }
+
+  isSyncingRecords = true;
+
+  if (!options.silent) {
+    setSyncStatus('Sinkron...');
+  }
+
+  syncRecordsBtn.disabled = true;
+
+  try {
+    const apiRecords = await fetchApiRecords();
+    records = mergeRecordSets(apiRecords, records);
+    saveRecords();
+    renderRecords();
+
+    if (records.length) {
+      await pushRecordsToApi(records);
+    }
+
+    setSyncStatus(`Tersinkron (${records.length})`, 'success');
+    syncStatus.title = 'Data tersimpan di browser dan Cloudflare D1.';
+  } catch (error) {
+    setSyncStatus(localStorageWarning || 'Mode lokal', 'warning');
+    syncStatus.title = error.message;
+  } finally {
+    syncRecordsBtn.disabled = false;
+    isSyncingRecords = false;
+  }
+}
+
+async function syncSingleRecord(record) {
+  try {
+    await pushRecordToApi(record);
+    setSyncStatus('Tersimpan web', 'success');
+    syncStatus.title = 'Data tersimpan di Cloudflare D1.';
+  } catch (error) {
+    setSyncStatus('Tersimpan lokal', 'warning');
+    syncStatus.title = error.message;
+  }
+}
+
+async function removeSingleRecordFromApi(id) {
+  try {
+    await deleteRecordFromApi(id);
+    setSyncStatus('Terhapus web', 'success');
+    syncStatus.title = 'Data terhapus dari Cloudflare D1.';
+  } catch (error) {
+    setSyncStatus('Hapus lokal saja', 'warning');
+    syncStatus.title = error.message;
+  }
 }
 
 function getDurationLabel(days) {
@@ -427,8 +717,10 @@ function submitRecord(event) {
     records.unshift(nextRecord);
   }
 
+  records = sortRecords(records);
   saveRecords();
   renderRecords();
+  syncSingleRecord(nextRecord);
   resetForm();
   ocrStatus.textContent = 'Data customer berhasil disimpan.';
 }
@@ -927,6 +1219,7 @@ function importJson(file) {
 
       saveRecords();
       renderRecords();
+      syncRecordsWithApi({ silent: true });
       ocrStatus.textContent = 'Import JSON berhasil.';
     } catch (error) {
       ocrStatus.textContent = 'Import JSON gagal.';
@@ -960,6 +1253,7 @@ statusFilter.addEventListener('change', renderRecords);
 exportCsvBtn.addEventListener('click', exportCsv);
 exportJsonBtn.addEventListener('click', exportJson);
 importJsonBtn.addEventListener('click', () => importJsonInput.click());
+syncRecordsBtn.addEventListener('click', () => syncRecordsWithApi());
 importJsonInput.addEventListener('change', (event) => {
   importJson(event.target.files[0]);
 });
@@ -1011,6 +1305,7 @@ recordsList.addEventListener('click', (event) => {
     record.updatedAt = new Date().toISOString();
     saveRecords();
     renderRecords();
+    syncSingleRecord(record);
     return;
   }
 
@@ -1023,6 +1318,7 @@ recordsList.addEventListener('click', (event) => {
     records = records.filter((item) => item.id !== record.id);
     saveRecords();
     renderRecords();
+    removeSingleRecordFromApi(record.id);
   }
 });
 
@@ -1052,3 +1348,5 @@ statCards.forEach((card) => {
 updateOrderReferenceField('shopee', '');
 syncPackagePreset();
 renderRecords();
+setSyncStatus(localStorageWarning || (records.length ? 'Backup lokal' : 'Mode lokal'), localStorageWarning ? 'warning' : '');
+syncRecordsWithApi();

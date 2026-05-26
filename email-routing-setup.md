@@ -5,9 +5,10 @@ Cloudflare Email Routing biasa hanya meneruskan email ke mailbox tujuan. Agar em
 ## File yang dipakai
 
 - `email-inbox.html`, `email-inbox.css`, `email-inbox.js`: halaman admin inbox.
+- `customer-database.html`, `customer-database.css`, `customer-database.js`: halaman admin customer yang sync ke D1 dan tetap punya backup lokal browser.
 - `office-activation.html`, `office-activation.css`, `office-activation.js`: halaman admin aktivasi Office dari screenshot Installation ID.
-- `cloudflare-email-worker.example.js`: contoh Worker untuk menerima email, menyimpan email, API list/detail, dan forward ulang ke Gmail.
-- `cloudflare-email-schema.sql`: schema D1 untuk tabel email.
+- `cloudflare-email-worker.example.js`: contoh Worker untuk menerima email, menyimpan email/customer, API list/detail, dan forward ulang ke Gmail.
+- `cloudflare-email-schema.sql`: schema D1 untuk tabel email dan customer.
 
 ## Alur data
 
@@ -40,6 +41,7 @@ Tidak perlu membuat D1 baru. Selama semua domain diarahkan ke Worker `mail-base-
 - Response API sudah memakai `Cache-Control: no-store` di contoh Worker.
 - `email-inbox.js` auto-refresh setiap 15 detik saat tab aktif, refresh lagi saat tab dibuka, dan menambahkan cache-buster pada request.
 - Jika route API berada di belakang Cloudflare Cache Rules, pastikan path `/api/email-messages*` di-bypass dari cache.
+- Untuk Customer Database, route `/api/customer-records*` juga harus diarahkan ke Worker dan di-bypass dari cache.
 - Untuk Office Activation, route `/api/office-confirmation*` juga harus diarahkan ke Worker dan di-bypass dari cache.
 
 ## Jika email test tidak muncul di inbox
@@ -78,16 +80,23 @@ Jika health check sudah `ok:true` tetapi `total` tetap 0 setelah mengirim email 
 7. Tambahkan D1 database binding:
    - Variable name: `EMAIL_DB`
    - D1 database: pilih database inbox yang sudah dibuat.
-8. Buka Triggers atau Workers Routes.
-9. Tambahkan route HTTP:
+8. Jika Customer Database memakai D1 terpisah seperti `catsoft-customer-db`, tambahkan binding kedua:
+   - Variable name: `CUSTOMER_DB`
+   - D1 database: `catsoft-customer-db`
+   Jika tidak memakai D1 terpisah, cukup jalankan tabel `customer_records` di database yang terikat ke `EMAIL_DB`.
+9. Buka Triggers atau Workers Routes.
+10. Tambahkan route HTTP:
    - Route: `catsoft.store/api/email-messages*`
    - Worker: `mail-base-all-catch`
-10. Tambahkan route HTTP kedua untuk aktivasi Office:
+11. Tambahkan route HTTP kedua untuk Customer Database:
+   - Route: `catsoft.store/api/customer-records*`
+   - Worker: `mail-base-all-catch`
+12. Tambahkan route HTTP ketiga untuk aktivasi Office:
    - Route: `catsoft.store/api/office-confirmation*`
    - Worker: `mail-base-all-catch`
-11. Buka Email Routing > Routing rules.
-12. Pastikan Catch-All action menuju Worker `mail-base-all-catch`.
-13. Buka `https://catsoft.store/api/email-messages/health`.
+13. Buka Email Routing > Routing rules.
+14. Pastikan Catch-All action menuju Worker `mail-base-all-catch`.
+15. Buka `https://catsoft.store/api/email-messages/health` dan `https://catsoft.store/api/customer-records/health`.
 
 Hasil health check:
 
@@ -111,6 +120,7 @@ compatibility_date = "2026-05-25"
 
 routes = [
   { pattern = "catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
   { pattern = "catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" }
 ]
 
@@ -118,6 +128,11 @@ routes = [
 binding = "EMAIL_DB"
 database_name = "catsoft_email_inbox"
 database_id = "ISI_DATABASE_ID_D1"
+
+[[d1_databases]]
+binding = "CUSTOMER_DB"
+database_name = "catsoft-customer-db"
+database_id = "ISI_DATABASE_ID_D1_CUSTOMER"
 
 [vars]
 FORWARD_TO = "cundigitora@gmail.com"

@@ -305,6 +305,7 @@ a {
 
 .database-actions {
   margin: 0 0 16px;
+  align-items: center;
 }
 
 .ghost-button,
@@ -343,6 +344,23 @@ a {
 .danger-button {
   background: #fee2e2;
   color: #b91c1c;
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.sync-status.success {
+  color: #047857;
+}
+
+.sync-status.warning {
+  color: #b45309;
 }
 
 .ghost-button:hover,
@@ -891,7 +909,7 @@ a {
 
   .database-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-bottom: 14px;
   }
@@ -900,6 +918,11 @@ a {
     min-height: 42px;
     padding-inline: 8px;
     font-size: 12px;
+  }
+
+  .sync-status {
+    grid-column: 1 / -1;
+    justify-content: center;
   }
 
   .records-list {

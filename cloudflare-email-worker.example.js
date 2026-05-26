@@ -3,6 +3,7 @@ const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 500;
 const OFFICE_SELLER_PAGE_URL = 'https://lastorialicense.com/get-conf-catsyu/';
 const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.php';
+const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem']);
 
 const categoryRules = [
   {
@@ -75,11 +76,32 @@ export default {
       return healthCheck(request, env);
     }
 
+    if (url.pathname === '/api/customer-records' && request.method === 'GET') {
+      return listCustomerRecords(request, env);
+    }
+
+    if (url.pathname === '/api/customer-records' && request.method === 'POST') {
+      return upsertCustomerRecords(request, env);
+    }
+
+    if (url.pathname === '/api/customer-records/health' && request.method === 'GET') {
+      return customerRecordsHealthCheck(request, env);
+    }
+
     if (url.pathname === '/api/office-confirmation' && request.method === 'POST') {
       return generateOfficeConfirmation(request, env);
     }
 
+    const customerDetailMatch = url.pathname.match(/^\/api\/customer-records\/([^/]+)$/);
     const detailMatch = url.pathname.match(/^\/api\/email-messages\/([^/]+)$/);
+
+    if (customerDetailMatch && request.method === 'PATCH') {
+      return patchCustomerRecord(request, env, customerDetailMatch[1]);
+    }
+
+    if (customerDetailMatch && request.method === 'DELETE') {
+      return deleteCustomerRecord(request, env, customerDetailMatch[1]);
+    }
 
     if (detailMatch && request.method === 'GET') {
       return getEmail(request, env, detailMatch[1]);
@@ -364,6 +386,238 @@ async function markEmailRead(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
+async function listCustomerRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  const url = new URL(request.url);
+  const limit = clampNumber(url.searchParams.get('limit'), DEFAULT_LIMIT, 1, MAX_LIMIT);
+  const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
+  const result = await customerDb.prepare(`
+    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
+    FROM customer_records
+    ORDER BY updated_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(limit, offset).all();
+
+  return json({
+    records: (result.results || []).map(mapCustomerRecordRow)
+  }, 200, request);
+}
+
+async function customerRecordsHealthCheck(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({
+      ok: false,
+      error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding'
+    }, 500, request);
+  }
+
+  try {
+    const row = await customerDb.prepare('SELECT COUNT(*) AS total FROM customer_records').first();
+    const columns = await customerDb.prepare('PRAGMA table_info(customer_records)').all();
+
+    return json({
+      ok: true,
+      database: 'connected',
+      total: row ? row.total : 0,
+      columns: (columns.results || []).map((column) => column.name)
+    }, 200, request);
+  } catch (error) {
+    return json({
+      ok: false,
+      error: error.message
+    }, 500, request);
+  }
+}
+
+async function upsertCustomerRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const inputRecords = Array.isArray(payload.records) ? payload.records : (Array.isArray(payload) ? payload : [payload]);
+  const records = inputRecords.map(normalizeCustomerRecord).filter(Boolean);
+
+  for (const record of records) {
+    await saveCustomerRecord(customerDb, record);
+  }
+
+  return json({
+    ok: true,
+    total: records.length,
+    records
+  }, 200, request);
+}
+
+async function patchCustomerRecord(request, env, id) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const existingRow = await customerDb.prepare(`
+    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
+    FROM customer_records
+    WHERE id = ?
+  `).bind(id).first();
+
+  if (!existingRow) {
+    return json({ error: 'Customer record not found' }, 404, request);
+  }
+
+  const record = normalizeCustomerRecord({
+    ...mapCustomerRecordRow(existingRow),
+    ...payload,
+    id
+  });
+
+  await saveCustomerRecord(customerDb, record);
+
+  return json({ ok: true, record }, 200, request);
+}
+
+async function deleteCustomerRecord(request, env, id) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await customerDb.prepare('DELETE FROM customer_records WHERE id = ?').bind(id).run();
+
+  return json({ ok: true }, 200, request);
+}
+
+function getCustomerDb(env) {
+  return env.CUSTOMER_DB || env.EMAIL_DB;
+}
+
+function mapCustomerRecordRow(row) {
+  return {
+    id: row.id,
+    customerName: row.customer_name || '',
+    activatedEmail: row.activated_email || '',
+    whatsappNumber: row.whatsapp_number || '',
+    orderNumber: row.order_number || '',
+    orderSource: row.order_source || (row.whatsapp_number ? 'whatsapp' : 'shopee'),
+    productName: row.product_name || '',
+    durationDays: row.duration_days || 30,
+    startDate: row.start_date || '',
+    expiryDate: row.expiry_date || '',
+    status: row.status || 'active',
+    notes: row.notes || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || row.created_at || ''
+  };
+}
+
+function normalizeCustomerRecord(record) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const status = cleanValue(record.status).toLowerCase();
+  const rawOrderSource = cleanValue(record.orderSource || record.order_source).toLowerCase();
+  const hasWhatsappReference = Boolean(record.whatsappNumber || record.whatsapp_number);
+  const hasOrderReference = Boolean(record.orderNumber || record.order_number);
+  const orderSource = rawOrderSource === 'whatsapp' || (!rawOrderSource && hasWhatsappReference && !hasOrderReference) ? 'whatsapp' : 'shopee';
+
+  return {
+    id: cleanValue(record.id, 120) || crypto.randomUUID(),
+    customerName: cleanValue(record.customerName ?? record.customer_name, 240),
+    activatedEmail: cleanValue(record.activatedEmail ?? record.activated_email, 240),
+    whatsappNumber: cleanValue(record.whatsappNumber ?? record.whatsapp_number, 80),
+    orderNumber: cleanValue(record.orderNumber ?? record.order_number, 120),
+    orderSource,
+    productName: cleanValue(record.productName ?? record.product_name, 240),
+    durationDays: clampNumber(record.durationDays ?? record.duration_days, 30, 1, 3650),
+    startDate: cleanDate(record.startDate ?? record.start_date),
+    expiryDate: cleanDate(record.expiryDate ?? record.expiry_date),
+    status: customerStatusValues.has(status) ? status : 'active',
+    notes: cleanValue(record.notes, 2000),
+    createdAt: cleanValue(record.createdAt ?? record.created_at, 80) || now,
+    updatedAt: cleanValue(record.updatedAt ?? record.updated_at, 80) || now
+  };
+}
+
+async function saveCustomerRecord(customerDb, record) {
+  await customerDb.prepare(`
+    INSERT INTO customer_records (
+      id, customer_name, activated_email, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      customer_name = excluded.customer_name,
+      activated_email = excluded.activated_email,
+      whatsapp_number = excluded.whatsapp_number,
+      order_number = excluded.order_number,
+      order_source = excluded.order_source,
+      product_name = excluded.product_name,
+      duration_days = excluded.duration_days,
+      start_date = excluded.start_date,
+      expiry_date = excluded.expiry_date,
+      status = excluded.status,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `).bind(
+    record.id,
+    record.customerName,
+    record.activatedEmail,
+    record.whatsappNumber,
+    record.orderNumber,
+    record.orderSource,
+    record.productName,
+    record.durationDays,
+    record.startDate,
+    record.expiryDate,
+    record.status,
+    record.notes,
+    record.createdAt,
+    record.updatedAt
+  ).run();
+}
+
+function cleanValue(value, maxLength = 500) {
+  return String(value || '').trim().slice(0, maxLength);
+}
+
+function cleanDate(value) {
+  const text = cleanValue(value, 32);
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : '';
+}
+
 async function generateOfficeConfirmation(request, env) {
   let payload = {};
 
@@ -558,7 +812,7 @@ function corsHeaders(request) {
   const origin = request ? request.headers.get('Origin') : '';
   const headers = {
     Vary: 'Origin',
-    'Access-Control-Allow-Methods': 'GET, PATCH, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PATCH, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-catsoft-inbox-key'
   };
 

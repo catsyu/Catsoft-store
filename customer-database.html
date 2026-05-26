@@ -180,10 +180,12 @@
         </div>
 
         <div class="database-actions">
+          <button class="secondary-button" id="syncRecordsBtn" type="button">Sync</button>
           <button class="secondary-button" id="exportCsvBtn" type="button">Export CSV</button>
           <button class="secondary-button" id="exportJsonBtn" type="button">Export JSON</button>
           <button class="secondary-button" id="importJsonBtn" type="button">Import JSON</button>
           <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
+          <span class="sync-status" id="syncStatus">Mode lokal</span>
         </div>
 
         <div class="records-list" id="recordsList" aria-live="polite">

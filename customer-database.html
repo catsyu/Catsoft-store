@@ -285,6 +285,22 @@
     </section>
   </main>
 
+  <div class="xlsx-import-overlay is-hidden" id="xlsxImportOverlay" role="alertdialog" aria-modal="true" aria-labelledby="xlsxImportTitle" aria-describedby="xlsxImportMessage">
+    <section class="xlsx-import-card">
+      <span class="section-kicker">Update XLSX Shopee</span>
+      <h2 id="xlsxImportTitle">Menyiapkan update</h2>
+      <p id="xlsxImportMessage">Database dikunci sementara sampai proses update selesai.</p>
+      <div class="xlsx-import-progress" aria-hidden="true">
+        <div id="xlsxImportProgressBar"></div>
+      </div>
+      <div class="xlsx-import-meta">
+        <strong id="xlsxImportProgressText">0%</strong>
+        <span id="xlsxImportSummary">Menunggu file...</span>
+      </div>
+      <button class="secondary-button compact-button is-hidden" id="xlsxImportCloseBtn" type="button">Tutup</button>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="customer-database.js" defer></script>

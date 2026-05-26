@@ -545,6 +545,102 @@ a {
   color: #b45309;
 }
 
+.xlsx-import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(7px);
+}
+
+.xlsx-import-overlay.is-hidden {
+  display: none;
+}
+
+.xlsx-import-overlay.is-finished {
+  pointer-events: none;
+}
+
+.xlsx-import-card {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.24);
+  padding: 24px;
+}
+
+.xlsx-import-card h2 {
+  margin: 6px 0 8px;
+  color: #0f172a;
+  font-size: clamp(22px, 4vw, 28px);
+  line-height: 1.08;
+}
+
+.xlsx-import-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.xlsx-import-progress {
+  overflow: hidden;
+  height: 10px;
+  margin: 18px 0 12px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.xlsx-import-progress div {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #14b8a6);
+  transition: width 0.22s ease;
+}
+
+.xlsx-import-overlay.is-error .xlsx-import-progress div {
+  background: linear-gradient(90deg, #ef4444, #f97316);
+}
+
+.xlsx-import-overlay.is-success .xlsx-import-progress div {
+  background: linear-gradient(90deg, #16a34a, #14b8a6);
+}
+
+.xlsx-import-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.xlsx-import-meta strong {
+  flex: 0 0 auto;
+  color: #1e40af;
+}
+
+.xlsx-import-meta span {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.xlsx-import-card .compact-button {
+  width: 100%;
+  margin-top: 18px;
+}
+
+body.is-database-locked {
+  overflow: hidden;
+}
+
 .ghost-button:hover,
 .primary-button:hover,
 .secondary-button:hover,
@@ -1254,6 +1350,20 @@ a {
   .sync-status {
     grid-column: 1 / -1;
     justify-content: center;
+  }
+
+  .xlsx-import-card {
+    width: min(366px, calc(100vw - 24px));
+    padding: 18px;
+  }
+
+  .xlsx-import-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .xlsx-import-meta span {
+    text-align: left;
   }
 
   .records-list {

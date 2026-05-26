@@ -3,6 +3,7 @@ const apiEndpoint = window.CATSOFT_CUSTOMER_DATABASE_API || getDefaultApiEndpoin
 const apiTimeoutMs = 8000;
 const customerFetchLimit = 500;
 const autoRefreshMs = 10000;
+const xlsxImportBatchSize = 25;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 
@@ -67,6 +68,13 @@ const bulkExportCsvBtn = document.getElementById('bulkExportCsvBtn');
 const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 const clearSelectionBtn = document.getElementById('clearSelectionBtn');
 const recordsList = document.getElementById('recordsList');
+const xlsxImportOverlay = document.getElementById('xlsxImportOverlay');
+const xlsxImportTitle = document.getElementById('xlsxImportTitle');
+const xlsxImportMessage = document.getElementById('xlsxImportMessage');
+const xlsxImportProgressBar = document.getElementById('xlsxImportProgressBar');
+const xlsxImportProgressText = document.getElementById('xlsxImportProgressText');
+const xlsxImportSummary = document.getElementById('xlsxImportSummary');
+const xlsxImportCloseBtn = document.getElementById('xlsxImportCloseBtn');
 
 const monthMap = {
   januari: 0,
@@ -138,7 +146,11 @@ let records = loadRecords();
 let activeOrderSource = 'shopee';
 let isSyncingRecords = false;
 let isMutatingRecords = false;
+let isDatabaseLocked = false;
+let isImportingShopeeXlsx = false;
 let autoRefreshTimerId = null;
+let xlsxImportHideTimerId = null;
+let recordsMutationVersion = 0;
 let selectedRecordIds = new Set();
 let lastRenderedRecordIds = [];
 
@@ -492,6 +504,95 @@ function setSyncStatus(message, mode = '') {
   syncStatus.classList.toggle('warning', mode === 'warning');
 }
 
+function beginRecordsMutation() {
+  recordsMutationVersion += 1;
+  isMutatingRecords = true;
+}
+
+function endRecordsMutation() {
+  isMutatingRecords = false;
+}
+
+function applyDatabaseLockState() {
+  const pageControls = document.querySelectorAll('.customer-page input, .customer-page select, .customer-page textarea, .customer-page button');
+
+  pageControls.forEach((control) => {
+    if (isDatabaseLocked) {
+      if (!Object.prototype.hasOwnProperty.call(control.dataset, 'databaseLockWasDisabled')) {
+        control.dataset.databaseLockWasDisabled = control.disabled ? 'true' : 'false';
+      }
+
+      control.disabled = true;
+      return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(control.dataset, 'databaseLockWasDisabled')) {
+      control.disabled = control.dataset.databaseLockWasDisabled === 'true';
+      delete control.dataset.databaseLockWasDisabled;
+    }
+  });
+
+  if (!isDatabaseLocked) {
+    syncRecordsBtn.disabled = isSyncingRecords;
+    renderBulkState();
+  }
+}
+
+function setDatabaseLock(locked) {
+  isDatabaseLocked = locked;
+  document.body.classList.toggle('is-database-locked', locked);
+  applyDatabaseLockState();
+}
+
+function showXlsxImportOverlay() {
+  if (!xlsxImportOverlay) {
+    return;
+  }
+
+  window.clearTimeout(xlsxImportHideTimerId);
+  xlsxImportOverlay.classList.remove('is-hidden', 'is-error', 'is-success', 'is-finished');
+  xlsxImportCloseBtn.classList.add('is-hidden');
+}
+
+function updateXlsxImportOverlay({ title, message, progress, summary, mode = '', canClose = false }) {
+  if (!xlsxImportOverlay) {
+    return;
+  }
+
+  const progressValue = Math.min(Math.max(Number(progress) || 0, 0), 100);
+
+  xlsxImportTitle.textContent = title;
+  xlsxImportMessage.textContent = message;
+  xlsxImportProgressBar.style.width = `${progressValue}%`;
+  xlsxImportProgressText.textContent = `${Math.round(progressValue)}%`;
+  xlsxImportSummary.textContent = summary;
+  xlsxImportOverlay.classList.toggle('is-error', mode === 'error');
+  xlsxImportOverlay.classList.toggle('is-success', mode === 'success');
+  xlsxImportOverlay.classList.toggle('is-finished', mode === 'success');
+  xlsxImportCloseBtn.classList.toggle('is-hidden', !canClose);
+}
+
+function hideXlsxImportOverlay() {
+  if (!xlsxImportOverlay) {
+    return;
+  }
+
+  window.clearTimeout(xlsxImportHideTimerId);
+  xlsxImportOverlay.classList.add('is-hidden');
+  xlsxImportOverlay.classList.remove('is-error', 'is-success', 'is-finished');
+}
+
+function guardDatabaseMutation(message = 'Tunggu update XLSX selesai, database sedang dikunci sementara.') {
+  if (!isDatabaseLocked && !isImportingShopeeXlsx) {
+    return false;
+  }
+
+  ocrStatus.textContent = message;
+  setSyncStatus('Update XLSX berjalan', 'warning');
+  syncStatus.title = message;
+  return true;
+}
+
 function getCustomerApiErrorMessage(status) {
   const messages = {
     401: 'API 401 unauthorized, cek Cloudflare Access atau ALLOW_UNAUTHENTICATED_API',
@@ -615,8 +716,13 @@ async function deleteRecordFromApi(id) {
   return response.json();
 }
 
-async function replaceRecordsFromApi() {
+async function replaceRecordsFromApi(options = {}) {
   const apiRecords = await fetchApiRecords();
+
+  if (typeof options.expectedMutationVersion === 'number' && options.expectedMutationVersion !== recordsMutationVersion) {
+    return records;
+  }
+
   records = sortRecords(normalizeRecordList(apiRecords));
   saveRecords();
   renderRecords();
@@ -624,11 +730,12 @@ async function replaceRecordsFromApi() {
 }
 
 async function syncRecordsWithApi(options = {}) {
-  if (isSyncingRecords || (options.auto && isMutatingRecords)) {
+  if (isSyncingRecords || isImportingShopeeXlsx || isDatabaseLocked || (options.auto && isMutatingRecords)) {
     return;
   }
 
   isSyncingRecords = true;
+  const syncMutationVersion = recordsMutationVersion;
 
   if (!options.silent) {
     setSyncStatus('Sinkron web...');
@@ -637,14 +744,14 @@ async function syncRecordsWithApi(options = {}) {
   syncRecordsBtn.disabled = true;
 
   try {
-    await replaceRecordsFromApi();
+    await replaceRecordsFromApi({ expectedMutationVersion: syncMutationVersion });
     setSyncStatus(`Live web (${records.length})`, 'success');
     syncStatus.title = 'Cloudflare D1 menjadi database pusat. Cache lokal hanya dipakai saat offline.';
   } catch (error) {
     setSyncStatus(records.length ? 'Cache lokal' : 'Web offline', 'warning');
     syncStatus.title = error.message;
   } finally {
-    syncRecordsBtn.disabled = false;
+    syncRecordsBtn.disabled = isDatabaseLocked;
     isSyncingRecords = false;
   }
 }
@@ -802,15 +909,16 @@ function renderBulkState() {
   const visibleSelectedCount = lastRenderedRecordIds.filter((id) => selectedRecordIds.has(id)).length;
   const hasVisibleRecords = lastRenderedRecordIds.length > 0;
   const hasSelection = selectedRecords.length > 0;
+  const isLocked = isDatabaseLocked || isImportingShopeeXlsx;
 
   selectedCount.textContent = `${selectedRecords.length} dipilih`;
   bulkToolbar.classList.toggle('has-selection', hasSelection);
   selectVisibleRecords.checked = hasVisibleRecords && visibleSelectedCount === lastRenderedRecordIds.length;
   selectVisibleRecords.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < lastRenderedRecordIds.length;
-  selectVisibleRecords.disabled = !hasVisibleRecords;
-  bulkApplyStatusBtn.disabled = !hasSelection;
+  selectVisibleRecords.disabled = isLocked || !hasVisibleRecords;
+  bulkApplyStatusBtn.disabled = isLocked || !hasSelection;
   bulkExportCsvBtn.disabled = !hasSelection;
-  bulkDeleteBtn.disabled = !hasSelection;
+  bulkDeleteBtn.disabled = isLocked || !hasSelection;
   clearSelectionBtn.disabled = !hasSelection;
 }
 
@@ -832,6 +940,10 @@ function toggleVisibleSelection(checked) {
 }
 
 async function bulkApplyStatus() {
+  if (guardDatabaseMutation()) {
+    return;
+  }
+
   const nextStatus = bulkStatusSelect.value;
   const selectedRecords = getSelectedRecords();
 
@@ -856,7 +968,7 @@ async function bulkApplyStatus() {
   });
 
   try {
-    isMutatingRecords = true;
+    beginRecordsMutation();
     await pushRecordsToApi(updatedRecords);
     records = sortRecords(nextRecords);
     saveRecords();
@@ -868,7 +980,7 @@ async function bulkApplyStatus() {
     setSyncStatus('Gagal bulk web', 'warning');
     syncStatus.title = error.message;
   } finally {
-    isMutatingRecords = false;
+    endRecordsMutation();
   }
 }
 
@@ -917,6 +1029,10 @@ function exportSelectedCsv() {
 }
 
 async function bulkDeleteSelected() {
+  if (guardDatabaseMutation()) {
+    return;
+  }
+
   const idsToDelete = new Set(selectedRecordIds);
   const selectedTotal = idsToDelete.size;
 
@@ -925,7 +1041,7 @@ async function bulkDeleteSelected() {
   }
 
   try {
-    isMutatingRecords = true;
+    beginRecordsMutation();
     const results = await Promise.allSettled([...idsToDelete].map((id) => deleteRecordFromApi(id)));
     const failedCount = results.filter((result) => result.status === 'rejected').length;
 
@@ -944,7 +1060,7 @@ async function bulkDeleteSelected() {
     setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
   } finally {
-    isMutatingRecords = false;
+    endRecordsMutation();
   }
 }
 
@@ -958,7 +1074,7 @@ function debounce(callback, delay = 350) {
 }
 
 function autoRefreshRecords() {
-  if (document.visibilityState === 'hidden' || isMutatingRecords) {
+  if (document.visibilityState === 'hidden' || isMutatingRecords || isDatabaseLocked || isImportingShopeeXlsx) {
     return;
   }
 
@@ -1244,6 +1360,10 @@ function getDuplicateMessage(recordToCheck, duplicateRecord) {
 async function submitRecord(event) {
   event.preventDefault();
 
+  if (guardDatabaseMutation()) {
+    return;
+  }
+
   if (!productNameInput.value.trim() || !startDateInput.value || !expiryDateInput.value) {
     ocrStatus.textContent = 'Lengkapi produk, tanggal mulai, dan tanggal expire.';
     return;
@@ -1266,7 +1386,7 @@ async function submitRecord(event) {
   }
 
   try {
-    isMutatingRecords = true;
+    beginRecordsMutation();
     await pushRecordToApi(nextRecord);
   } catch (error) {
     if (error.status === 409) {
@@ -1288,7 +1408,7 @@ async function submitRecord(event) {
     syncStatus.title = error.message;
     return;
   } finally {
-    isMutatingRecords = false;
+    endRecordsMutation();
   }
 
   const existingIndex = records.findIndex((record) => record.id === nextRecord.id);
@@ -1393,6 +1513,7 @@ function renderRecords() {
 
   if (!filteredRecords.length) {
     recordsList.innerHTML = '<p class="empty-state">Tidak ada data yang cocok.</p>';
+    applyDatabaseLockState();
     return;
   }
 
@@ -1446,6 +1567,7 @@ function renderRecords() {
       </article>
     `;
   }).join('');
+  applyDatabaseLockState();
 }
 
 function normalizeWhatsapp(value) {
@@ -1919,8 +2041,30 @@ function buildShopeeRecord(row, existingRecord = {}) {
   return applyCompletenessStatus(nextRecord, existingRecord.status);
 }
 
+async function pushRecordsToApiInBatches(nextRecords, onProgress) {
+  const total = nextRecords.length;
+
+  for (let index = 0; index < total; index += xlsxImportBatchSize) {
+    const batch = nextRecords.slice(index, index + xlsxImportBatchSize);
+    await pushRecordsToApi(batch);
+
+    if (onProgress) {
+      onProgress(Math.min(index + batch.length, total), total);
+    }
+  }
+}
+
 async function importShopeeXlsx(file) {
   if (!file) {
+    return;
+  }
+
+  if (isImportingShopeeXlsx) {
+    ocrStatus.textContent = 'Update XLSX masih berjalan. Tunggu sampai selesai.';
+    return;
+  }
+
+  if (guardDatabaseMutation()) {
     return;
   }
 
@@ -1929,6 +2073,17 @@ async function importShopeeXlsx(file) {
     return;
   }
 
+  isImportingShopeeXlsx = true;
+  beginRecordsMutation();
+  setDatabaseLock(true);
+  showXlsxImportOverlay();
+  updateXlsxImportOverlay({
+    title: 'Membaca file XLSX',
+    message: 'Database dikunci sementara. Jangan tutup halaman sampai proses selesai.',
+    progress: 5,
+    summary: file.name || 'File Shopee'
+  });
+
   try {
     ocrStatus.textContent = 'Membaca file Shopee XLSX...';
 
@@ -1936,6 +2091,12 @@ async function importShopeeXlsx(file) {
     const workbook = XLSX.read(buffer, { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+    updateXlsxImportOverlay({
+      title: 'Mengambil data pusat',
+      message: 'Menyamakan data terbaru dari Cloudflare D1 sebelum import.',
+      progress: 18,
+      summary: `${rows.length} baris XLSX terbaca`
+    });
     await replaceRecordsFromApi();
 
     const stagedRecords = [...records];
@@ -1978,22 +2139,62 @@ async function importShopeeXlsx(file) {
       changedRecords.push(nextRecord);
     });
 
+    const importSummary = `${updatedCount} update, ${createdCount} baru, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
+
     if (changedRecords.length) {
-      isMutatingRecords = true;
-      await pushRecordsToApi(changedRecords);
+      updateXlsxImportOverlay({
+        title: 'Mengirim update ke web',
+        message: 'Data sedang dikirim bertahap. Edit, hapus, dan bulk action dikunci sementara.',
+        progress: 35,
+        summary: `0/${changedRecords.length} data dikirim`
+      });
+      await pushRecordsToApiInBatches(changedRecords, (sent, total) => {
+        updateXlsxImportOverlay({
+          title: 'Mengirim update ke web',
+          message: 'Data sedang dikirim bertahap. Edit, hapus, dan bulk action dikunci sementara.',
+          progress: 35 + ((sent / total) * 55),
+          summary: `${sent}/${total} data dikirim`
+        });
+      });
     }
 
+    updateXlsxImportOverlay({
+      title: 'Final sync',
+      message: 'Memastikan tampilan memakai data terakhir dari database pusat.',
+      progress: 94,
+      summary: importSummary
+    });
     records = sortRecords(stagedRecords);
     saveRecords();
     renderRecords();
-    syncRecordsWithApi({ silent: true });
-    ocrStatus.textContent = `XLSX Shopee diproses. ${updatedCount} update, ${createdCount} baru, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
+    await replaceRecordsFromApi();
+    ocrStatus.textContent = `XLSX Shopee diproses. ${importSummary}`;
+    setSyncStatus(`Update XLSX selesai (${records.length})`, 'success');
+    syncStatus.title = 'Import XLSX selesai. Tidak ada proses update XLSX yang berjalan di latar belakang.';
+    updateXlsxImportOverlay({
+      title: 'Update selesai',
+      message: 'Database sudah bisa diedit lagi. File XLSX tidak akan diproses ulang otomatis.',
+      progress: 100,
+      summary: importSummary,
+      mode: 'success'
+    });
+    xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1100);
   } catch (error) {
     ocrStatus.textContent = `Import XLSX Shopee gagal: ${error.message}`;
     setSyncStatus('Gagal import web', 'warning');
     syncStatus.title = error.message;
+    updateXlsxImportOverlay({
+      title: 'Update gagal',
+      message: 'Proses sudah dihentikan. Klik Tutup sebelum mencoba import ulang.',
+      progress: 100,
+      summary: error.message,
+      mode: 'error',
+      canClose: true
+    });
   } finally {
-    isMutatingRecords = false;
+    isImportingShopeeXlsx = false;
+    endRecordsMutation();
+    setDatabaseLock(false);
     importShopeeXlsxInput.value = '';
   }
 }
@@ -2024,6 +2225,11 @@ function exportJson() {
 
 function importJson(file) {
   if (!file) {
+    return;
+  }
+
+  if (guardDatabaseMutation()) {
+    importJsonInput.value = '';
     return;
   }
 
@@ -2075,7 +2281,7 @@ function importJson(file) {
       });
 
       if (changedRecords.length) {
-        isMutatingRecords = true;
+        beginRecordsMutation();
         await pushRecordsToApi(changedRecords);
       }
 
@@ -2089,7 +2295,7 @@ function importJson(file) {
       setSyncStatus('Gagal import web', 'warning');
       syncStatus.title = error.message;
     } finally {
-      isMutatingRecords = false;
+      endRecordsMutation();
       importJsonInput.value = '';
     }
   };
@@ -2132,9 +2338,21 @@ sortBySelect.addEventListener('change', renderRecords);
 sortDirectionSelect.addEventListener('change', renderRecords);
 exportCsvBtn.addEventListener('click', exportCsv);
 exportJsonBtn.addEventListener('click', exportJson);
-importJsonBtn.addEventListener('click', () => importJsonInput.click());
-importShopeeXlsxBtn.addEventListener('click', () => importShopeeXlsxInput.click());
-syncRecordsBtn.addEventListener('click', () => syncRecordsWithApi());
+importJsonBtn.addEventListener('click', () => {
+  if (!guardDatabaseMutation()) {
+    importJsonInput.click();
+  }
+});
+importShopeeXlsxBtn.addEventListener('click', () => {
+  if (!guardDatabaseMutation()) {
+    importShopeeXlsxInput.click();
+  }
+});
+syncRecordsBtn.addEventListener('click', () => {
+  if (!guardDatabaseMutation()) {
+    syncRecordsWithApi();
+  }
+});
 importJsonInput.addEventListener('change', (event) => {
   importJson(event.target.files[0]);
 });
@@ -2142,16 +2360,27 @@ importShopeeXlsxInput.addEventListener('change', (event) => {
   importShopeeXlsx(event.target.files[0]);
 });
 selectVisibleRecords.addEventListener('change', (event) => {
+  if (guardDatabaseMutation()) {
+    event.target.checked = false;
+    return;
+  }
+
   toggleVisibleSelection(event.target.checked);
 });
 bulkApplyStatusBtn.addEventListener('click', bulkApplyStatus);
 bulkExportCsvBtn.addEventListener('click', exportSelectedCsv);
 bulkDeleteBtn.addEventListener('click', bulkDeleteSelected);
 clearSelectionBtn.addEventListener('click', clearSelection);
+xlsxImportCloseBtn.addEventListener('click', hideXlsxImportOverlay);
 window.addEventListener('focus', autoRefreshRecords);
 document.addEventListener('visibilitychange', autoRefreshRecords);
 
 recordsList.addEventListener('change', (event) => {
+  if (guardDatabaseMutation()) {
+    event.preventDefault();
+    return;
+  }
+
   const checkbox = event.target.closest('[data-select-record]');
 
   if (!checkbox) {
@@ -2171,6 +2400,10 @@ recordsList.addEventListener('click', async (event) => {
   const actionButton = event.target.closest('[data-action]');
 
   if (!actionButton) {
+    return;
+  }
+
+  if (guardDatabaseMutation()) {
     return;
   }
 
@@ -2216,9 +2449,9 @@ recordsList.addEventListener('click', async (event) => {
       updatedAt: new Date().toISOString()
     }, nextStatus);
 
-    isMutatingRecords = true;
+    beginRecordsMutation();
     const saved = await syncSingleRecord(updatedRecord);
-    isMutatingRecords = false;
+    endRecordsMutation();
 
     if (saved) {
       records = sortRecords(records.map((item) => item.id === updatedRecord.id ? updatedRecord : item));
@@ -2235,9 +2468,9 @@ recordsList.addEventListener('click', async (event) => {
   }
 
   if (action === 'delete' && window.confirm('Hapus data customer ini?')) {
-    isMutatingRecords = true;
+    beginRecordsMutation();
     const deleted = await removeSingleRecordFromApi(record.id);
-    isMutatingRecords = false;
+    endRecordsMutation();
 
     if (deleted) {
       records = records.filter((item) => item.id !== record.id);

@@ -36,7 +36,7 @@ a {
 }
 
 .refund-page {
-  width: min(1180px, 94vw);
+  width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 28px 0 44px;
 }
@@ -95,6 +95,7 @@ a {
 
 .refund-form,
 .result-panel {
+  min-width: 0;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(226, 232, 240, 0.96);
   border-radius: 24px;
@@ -255,7 +256,7 @@ a {
 
 .date-inline {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
   gap: 8px;
   min-width: 0;
 }
@@ -355,6 +356,7 @@ a {
 }
 
 .result-text {
+  max-width: 100%;
   min-height: 420px;
   white-space: pre-wrap;
   border-radius: 18px;
@@ -378,8 +380,8 @@ a {
 
 @media (max-width: 760px) {
   .refund-page {
-    width: 100%;
-    padding: 16px 12px calc(28px + env(safe-area-inset-bottom));
+    width: min(100%, calc(100vw - 24px));
+    padding: 16px 0 calc(28px + env(safe-area-inset-bottom));
   }
 
   .refund-header {
@@ -415,6 +417,8 @@ a {
 
   .refund-form,
   .result-panel {
+    width: 100%;
+    min-width: 0;
     padding: 16px;
     border-radius: 14px;
     box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
@@ -551,7 +555,7 @@ a {
 
 @media (max-width: 620px) {
   .refund-page {
-    width: 100%;
+    width: min(100%, calc(100vw - 24px));
     padding-top: 18px;
   }
 
@@ -576,6 +580,14 @@ a {
   .header-actions .ghost-button,
   .ghost-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .refund-page {
+    width: min(366px, calc(100vw - 24px));
+    margin-right: auto;
+    margin-left: 12px;
   }
 }
 

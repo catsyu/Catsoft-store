@@ -97,7 +97,7 @@ a {
 
 .inbox-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   gap: 20px;
   align-items: start;
 }
@@ -691,8 +691,8 @@ a {
 
 @media (max-width: 760px) {
   .email-page {
-    width: 94%;
-    max-width: 100%;
+    width: min(100%, calc(100vw - 24px));
+    max-width: none;
     margin-right: auto;
     margin-left: auto;
     padding: 16px 0 calc(28px + env(safe-area-inset-bottom));
@@ -716,6 +716,12 @@ a {
 
   .brand-mark h1 {
     font-size: 28px;
+  }
+
+  .header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .header-actions,
@@ -788,8 +794,10 @@ a {
 
 @media (max-width: 520px) {
   .email-page {
-    width: calc(100% - 24px);
-    max-width: 360px;
+    width: min(366px, calc(100vw - 24px));
+    max-width: none;
+    margin-right: auto;
+    margin-left: 12px;
   }
 
   .stats-grid {

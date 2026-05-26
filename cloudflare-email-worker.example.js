@@ -642,7 +642,7 @@ function mapCustomerRecordRow(row) {
     whatsappNumber: row.whatsapp_number || '',
     orderNumber: row.order_number || '',
     orderSource: row.order_source || (row.whatsapp_number ? 'whatsapp' : 'shopee'),
-    productName: row.product_name || '',
+    productName: normalizeCustomerProductName(row.product_name),
     durationDays: row.duration_days || 30,
     startDate: row.start_date || '',
     expiryDate: row.expiry_date || '',
@@ -672,7 +672,7 @@ function normalizeCustomerRecord(record) {
     whatsappNumber: cleanValue(record.whatsappNumber ?? record.whatsapp_number, 80),
     orderNumber: cleanValue(record.orderNumber ?? record.order_number, 120),
     orderSource,
-    productName: cleanValue(record.productName ?? record.product_name, 240),
+    productName: normalizeCustomerProductName(record.productName ?? record.product_name),
     durationDays: clampNumber(record.durationDays ?? record.duration_days, 30, 1, 3650),
     startDate: cleanDate(record.startDate ?? record.start_date),
     expiryDate: cleanDate(record.expiryDate ?? record.expiry_date),
@@ -724,6 +724,34 @@ async function saveCustomerRecord(customerDb, record) {
 
 function cleanValue(value, maxLength = 500) {
   return String(value || '').trim().slice(0, maxLength);
+}
+
+function normalizeCustomerProductName(value) {
+  const productName = cleanValue(value, 240);
+  const text = productName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!text) {
+    return '';
+  }
+
+  const hasVirtualAi = /\b(asisten|assistant)?\s*virtual\s*ai\b/.test(text) ||
+    /\bvirtual\s*(asisten|assistant)?\s*ai\b/.test(text);
+  const hasChatAi = /\bchat\s*(with|bot)?\b.*\b(ai|asisten virtual|assistant virtual|virtual ai)\b/.test(text) ||
+    /\b(ai|asisten virtual|assistant virtual|virtual ai)\b.*\bchat\b/.test(text);
+
+  if (hasChatAi || hasVirtualAi) {
+    return 'ChatGPT';
+  }
+
+  if (/chat\s*gpt|chatgpt/.test(text)) {
+    return /plus/.test(text) ? 'ChatGPT Plus' : 'ChatGPT';
+  }
+
+  return productName;
 }
 
 function normalizeCustomerUniqueEmail(value) {

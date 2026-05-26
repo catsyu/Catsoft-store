@@ -118,6 +118,7 @@ a {
 .guide-panel,
 .note-panel,
 .help-card {
+  min-width: 0;
   border: 1px solid rgba(226, 232, 240, 0.96);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.94);
@@ -331,7 +332,7 @@ a {
 
 @media (max-width: 620px) {
   .tutorial-shell {
-    width: min(360px, calc(100% - 28px));
+    width: min(100%, calc(100vw - 24px));
   }
 
   .header-inner {
@@ -380,5 +381,13 @@ a {
 
   .help-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .tutorial-shell {
+    width: min(366px, calc(100vw - 24px));
+    margin-right: auto;
+    margin-left: 12px;
   }
 }

@@ -2,6 +2,7 @@ const productionApiEndpoint = 'https://catsoft.store/api/customer-records';
 const apiEndpoint = window.CATSOFT_CUSTOMER_DATABASE_API || getDefaultApiEndpoint();
 const apiTimeoutMs = 8000;
 const customerFetchLimit = 500;
+const autoRefreshMs = 10000;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 
@@ -35,6 +36,7 @@ const activeCount = document.getElementById('activeCount');
 const expiredCount = document.getElementById('expiredCount');
 const expireTodayCount = document.getElementById('expireTodayCount');
 const incompleteCount = document.getElementById('incompleteCount');
+const duplicateCount = document.getElementById('duplicateCount');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const dateFilter = document.getElementById('dateFilter');
@@ -121,6 +123,10 @@ const statusLabels = {
 };
 
 const statusOptions = ['active', 'expired', 'removed', 'refund', 'problem'];
+const statusFilterLabels = {
+  ...statusLabels,
+  duplicate: 'Data ganda'
+};
 
 const orderSourceLabels = {
   shopee: 'Shopee',
@@ -131,6 +137,8 @@ let localStorageWarning = '';
 let records = loadRecords();
 let activeOrderSource = 'shopee';
 let isSyncingRecords = false;
+let isMutatingRecords = false;
+let autoRefreshTimerId = null;
 let selectedRecordIds = new Set();
 let lastRenderedRecordIds = [];
 
@@ -363,7 +371,7 @@ function loadRecords() {
     localStorageWarning = '';
     return normalizeRecordList(Array.isArray(parsed) ? parsed : []);
   } catch (error) {
-    localStorageWarning = 'Backup utama rusak, memakai backup terakhir.';
+    localStorageWarning = 'Cache utama rusak, memakai cache terakhir.';
     return loadBackupRecords();
   }
 }
@@ -374,7 +382,7 @@ function loadBackupRecords() {
     const backupRecords = Array.isArray(parsedBackup) ? parsedBackup : parsedBackup.records;
     return normalizeRecordList(Array.isArray(backupRecords) ? backupRecords : []);
   } catch (error) {
-    localStorageWarning = 'Backup lokal tidak terbaca.';
+    localStorageWarning = 'Cache lokal tidak terbaca.';
     return [];
   }
 }
@@ -390,7 +398,7 @@ function saveRecords(nextRecords = records) {
     localStorage.setItem(storageKey, JSON.stringify(nextRecords));
     return true;
   } catch (error) {
-    setSyncStatus('Backup lokal gagal', 'warning');
+    setSyncStatus('Cache lokal gagal', 'warning');
     syncStatus.title = error.message;
     return false;
   }
@@ -411,6 +419,7 @@ function normalizeStoredRecord(record) {
   const createdAt = String(record.createdAt || record.created_at || new Date().toISOString());
   const status = String(record.status || 'active');
   const rawOrderSource = record.orderSource || record.order_source;
+  const rawProductName = String(record.productName ?? record.product_name ?? '').trim();
   const hasWhatsappReference = Boolean(record.whatsappNumber || record.whatsapp_number);
   const hasOrderReference = Boolean(record.orderNumber || record.order_number);
   const orderSource = rawOrderSource === 'whatsapp' || (!rawOrderSource && hasWhatsappReference && !hasOrderReference) ? 'whatsapp' : 'shopee';
@@ -422,7 +431,7 @@ function normalizeStoredRecord(record) {
     whatsappNumber: String(record.whatsappNumber ?? record.whatsapp_number ?? '').trim(),
     orderNumber: String(record.orderNumber ?? record.order_number ?? '').trim(),
     orderSource,
-    productName: String(record.productName ?? record.product_name ?? '').trim(),
+    productName: normalizeStoredProductName(rawProductName),
     durationDays: Number.isFinite(rawDuration) && rawDuration > 0 ? Math.trunc(rawDuration) : 30,
     startDate: String(record.startDate ?? record.start_date ?? '').slice(0, 10),
     expiryDate: String(record.expiryDate ?? record.expiry_date ?? '').slice(0, 10),
@@ -444,26 +453,6 @@ function sortRecords(nextRecords) {
   return [...nextRecords].sort((first, second) => getRecordUpdatedTime(second) - getRecordUpdatedTime(first));
 }
 
-function mergeRecordSets(...recordSets) {
-  const merged = new Map();
-
-  recordSets.flat().forEach((record) => {
-    const normalizedRecord = normalizeStoredRecord(record);
-
-    if (!normalizedRecord) {
-      return;
-    }
-
-    const currentRecord = merged.get(normalizedRecord.id);
-
-    if (!currentRecord || getRecordUpdatedTime(normalizedRecord) >= getRecordUpdatedTime(currentRecord)) {
-      merged.set(normalizedRecord.id, normalizedRecord);
-    }
-  });
-
-  return sortRecords([...merged.values()]);
-}
-
 function parseRecordsResponse(data) {
   if (Array.isArray(data)) {
     return data;
@@ -480,13 +469,17 @@ function parseRecordsResponse(data) {
   return [];
 }
 
-function buildCustomerApiUrl(id) {
+function buildCustomerApiUrl(id, params = {}) {
   const url = new URL(apiEndpoint, window.location.href);
 
   if (id) {
     url.pathname = `${url.pathname.replace(/\/$/, '')}/${encodeURIComponent(id)}`;
   } else {
-    url.searchParams.set('limit', String(customerFetchLimit));
+    url.searchParams.set('limit', String(params.limit || customerFetchLimit));
+
+    if (params.offset) {
+      url.searchParams.set('offset', String(params.offset));
+    }
   }
 
   url.searchParams.set('_', String(Date.now()));
@@ -534,8 +527,8 @@ async function fetchWithTimeout(url, options = {}) {
   }
 }
 
-async function fetchApiRecords() {
-  const response = await fetchWithTimeout(buildCustomerApiUrl(), {
+async function fetchApiRecordsPage(offset = 0, limit = customerFetchLimit) {
+  const response = await fetchWithTimeout(buildCustomerApiUrl(null, { limit, offset }), {
     cache: 'no-store',
     headers: {
       'Cache-Control': 'no-cache'
@@ -549,6 +542,24 @@ async function fetchApiRecords() {
   }
 
   return parseRecordsResponse(await response.json());
+}
+
+async function fetchApiRecords() {
+  const allRecords = [];
+  let offset = 0;
+
+  while (offset <= 10000) {
+    const pageRecords = await fetchApiRecordsPage(offset, customerFetchLimit);
+    allRecords.push(...pageRecords);
+
+    if (pageRecords.length < customerFetchLimit) {
+      break;
+    }
+
+    offset += pageRecords.length;
+  }
+
+  return allRecords;
 }
 
 async function pushRecordToApi(record) {
@@ -604,33 +615,33 @@ async function deleteRecordFromApi(id) {
   return response.json();
 }
 
+async function replaceRecordsFromApi() {
+  const apiRecords = await fetchApiRecords();
+  records = sortRecords(normalizeRecordList(apiRecords));
+  saveRecords();
+  renderRecords();
+  return records;
+}
+
 async function syncRecordsWithApi(options = {}) {
-  if (isSyncingRecords) {
+  if (isSyncingRecords || (options.auto && isMutatingRecords)) {
     return;
   }
 
   isSyncingRecords = true;
 
   if (!options.silent) {
-    setSyncStatus('Sinkron...');
+    setSyncStatus('Sinkron web...');
   }
 
   syncRecordsBtn.disabled = true;
 
   try {
-    const apiRecords = await fetchApiRecords();
-    records = mergeRecordSets(apiRecords, records);
-    saveRecords();
-    renderRecords();
-
-    if (records.length) {
-      await pushRecordsToApi(records);
-    }
-
-    setSyncStatus(`Tersinkron (${records.length})`, 'success');
-    syncStatus.title = 'Data tersimpan di browser dan Cloudflare D1.';
+    await replaceRecordsFromApi();
+    setSyncStatus(`Live web (${records.length})`, 'success');
+    syncStatus.title = 'Cloudflare D1 menjadi database pusat. Cache lokal hanya dipakai saat offline.';
   } catch (error) {
-    setSyncStatus(localStorageWarning || 'Mode lokal', 'warning');
+    setSyncStatus(records.length ? 'Cache lokal' : 'Web offline', 'warning');
     syncStatus.title = error.message;
   } finally {
     syncRecordsBtn.disabled = false;
@@ -643,9 +654,12 @@ async function syncSingleRecord(record) {
     await pushRecordToApi(record);
     setSyncStatus('Tersimpan web', 'success');
     syncStatus.title = 'Data tersimpan di Cloudflare D1.';
+    await syncRecordsWithApi({ silent: true });
+    return true;
   } catch (error) {
-    setSyncStatus('Tersimpan lokal', 'warning');
+    setSyncStatus('Gagal simpan web', 'warning');
     syncStatus.title = error.message;
+    return false;
   }
 }
 
@@ -654,9 +668,12 @@ async function removeSingleRecordFromApi(id) {
     await deleteRecordFromApi(id);
     setSyncStatus('Terhapus web', 'success');
     syncStatus.title = 'Data terhapus dari Cloudflare D1.';
+    await syncRecordsWithApi({ silent: true });
+    return true;
   } catch (error) {
-    setSyncStatus('Hapus lokal saja', 'warning');
+    setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
+    return false;
   }
 }
 
@@ -720,14 +737,14 @@ function renderResultSummary(filteredRecords) {
   }
 
   if (statusFilter.value !== 'all') {
-    filters.push(statusLabels[statusFilter.value] || statusFilter.value);
+    filters.push(statusFilterLabels[statusFilter.value] || statusFilter.value);
   }
 
   resultCount.textContent = `${total} data`;
   resultContext.textContent = filters.length ? filters.join(' / ') : 'Semua data';
 }
 
-function getRecordSortValue(record, sortBy) {
+function getRecordSortValue(record, sortBy, duplicateIndex = getDuplicateIndex(records)) {
   if (sortBy === 'expiryDate' || sortBy === 'startDate') {
     const date = fromDateInput(record[sortBy]);
     return date ? date.getTime() : null;
@@ -739,19 +756,19 @@ function getRecordSortValue(record, sortBy) {
   }
 
   if (sortBy === 'status') {
-    return getRecordStatusSummary(record);
+    return getRecordStatusSummary(record, duplicateIndex);
   }
 
   return normalizeSearch(record[sortBy]);
 }
 
-function sortFilteredRecords(recordList) {
+function sortFilteredRecords(recordList, duplicateIndex = getDuplicateIndex(records)) {
   const sortBy = sortBySelect.value || 'updatedAt';
   const direction = sortDirectionSelect.value === 'asc' ? 1 : -1;
 
   return [...recordList].sort((first, second) => {
-    const firstValue = getRecordSortValue(first, sortBy);
-    const secondValue = getRecordSortValue(second, sortBy);
+    const firstValue = getRecordSortValue(first, sortBy, duplicateIndex);
+    const secondValue = getRecordSortValue(second, sortBy, duplicateIndex);
 
     if (firstValue === secondValue) {
       return getRecordUpdatedTime(second) - getRecordUpdatedTime(first);
@@ -824,8 +841,7 @@ async function bulkApplyStatus() {
 
   const now = new Date().toISOString();
   const updatedRecords = [];
-
-  records = records.map((record) => {
+  const nextRecords = records.map((record) => {
     if (!selectedRecordIds.has(record.id)) {
       return record;
     }
@@ -839,20 +855,25 @@ async function bulkApplyStatus() {
     return updatedRecord;
   });
 
-  saveRecords();
-  renderRecords();
-
   try {
+    isMutatingRecords = true;
     await pushRecordsToApi(updatedRecords);
+    records = sortRecords(nextRecords);
+    saveRecords();
+    renderRecords();
     setSyncStatus(`${updatedRecords.length} status tersimpan`, 'success');
     syncStatus.title = 'Update status bulk tersimpan di Cloudflare D1.';
+    syncRecordsWithApi({ silent: true });
   } catch (error) {
-    setSyncStatus('Bulk status lokal', 'warning');
+    setSyncStatus('Gagal bulk web', 'warning');
     syncStatus.title = error.message;
+  } finally {
+    isMutatingRecords = false;
   }
 }
 
 function getRecordsCsv(recordList) {
+  const duplicateIndex = getDuplicateIndex(records);
   const header = [
     'Nama/User',
     'Email Aktivasi',
@@ -877,7 +898,7 @@ function getRecordsCsv(recordList) {
     record.durationDays,
     record.startDate,
     record.expiryDate,
-    getRecordStatusSummary(record),
+    getRecordStatusSummary(record, duplicateIndex),
     record.updatedAt,
     record.notes
   ]);
@@ -903,12 +924,8 @@ async function bulkDeleteSelected() {
     return;
   }
 
-  records = records.filter((record) => !idsToDelete.has(record.id));
-  selectedRecordIds.clear();
-  saveRecords();
-  renderRecords();
-
   try {
+    isMutatingRecords = true;
     const results = await Promise.allSettled([...idsToDelete].map((id) => deleteRecordFromApi(id)));
     const failedCount = results.filter((result) => result.status === 'rejected').length;
 
@@ -916,11 +933,18 @@ async function bulkDeleteSelected() {
       throw new Error(`${failedCount} data gagal dihapus dari web.`);
     }
 
+    records = records.filter((record) => !idsToDelete.has(record.id));
+    selectedRecordIds.clear();
+    saveRecords();
+    renderRecords();
     setSyncStatus(`${selectedTotal} data terhapus`, 'success');
     syncStatus.title = 'Hapus bulk sudah dikirim ke Cloudflare D1.';
+    syncRecordsWithApi({ silent: true });
   } catch (error) {
-    setSyncStatus('Hapus bulk lokal', 'warning');
+    setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
+  } finally {
+    isMutatingRecords = false;
   }
 }
 
@@ -931,6 +955,22 @@ function debounce(callback, delay = 350) {
     window.clearTimeout(timerId);
     timerId = window.setTimeout(() => callback(...args), delay);
   };
+}
+
+function autoRefreshRecords() {
+  if (document.visibilityState === 'hidden' || isMutatingRecords) {
+    return;
+  }
+
+  syncRecordsWithApi({ silent: true, auto: true });
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimerId) {
+    window.clearInterval(autoRefreshTimerId);
+  }
+
+  autoRefreshTimerId = window.setInterval(autoRefreshRecords, autoRefreshMs);
 }
 
 function getDurationLabel(days) {
@@ -997,7 +1037,7 @@ function updateStatusByDate() {
 function getIncompleteFields(record) {
   const missingFields = [];
 
-  if (!record.activatedEmail) {
+  if (!record.activatedEmail && isActivationEmailRequired(record)) {
     missingFields.push('email aktivasi');
   }
 
@@ -1045,11 +1085,15 @@ function getLifecycleStatus(record) {
   return 'active';
 }
 
-function getRecordStatusSummary(record) {
+function getRecordStatusSummary(record, duplicateIndex = null) {
   const labels = [statusLabels[getLifecycleStatus(record)] || 'Aktif'];
 
   if (isRecordIncomplete(record)) {
     labels.push(statusLabels.incomplete);
+  }
+
+  if (duplicateIndex && isRecordDuplicate(record, duplicateIndex)) {
+    labels.push(statusFilterLabels.duplicate);
   }
 
   return labels.join(' + ');
@@ -1144,6 +1188,46 @@ function findDuplicateRecord(recordToCheck, recordList = records) {
   });
 }
 
+function getDuplicateIndex(recordList = records) {
+  const emailCounts = new Map();
+  const orderCounts = new Map();
+
+  recordList.forEach((record) => {
+    const activatedEmail = normalizeUniqueEmail(record.activatedEmail);
+    const orderNumber = normalizeUniqueOrderNumber(record.orderNumber);
+
+    if (activatedEmail) {
+      emailCounts.set(activatedEmail, (emailCounts.get(activatedEmail) || 0) + 1);
+    }
+
+    if (orderNumber) {
+      orderCounts.set(orderNumber, (orderCounts.get(orderNumber) || 0) + 1);
+    }
+  });
+
+  return { emailCounts, orderCounts };
+}
+
+function getDuplicateFields(record, duplicateIndex = getDuplicateIndex(records)) {
+  const duplicateFields = [];
+  const activatedEmail = normalizeUniqueEmail(record.activatedEmail);
+  const orderNumber = normalizeUniqueOrderNumber(record.orderNumber);
+
+  if (activatedEmail && (duplicateIndex.emailCounts.get(activatedEmail) || 0) > 1) {
+    duplicateFields.push(`Email: ${record.activatedEmail}`);
+  }
+
+  if (orderNumber && (duplicateIndex.orderCounts.get(orderNumber) || 0) > 1) {
+    duplicateFields.push(`No. pesanan: ${record.orderNumber}`);
+  }
+
+  return duplicateFields;
+}
+
+function isRecordDuplicate(record, duplicateIndex = getDuplicateIndex(records)) {
+  return getDuplicateFields(record, duplicateIndex).length > 0;
+}
+
 function getDuplicateMessage(recordToCheck, duplicateRecord) {
   if (!duplicateRecord) {
     return '';
@@ -1181,11 +1265,9 @@ async function submitRecord(event) {
     return;
   }
 
-  let savedToApi = false;
-
   try {
+    isMutatingRecords = true;
     await pushRecordToApi(nextRecord);
-    savedToApi = true;
   } catch (error) {
     if (error.status === 409) {
       ocrStatus.textContent = error.message;
@@ -1201,8 +1283,12 @@ async function submitRecord(event) {
       return;
     }
 
-    setSyncStatus('Tersimpan lokal', 'warning');
+    ocrStatus.textContent = 'Data belum tersimpan karena database web tidak bisa diakses.';
+    setSyncStatus('Gagal simpan web', 'warning');
     syncStatus.title = error.message;
+    return;
+  } finally {
+    isMutatingRecords = false;
   }
 
   const existingIndex = records.findIndex((record) => record.id === nextRecord.id);
@@ -1220,14 +1306,12 @@ async function submitRecord(event) {
   renderRecords();
   resetForm();
   ocrStatus.textContent = 'Data customer berhasil disimpan.';
-
-  if (savedToApi) {
-    setSyncStatus('Tersimpan web', 'success');
-    syncStatus.title = 'Data tersimpan di Cloudflare D1.';
-  }
+  setSyncStatus('Tersimpan web', 'success');
+  syncStatus.title = 'Data tersimpan di Cloudflare D1.';
+  syncRecordsWithApi({ silent: true });
 }
 
-function getFilteredRecords() {
+function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
   const term = normalizeSearch(searchInput.value);
   const statusValue = statusFilter.value;
   const dateValue = dateFilter.value;
@@ -1245,7 +1329,9 @@ function getFilteredRecords() {
     const matchesSearch = !term || haystack.includes(term);
     const matchesLookup = !lookupEmails.size || lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
     const matchesStatus = statusValue === 'all' ||
-      (statusValue === 'incomplete' ? isRecordIncomplete(record) : getLifecycleStatus(record) === statusValue);
+      (statusValue === 'incomplete' ? isRecordIncomplete(record) :
+        statusValue === 'duplicate' ? isRecordDuplicate(record, duplicateIndex) :
+          getLifecycleStatus(record) === statusValue);
     let matchesDate = true;
 
     // Jika user memilih tanggal, filter yang expiryDate-nya sama persis
@@ -1259,11 +1345,15 @@ function getFilteredRecords() {
 
 function renderStats() {
   const today = todayDate();
+  const duplicateIndex = getDuplicateIndex(records);
   totalCount.textContent = records.length;
   activeCount.textContent = records.filter((record) => getLifecycleStatus(record) === 'active').length;
   expiredCount.textContent = records.filter((record) => getLifecycleStatus(record) === 'expired').length;
   expireTodayCount.textContent = records.filter((record) => isSameDate(fromDateInput(record.expiryDate), today)).length;
   incompleteCount.textContent = records.filter(isRecordIncomplete).length;
+  if (duplicateCount) {
+    duplicateCount.textContent = records.filter((record) => isRecordDuplicate(record, duplicateIndex)).length;
+  }
 }
 
 function applyStatsFilter(mode) {
@@ -1282,6 +1372,9 @@ function applyStatsFilter(mode) {
   } else if (mode === 'incomplete') {
     statusFilter.value = 'incomplete';
     dateFilter.value = '';
+  } else if (mode === 'duplicate') {
+    statusFilter.value = 'duplicate';
+    dateFilter.value = '';
   }
 
   renderRecords();
@@ -1290,7 +1383,8 @@ function applyStatsFilter(mode) {
 function renderRecords() {
   renderStats();
 
-  const filteredRecords = sortFilteredRecords(getFilteredRecords());
+  const duplicateIndex = getDuplicateIndex(records);
+  const filteredRecords = sortFilteredRecords(getFilteredRecords(duplicateIndex), duplicateIndex);
   const lookupEmails = getLookupEmailSet();
   lastRenderedRecordIds = filteredRecords.map((record) => record.id);
   renderLookupState(filteredRecords);
@@ -1311,10 +1405,11 @@ function renderRecords() {
     const whatsappLink = whatsapp ? `https://wa.me/${whatsapp}` : '';
     const isLookupMatch = lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
     const missingFields = getIncompleteFields(record);
+    const duplicateFields = getDuplicateFields(record, duplicateIndex);
     const isSelected = selectedRecordIds.has(record.id);
 
     return `
-      <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''}" data-id="${escapeHtml(record.id)}">
+      <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${duplicateFields.length ? 'status-duplicate' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''}" data-id="${escapeHtml(record.id)}">
         <div class="record-top">
           <label class="record-select" aria-label="Pilih data customer">
             <input type="checkbox" data-select-record="${escapeHtml(record.id)}" ${isSelected ? 'checked' : ''} />
@@ -1329,6 +1424,7 @@ function renderRecords() {
           <div class="status-badges">
             <span class="status-badge ${escapeHtml(status)}">${escapeHtml(statusLabels[status] || status)}</span>
             ${missingFields.length ? `<span class="status-badge incomplete">${escapeHtml(statusLabels.incomplete)}</span>` : ''}
+            ${duplicateFields.length ? `<span class="status-badge duplicate">${escapeHtml(statusFilterLabels.duplicate)}</span>` : ''}
           </div>
         </div>
         <div class="record-meta">
@@ -1339,6 +1435,7 @@ function renderRecords() {
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
           <div><span>Last update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
           ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
+          ${duplicateFields.length ? `<div class="record-duplicate"><span>Ganda</span>${escapeHtml(duplicateFields.join(', '))}</div>` : ''}
         </div>
         <div class="record-actions">
           ${renderStatusMenu(status)}
@@ -1444,8 +1541,51 @@ function getDurationFromPackageText(text) {
   return amount;
 }
 
+function getAiProductType(productText) {
+  const text = normalizeSearch(productText)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s{2,}/g, ' ');
+
+  if (!text) {
+    return '';
+  }
+
+  const hasVirtualAi = /\b(asisten|assistant)?\s*virtual\s*ai\b/.test(text) ||
+    /\bvirtual\s*(asisten|assistant)?\s*ai\b/.test(text);
+  const hasChatAi = /\bchat\s*(with|bot)?\b.*\b(ai|asisten virtual|assistant virtual|virtual ai)\b/.test(text) ||
+    /\b(ai|asisten virtual|assistant virtual|virtual ai)\b.*\bchat\b/.test(text);
+
+  if (hasChatAi) {
+    return 'chat-ai';
+  }
+
+  if (hasVirtualAi) {
+    return 'virtual-ai';
+  }
+
+  return '';
+}
+
+function getAiProductLabel(productType) {
+  if (productType === 'chat-ai' || productType === 'virtual-ai') {
+    return 'ChatGPT';
+  }
+
+  return '';
+}
+
+function normalizeStoredProductName(productText) {
+  const text = String(productText || '').trim();
+  const aiProductLabel = getAiProductLabel(getAiProductType(text));
+  return aiProductLabel || text;
+}
+
+function isActivationEmailRequired(record) {
+  return !getAiProductType(record.productName);
+}
+
 function hasProductHint(line) {
-  return /adobe|canva|chatgpt|chat\s*gpt|capcut|cap\s*cut|office|microsoft|template|after effects|aftereffects|instagram|like|view|reels|komen|pro|premium|garansi/i.test(line);
+  return /adobe|canva|chatgpt|chat\s*gpt|chat\s*with|virtual\s*ai|asisten\s*virtual|assistant\s*virtual|capcut|cap\s*cut|office|microsoft|template|after effects|aftereffects|instagram|like|view|reels|komen|pro|premium|garansi/i.test(line);
 }
 
 function hasProductLineNoise(line) {
@@ -1466,9 +1606,14 @@ function findProductLineIndex(lines) {
 
 function simplifyProductName(productText) {
   const text = String(productText || '').toLowerCase();
+  const aiProductLabel = getAiProductLabel(getAiProductType(productText));
 
   if (!text) {
     return '';
+  }
+
+  if (aiProductLabel) {
+    return aiProductLabel;
   }
 
   if (/canva/.test(text)) {
@@ -1791,6 +1936,10 @@ async function importShopeeXlsx(file) {
     const workbook = XLSX.read(buffer, { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+    await replaceRecordsFromApi();
+
+    const stagedRecords = [...records];
+    const changedRecords = [];
     let createdCount = 0;
     let updatedCount = 0;
     let incompleteRows = 0;
@@ -1810,8 +1959,8 @@ async function importShopeeXlsx(file) {
         return;
       }
 
-      const existingIndex = records.findIndex((record) => normalizeUniqueOrderNumber(record.orderNumber) === normalizeUniqueOrderNumber(orderNumber));
-      const existingRecord = existingIndex >= 0 ? records[existingIndex] : {};
+      const existingIndex = stagedRecords.findIndex((record) => normalizeUniqueOrderNumber(record.orderNumber) === normalizeUniqueOrderNumber(orderNumber));
+      const existingRecord = existingIndex >= 0 ? stagedRecords[existingIndex] : {};
       const nextRecord = buildShopeeRecord(row, existingRecord);
 
       if (isRecordIncomplete(nextRecord)) {
@@ -1819,22 +1968,32 @@ async function importShopeeXlsx(file) {
       }
 
       if (existingIndex >= 0) {
-        records[existingIndex] = nextRecord;
+        stagedRecords[existingIndex] = nextRecord;
         updatedCount += 1;
       } else {
-        records.push(nextRecord);
+        stagedRecords.push(nextRecord);
         createdCount += 1;
       }
+
+      changedRecords.push(nextRecord);
     });
 
-    records = sortRecords(records);
+    if (changedRecords.length) {
+      isMutatingRecords = true;
+      await pushRecordsToApi(changedRecords);
+    }
+
+    records = sortRecords(stagedRecords);
     saveRecords();
     renderRecords();
     syncRecordsWithApi({ silent: true });
     ocrStatus.textContent = `XLSX Shopee diproses. ${updatedCount} update, ${createdCount} baru, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
   } catch (error) {
-    ocrStatus.textContent = 'Import XLSX Shopee gagal.';
+    ocrStatus.textContent = `Import XLSX Shopee gagal: ${error.message}`;
+    setSyncStatus('Gagal import web', 'warning');
+    syncStatus.title = error.message;
   } finally {
+    isMutatingRecords = false;
     importShopeeXlsxInput.value = '';
   }
 }
@@ -1870,7 +2029,7 @@ function importJson(file) {
 
   const reader = new FileReader();
 
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const importedRecords = JSON.parse(reader.result);
 
@@ -1878,6 +2037,10 @@ function importJson(file) {
         throw new Error('Invalid JSON');
       }
 
+      await replaceRecordsFromApi();
+
+      const stagedRecords = [...records];
+      const changedRecords = [];
       let skippedDuplicates = 0;
 
       importedRecords.forEach((record) => {
@@ -1893,29 +2056,40 @@ function importJson(file) {
           return;
         }
 
-        const duplicateRecord = findDuplicateRecord(normalizedRecord);
+        const duplicateRecord = findDuplicateRecord(normalizedRecord, stagedRecords);
 
         if (duplicateRecord) {
           skippedDuplicates += 1;
           return;
         }
 
-        const existingIndex = records.findIndex((item) => item.id === normalizedRecord.id);
+        const existingIndex = stagedRecords.findIndex((item) => item.id === normalizedRecord.id);
 
         if (existingIndex >= 0) {
-          records[existingIndex] = { ...records[existingIndex], ...normalizedRecord };
+          stagedRecords[existingIndex] = { ...stagedRecords[existingIndex], ...normalizedRecord };
+          changedRecords.push(stagedRecords[existingIndex]);
         } else {
-          records.push(normalizedRecord);
+          stagedRecords.push(normalizedRecord);
+          changedRecords.push(normalizedRecord);
         }
       });
 
+      if (changedRecords.length) {
+        isMutatingRecords = true;
+        await pushRecordsToApi(changedRecords);
+      }
+
+      records = sortRecords(stagedRecords);
       saveRecords();
       renderRecords();
       syncRecordsWithApi({ silent: true });
       ocrStatus.textContent = skippedDuplicates ? `Import JSON berhasil. ${skippedDuplicates} data duplikat dilewati.` : 'Import JSON berhasil.';
     } catch (error) {
-      ocrStatus.textContent = 'Import JSON gagal.';
+      ocrStatus.textContent = `Import JSON gagal: ${error.message}`;
+      setSyncStatus('Gagal import web', 'warning');
+      syncStatus.title = error.message;
     } finally {
+      isMutatingRecords = false;
       importJsonInput.value = '';
     }
   };
@@ -1974,6 +2148,8 @@ bulkApplyStatusBtn.addEventListener('click', bulkApplyStatus);
 bulkExportCsvBtn.addEventListener('click', exportSelectedCsv);
 bulkDeleteBtn.addEventListener('click', bulkDeleteSelected);
 clearSelectionBtn.addEventListener('click', clearSelection);
+window.addEventListener('focus', autoRefreshRecords);
+document.addEventListener('visibilitychange', autoRefreshRecords);
 
 recordsList.addEventListener('change', (event) => {
   const checkbox = event.target.closest('[data-select-record]');
@@ -1991,7 +2167,7 @@ recordsList.addEventListener('change', (event) => {
   renderRecords();
 });
 
-recordsList.addEventListener('click', (event) => {
+recordsList.addEventListener('click', async (event) => {
   const actionButton = event.target.closest('[data-action]');
 
   if (!actionButton) {
@@ -2034,11 +2210,22 @@ recordsList.addEventListener('click', (event) => {
       return;
     }
 
-    record.status = nextStatus;
-    record.updatedAt = new Date().toISOString();
-    saveRecords();
-    renderRecords();
-    syncSingleRecord(record);
+    const updatedRecord = applyCompletenessStatus({
+      ...record,
+      status: nextStatus,
+      updatedAt: new Date().toISOString()
+    }, nextStatus);
+
+    isMutatingRecords = true;
+    const saved = await syncSingleRecord(updatedRecord);
+    isMutatingRecords = false;
+
+    if (saved) {
+      records = sortRecords(records.map((item) => item.id === updatedRecord.id ? updatedRecord : item));
+      saveRecords();
+      renderRecords();
+    }
+
     return;
   }
 
@@ -2048,11 +2235,16 @@ recordsList.addEventListener('click', (event) => {
   }
 
   if (action === 'delete' && window.confirm('Hapus data customer ini?')) {
-    records = records.filter((item) => item.id !== record.id);
-    selectedRecordIds.delete(record.id);
-    saveRecords();
-    renderRecords();
-    removeSingleRecordFromApi(record.id);
+    isMutatingRecords = true;
+    const deleted = await removeSingleRecordFromApi(record.id);
+    isMutatingRecords = false;
+
+    if (deleted) {
+      records = records.filter((item) => item.id !== record.id);
+      selectedRecordIds.delete(record.id);
+      saveRecords();
+      renderRecords();
+    }
   }
 });
 
@@ -2074,7 +2266,8 @@ const statCards = [
   { element: activeCount.closest('.stat-card'), mode: 'active' },
   { element: expiredCount.closest('.stat-card'), mode: 'expired' },
   { element: expireTodayCount.closest('.stat-card'), mode: 'today' },
-  { element: incompleteCount.closest('.stat-card'), mode: 'incomplete' }
+  { element: incompleteCount.closest('.stat-card'), mode: 'incomplete' },
+  { element: duplicateCount?.closest('.stat-card'), mode: 'duplicate' }
 ];
 
 statCards.forEach((card) => {
@@ -2084,5 +2277,6 @@ statCards.forEach((card) => {
 updateOrderReferenceField('shopee', '');
 syncPackagePreset();
 renderRecords();
-setSyncStatus(localStorageWarning || (records.length ? 'Backup lokal' : 'Mode lokal'), localStorageWarning ? 'warning' : '');
+setSyncStatus(localStorageWarning || (records.length ? 'Cache lokal' : 'Menghubungkan web'), localStorageWarning || records.length ? 'warning' : '');
 syncRecordsWithApi();
+startAutoRefresh();

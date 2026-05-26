@@ -158,6 +158,10 @@
             <span>Tidak lengkap</span>
             <strong id="incompleteCount">0</strong>
           </div>
+          <div class="stat-card duplicate">
+            <span>Data ganda</span>
+            <strong id="duplicateCount">0</strong>
+          </div>
         </div>
 
         <div class="lookup-panel">
@@ -209,6 +213,7 @@
               <option value="refund">Refund</option>
               <option value="problem">Bermasalah</option>
               <option value="incomplete">Data tidak lengkap</option>
+              <option value="duplicate">Data ganda</option>
             </select>
           </label>
 
@@ -242,7 +247,7 @@
           <button class="secondary-button" id="importShopeeXlsxBtn" type="button">Update XLSX</button>
           <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
           <input id="importShopeeXlsxInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
-          <span class="sync-status" id="syncStatus">Mode lokal</span>
+          <span class="sync-status" id="syncStatus">Menghubungkan web</span>
         </div>
 
         <div class="results-bar">

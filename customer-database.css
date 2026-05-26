@@ -37,7 +37,7 @@ a {
 }
 
 .customer-page {
-  width: min(1440px, 96vw);
+  width: min(1440px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 28px 0 44px;
 }
@@ -89,13 +89,14 @@ a {
 
 .customer-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.78fr) minmax(620px, 1.22fr);
+  grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.28fr);
   gap: 24px;
   align-items: start;
 }
 
 .customer-form,
 .database-panel {
+  min-width: 0;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(226, 232, 240, 0.96);
   border-radius: 16px;
@@ -199,7 +200,8 @@ a {
 }
 
 .filter-grid {
-  grid-template-columns: minmax(220px, 1.3fr) repeat(4, minmax(130px, 0.78fr));
+  grid-template-columns: minmax(220px, 1.35fr) repeat(2, minmax(140px, 1fr));
+  align-items: end;
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -397,15 +399,19 @@ a {
 
 .action-row,
 .database-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 10px;
-  flex-wrap: wrap;
   margin-top: 20px;
 }
 
 .database-actions {
   margin: 0 0 16px;
   align-items: center;
+}
+
+.database-actions button {
+  width: 100%;
 }
 
 .results-bar {
@@ -430,7 +436,7 @@ a {
 
 .bulk-toolbar {
   display: grid;
-  grid-template-columns: minmax(150px, 1.1fr) minmax(80px, 0.7fr) minmax(150px, 1fr) repeat(4, minmax(76px, auto));
+  grid-template-columns: minmax(160px, 1.2fr) minmax(82px, 0.6fr) minmax(150px, 1fr) repeat(4, minmax(72px, 0.7fr));
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
@@ -478,6 +484,7 @@ a {
 
 .bulk-toolbar .secondary-button,
 .bulk-toolbar .danger-button {
+  width: 100%;
   min-height: 38px;
   padding: 8px 10px;
   font-size: 12px;
@@ -568,7 +575,7 @@ a {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -596,6 +603,11 @@ a {
 .stat-card.danger {
   background: #fef2f2;
   border-color: #fecaca;
+}
+
+.stat-card.duplicate {
+  background: #fff7ed;
+  border-color: #fdba74;
 }
 
 .stat-card:hover {
@@ -673,6 +685,16 @@ a {
   border-color: #fecaca;
   background: #fff7f7;
   box-shadow: 0 14px 32px rgba(185, 28, 28, 0.08);
+}
+
+.record-card.status-duplicate {
+  border-color: #fdba74;
+  background: #fffaf3;
+  box-shadow: 0 14px 32px rgba(234, 88, 12, 0.09);
+}
+
+.record-card.status-incomplete.status-duplicate {
+  background: linear-gradient(90deg, #fff7f7 0%, #fffaf3 100%);
 }
 
 .record-card.is-menu-open {
@@ -776,6 +798,11 @@ a {
   color: #92400e;
 }
 
+.status-badge.duplicate {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
 .record-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -803,6 +830,16 @@ a {
 
 .record-missing span {
   color: #dc2626;
+}
+
+.record-duplicate {
+  grid-column: 1 / -1;
+  color: #c2410c;
+  font-weight: 850;
+}
+
+.record-duplicate span {
+  color: #ea580c;
 }
 
 .record-actions {
@@ -976,7 +1013,7 @@ a {
   box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.13);
 }
 
-@media (max-width: 1040px) {
+@media (max-width: 1240px) {
   .customer-layout {
     grid-template-columns: 1fr;
   }
@@ -988,8 +1025,8 @@ a {
 
 @media (max-width: 680px) {
   .customer-page {
-    width: 100%;
-    padding: 16px 12px calc(28px + env(safe-area-inset-bottom));
+    width: min(100%, calc(100vw - 24px));
+    padding: 16px 0 calc(28px + env(safe-area-inset-bottom));
   }
 
   .customer-header {
@@ -1031,6 +1068,8 @@ a {
 
   .customer-form,
   .database-panel {
+    width: 100%;
+    min-width: 0;
     padding: 16px;
     border-radius: 14px;
     box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
@@ -1087,7 +1126,8 @@ a {
   }
 
   .bulk-select-all,
-  .bulk-toolbar select {
+  .bulk-toolbar select,
+  .bulk-toolbar strong {
     grid-column: 1 / -1;
   }
 
@@ -1292,5 +1332,13 @@ a {
   .customer-form,
   .database-panel {
     padding: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .customer-page {
+    width: min(366px, calc(100vw - 24px));
+    margin-right: auto;
+    margin-left: 12px;
   }
 }

@@ -19,8 +19,13 @@ body {
   overflow-x: hidden;
 }
 
+a {
+  color: inherit;
+  max-width: 100%;
+}
+
 .admin-page {
-  width: min(1060px, 94vw);
+  width: min(1120px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 28px 0 44px;
 }
@@ -110,14 +115,16 @@ body {
 
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
 }
 
 .tool-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
+  grid-template-columns: 1fr;
+  align-content: space-between;
+  gap: 18px;
+  min-width: 0;
   min-height: 230px;
   padding: 22px;
   border: 1px solid #e2e8f0;
@@ -164,6 +171,7 @@ body {
   font-size: 24px;
   line-height: 1.2;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .tool-card p {
@@ -171,6 +179,7 @@ body {
   max-width: 640px;
   color: #475569;
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 .tool-features {
@@ -185,6 +194,11 @@ body {
 .tool-card-actions {
   display: flex;
   align-items: end;
+  justify-content: flex-start;
+}
+
+.tool-card-actions .primary-button {
+  min-width: 150px;
 }
 
 .ghost-button,
@@ -220,8 +234,8 @@ body {
 
 @media (max-width: 760px) {
   .admin-page {
-    width: 100%;
-    padding: 16px 12px calc(28px + env(safe-area-inset-bottom));
+    width: min(100%, calc(100vw - 24px));
+    padding: 16px 0 calc(28px + env(safe-area-inset-bottom));
   }
 
   .admin-header {
@@ -324,7 +338,7 @@ body {
 
 @media (max-width: 620px) {
   .admin-page {
-    width: 100%;
+    width: min(100%, calc(100vw - 24px));
     padding-top: 18px;
   }
 
@@ -347,6 +361,14 @@ body {
   .ghost-button,
   .primary-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-page {
+    width: min(366px, calc(100vw - 24px));
+    margin-right: auto;
+    margin-left: 12px;
   }
 }
 

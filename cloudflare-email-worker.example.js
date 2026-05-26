@@ -91,6 +91,10 @@ export default {
       return bulkImportCustomerRecords(request, env);
     }
 
+    if (url.pathname === '/api/customer-records/bulk-status' && request.method === 'POST') {
+      return bulkUpdateCustomerRecordStatus(request, env);
+    }
+
     if (url.pathname === '/api/customer-records/health' && request.method === 'GET') {
       return customerRecordsHealthCheck(request, env);
     }
@@ -524,6 +528,46 @@ async function bulkImportCustomerRecords(request, env) {
   }, 200, request);
 }
 
+async function bulkUpdateCustomerRecordStatus(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const status = cleanValue(payload.status, 40).toLowerCase();
+  const ids = uniqueValues((Array.isArray(payload.ids) ? payload.ids : [])
+    .map((id) => cleanValue(id, 120))
+    .filter(Boolean));
+  const updatedAt = cleanValue(payload.updatedAt || payload.updated_at, 80) || new Date().toISOString();
+
+  if (!customerStatusValues.has(status) || status === 'incomplete') {
+    return json({ ok: false, error: 'Status bulk tidak valid.' }, 400, request);
+  }
+
+  if (!ids.length) {
+    return json({ ok: false, error: 'Tidak ada data yang dipilih.' }, 400, request);
+  }
+
+  const updated = await updateCustomerRecordsStatusBatch(customerDb, ids, status, updatedAt);
+
+  return json({
+    ok: true,
+    total: ids.length,
+    updated,
+    status,
+    updatedAt
+  }, 200, request);
+}
+
 async function patchCustomerRecord(request, env, id) {
   const customerDb = getCustomerDb(env);
 
@@ -918,6 +962,25 @@ async function saveCustomerRecordsBatch(customerDb, records) {
       record.updatedAt
     )));
   }
+}
+
+async function updateCustomerRecordsStatusBatch(customerDb, ids, status, updatedAt) {
+  const statement = customerDb.prepare(`
+    UPDATE customer_records
+    SET status = ?, updated_at = ?
+    WHERE id = ?
+  `);
+  let updated = 0;
+
+  for (const chunk of chunkArray(ids, customerImportBatchSize)) {
+    const results = await customerDb.batch(chunk.map((id) => statement.bind(status, updatedAt, id)));
+
+    for (const result of results || []) {
+      updated += result && result.meta && Number.isFinite(result.meta.changes) ? result.meta.changes : 0;
+    }
+  }
+
+  return updated;
 }
 
 function cleanValue(value, maxLength = 500) {

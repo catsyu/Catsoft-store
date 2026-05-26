@@ -769,6 +769,26 @@ async function pushBulkImportRecordsToApi(nextRecords, options = {}) {
   return response.json();
 }
 
+async function pushBulkStatusToApi(ids, status, updatedAt, options = {}) {
+  const response = await fetchWithTimeout(buildCustomerApiActionUrl('bulk-status'), {
+    method: 'POST',
+    cache: 'no-store',
+    timeoutMs: options.timeoutMs,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids, status, updatedAt })
+  });
+
+  if (!response.ok) {
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}
+
 async function deleteRecordFromApi(id, options = {}) {
   const response = await fetchWithTimeout(buildCustomerApiUrl(id), {
     method: 'DELETE',
@@ -1021,6 +1041,7 @@ async function bulkApplyStatus() {
   }
 
   const now = new Date().toISOString();
+  const selectedIds = selectedRecords.map((record) => record.id);
   const updatedRecords = [];
   const nextRecords = records.map((record) => {
     if (!selectedRecordIds.has(record.id)) {
@@ -1038,7 +1059,7 @@ async function bulkApplyStatus() {
 
   try {
     beginRecordsMutation();
-    await pushRecordsToApi(updatedRecords);
+    await pushBulkStatusToApi(selectedIds, nextStatus, now, { timeoutMs: xlsxApiTimeoutMs });
     records = sortRecords(nextRecords);
     saveRecords();
     renderRecords();

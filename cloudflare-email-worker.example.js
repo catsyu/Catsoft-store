@@ -6,6 +6,7 @@ const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.
 const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem', 'incomplete']);
 const customerImportBatchSize = 25;
 const customerImportLookupSize = 50;
+const customerBulkMutationSize = 100;
 const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
 
 const categoryRules = [
@@ -1001,34 +1002,33 @@ async function saveCustomerRecordsBatch(customerDb, records) {
 }
 
 async function updateCustomerRecordsStatusBatch(customerDb, ids, status, updatedAt) {
-  const statement = customerDb.prepare(`
-    UPDATE customer_records
-    SET status = ?, updated_at = ?
-    WHERE id = ?
-  `);
   let updated = 0;
 
-  for (const chunk of chunkArray(ids, customerImportBatchSize)) {
-    const results = await customerDb.batch(chunk.map((id) => statement.bind(status, updatedAt, id)));
+  for (const chunk of chunkArray(ids, customerBulkMutationSize)) {
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await customerDb.prepare(`
+      UPDATE customer_records
+      SET status = ?, updated_at = ?
+      WHERE id IN (${placeholders})
+    `).bind(status, updatedAt, ...chunk).run();
 
-    for (const result of results || []) {
-      updated += result && result.meta && Number.isFinite(result.meta.changes) ? result.meta.changes : 0;
-    }
+    updated += result && result.meta && Number.isFinite(result.meta.changes) ? result.meta.changes : 0;
   }
 
   return updated;
 }
 
 async function deleteCustomerRecordsBatch(customerDb, ids) {
-  const statement = customerDb.prepare('DELETE FROM customer_records WHERE id = ?');
   let deleted = 0;
 
-  for (const chunk of chunkArray(ids, customerImportBatchSize)) {
-    const results = await customerDb.batch(chunk.map((id) => statement.bind(id)));
+  for (const chunk of chunkArray(ids, customerBulkMutationSize)) {
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await customerDb.prepare(`
+      DELETE FROM customer_records
+      WHERE id IN (${placeholders})
+    `).bind(...chunk).run();
 
-    for (const result of results || []) {
-      deleted += result && result.meta && Number.isFinite(result.meta.changes) ? result.meta.changes : 0;
-    }
+    deleted += result && result.meta && Number.isFinite(result.meta.changes) ? result.meta.changes : 0;
   }
 
   return deleted;

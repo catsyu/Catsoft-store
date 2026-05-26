@@ -7,7 +7,9 @@ const customerFetchLimit = 500;
 const autoRefreshMs = 10000;
 const xlsxImportBatchSize = 8;
 const xlsxBulkImportChunkSize = 50;
-const bulkDeleteChunkSize = 100;
+const bulkStatusChunkSize = 500;
+const bulkDeleteChunkSize = 500;
+const bulkPatchFallbackConcurrency = 8;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 
@@ -159,6 +161,7 @@ let xlsxImportHideTimerId = null;
 let recordsMutationVersion = 0;
 let selectedRecordIds = new Set();
 let lastRenderedRecordIds = [];
+let editingRecordId = '';
 
 function padNumber(value) {
   return String(value).padStart(2, '0');
@@ -862,7 +865,7 @@ async function replaceRecordsFromApi(options = {}) {
 }
 
 async function syncRecordsWithApi(options = {}) {
-  if (isSyncingRecords || isImportingShopeeXlsx || isDatabaseLocked || (options.auto && isMutatingRecords)) {
+  if (isSyncingRecords || isImportingShopeeXlsx || isDatabaseLocked || (options.auto && (isMutatingRecords || editingRecordId))) {
     return;
   }
 
@@ -1092,9 +1095,10 @@ async function bulkApplyStatus() {
 
   const now = new Date().toISOString();
   const selectedIds = selectedRecords.map((record) => record.id);
+  const selectedIdSet = new Set(selectedIds);
   const updatedRecords = [];
   const nextRecords = records.map((record) => {
-    if (!selectedRecordIds.has(record.id)) {
+    if (!selectedIdSet.has(record.id)) {
       return record;
     }
 
@@ -1163,11 +1167,7 @@ async function bulkApplyStatus() {
 
 async function updateBulkStatusWithFallback(ids, status, updatedAt, onProgress) {
   try {
-    await pushBulkStatusToApi(ids, status, updatedAt, { timeoutMs: xlsxApiTimeoutMs });
-
-    if (onProgress) {
-      onProgress(ids.length, ids.length);
-    }
+    await updateRecordsStatusInBulkChunks(ids, status, updatedAt, onProgress);
   } catch (error) {
     if (error.status !== 404 && error.status !== 405) {
       throw error;
@@ -1181,12 +1181,59 @@ async function updateBulkStatusWithFallback(ids, status, updatedAt, onProgress) 
   }
 }
 
-async function updateRecordsStatusOneByOne(ids, status, updatedAt, onProgress) {
-  for (let index = 0; index < ids.length; index += 1) {
-    await patchRecordInApi(ids[index], { status, updatedAt }, { timeoutMs: xlsxApiTimeoutMs });
+async function updateRecordsStatusInBulkChunks(ids, status, updatedAt, onProgress) {
+  let updated = 0;
+
+  for (let index = 0; index < ids.length; index += bulkStatusChunkSize) {
+    const chunk = ids.slice(index, index + bulkStatusChunkSize);
+    await pushBulkStatusChunkWithFallback(chunk, status, updatedAt, { timeoutMs: xlsxBulkApiTimeoutMs });
+    updated += chunk.length;
 
     if (onProgress) {
-      onProgress(index + 1, ids.length, 'Mode kompatibilitas: status disimpan satu per satu.');
+      onProgress(updated, ids.length);
+    }
+  }
+}
+
+async function pushBulkStatusChunkWithFallback(ids, status, updatedAt, options = {}) {
+  try {
+    await pushBulkStatusToApi(ids, status, updatedAt, { timeoutMs: options.timeoutMs });
+  } catch (error) {
+    if (ids.length > 25 && isAbortOrTimeoutError(error)) {
+      const splitIndex = Math.ceil(ids.length / 2);
+      await pushBulkStatusChunkWithFallback(ids.slice(0, splitIndex), status, updatedAt, options);
+      await pushBulkStatusChunkWithFallback(ids.slice(splitIndex), status, updatedAt, options);
+      return;
+    }
+
+    if (isAbortOrTimeoutError(error) && !options.isRetry) {
+      await wait(900);
+      await pushBulkStatusChunkWithFallback(ids, status, updatedAt, { ...options, isRetry: true });
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function updateRecordsStatusOneByOne(ids, status, updatedAt, onProgress) {
+  let updated = 0;
+
+  for (let index = 0; index < ids.length; index += bulkPatchFallbackConcurrency) {
+    const chunk = ids.slice(index, index + bulkPatchFallbackConcurrency);
+    const results = await Promise.allSettled(
+      chunk.map((id) => patchRecordInApi(id, { status, updatedAt }, { timeoutMs: xlsxApiTimeoutMs }))
+    );
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (failedCount) {
+      throw new Error(`${failedCount} data gagal diubah dari web.`);
+    }
+
+    updated += chunk.length;
+
+    if (onProgress) {
+      onProgress(updated, ids.length, 'Mode kompatibilitas: status disimpan paralel.');
     }
   }
 }
@@ -1310,7 +1357,7 @@ async function deleteRecordsInChunks(ids, onProgress) {
     const chunk = ids.slice(index, index + bulkDeleteChunkSize);
 
     try {
-      await deleteRecordsFromApi(chunk, { timeoutMs: xlsxApiTimeoutMs });
+      await deleteRecordsChunkWithFallback(chunk, { timeoutMs: xlsxBulkApiTimeoutMs });
     } catch (error) {
       if (error.status !== 404 && error.status !== 405) {
         throw error;
@@ -1327,26 +1374,41 @@ async function deleteRecordsInChunks(ids, onProgress) {
   }
 }
 
-async function deleteRecordsOneByOne(ids) {
-  const results = await Promise.allSettled(ids.map((id) => deleteRecordFromApi(id, { timeoutMs: xlsxApiTimeoutMs })));
-  const failedCount = results.filter((result) => result.status === 'rejected').length;
+async function deleteRecordsChunkWithFallback(ids, options = {}) {
+  try {
+    await deleteRecordsFromApi(ids, { timeoutMs: options.timeoutMs });
+  } catch (error) {
+    if (ids.length > 25 && isAbortOrTimeoutError(error)) {
+      const splitIndex = Math.ceil(ids.length / 2);
+      await deleteRecordsChunkWithFallback(ids.slice(0, splitIndex), options);
+      await deleteRecordsChunkWithFallback(ids.slice(splitIndex), options);
+      return;
+    }
 
-  if (failedCount) {
-    throw new Error(`${failedCount} data gagal dihapus dari web.`);
+    if (isAbortOrTimeoutError(error) && !options.isRetry) {
+      await wait(900);
+      await deleteRecordsChunkWithFallback(ids, { ...options, isRetry: true });
+      return;
+    }
+
+    throw error;
   }
 }
 
-function debounce(callback, delay = 350) {
-  let timerId;
+async function deleteRecordsOneByOne(ids) {
+  for (let index = 0; index < ids.length; index += bulkPatchFallbackConcurrency) {
+    const chunk = ids.slice(index, index + bulkPatchFallbackConcurrency);
+    const results = await Promise.allSettled(chunk.map((id) => deleteRecordFromApi(id, { timeoutMs: xlsxApiTimeoutMs })));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
 
-  return (...args) => {
-    window.clearTimeout(timerId);
-    timerId = window.setTimeout(() => callback(...args), delay);
-  };
+    if (failedCount) {
+      throw new Error(`${failedCount} data gagal dihapus dari web.`);
+    }
+  }
 }
 
 function autoRefreshRecords() {
-  if (document.visibilityState === 'hidden' || isMutatingRecords || isDatabaseLocked || isImportingShopeeXlsx) {
+  if (document.visibilityState === 'hidden' || isMutatingRecords || isDatabaseLocked || isImportingShopeeXlsx || editingRecordId) {
     return;
   }
 
@@ -1540,7 +1602,194 @@ function fillForm(record) {
   expiryDateInput.value = record.expiryDate || '';
   subscriptionStatusSelect.value = getStoredStatus(record);
   adminNotesInput.value = record.notes || '';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderStatusSelectOptions(currentStatus) {
+  const status = statusLabels[currentStatus] ? currentStatus : 'active';
+
+  return statusOptions.map((optionStatus) => {
+    return `<option value="${escapeHtml(optionStatus)}" ${optionStatus === status ? 'selected' : ''}>${escapeHtml(statusLabels[optionStatus])}</option>`;
+  }).join('');
+}
+
+function renderInlineEditForm(record, status) {
+  const orderSource = getRecordOrderSource(record);
+  const orderReference = getOrderReferenceValue(record);
+
+  return `
+    <div class="inline-edit-form" data-inline-editor data-order-source="${escapeHtml(orderSource)}" data-shopee-reference="${escapeHtml(record.orderNumber || '')}" data-whatsapp-reference="${escapeHtml(record.whatsappNumber || '')}">
+      <label class="field-group">
+        <span>Nama/User</span>
+        <input data-edit-field="customerName" type="text" value="${escapeHtml(record.customerName || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Email aktivasi</span>
+        <input data-edit-field="activatedEmail" type="email" value="${escapeHtml(record.activatedEmail || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Sumber order</span>
+        <select data-edit-field="orderSource">
+          <option value="shopee" ${orderSource === 'shopee' ? 'selected' : ''}>Shopee</option>
+          <option value="whatsapp" ${orderSource === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
+        </select>
+      </label>
+      <label class="field-group">
+        <span data-order-reference-label>${escapeHtml(getOrderReferenceLabel(orderSource))}</span>
+        <input data-edit-field="orderReference" type="${orderSource === 'whatsapp' ? 'tel' : 'text'}" inputmode="${orderSource === 'whatsapp' ? 'tel' : 'text'}" value="${escapeHtml(orderReference || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Produk</span>
+        <input data-edit-field="productName" type="text" value="${escapeHtml(record.productName || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Durasi hari</span>
+        <input data-edit-field="durationDays" type="number" min="1" step="1" value="${escapeHtml(record.durationDays || 30)}" />
+      </label>
+      <label class="field-group">
+        <span>Tanggal mulai</span>
+        <input data-edit-field="startDate" type="date" value="${escapeHtml(record.startDate || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Tanggal expire</span>
+        <input data-edit-field="expiryDate" type="date" value="${escapeHtml(record.expiryDate || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Status</span>
+        <select data-edit-field="status">
+          ${renderStatusSelectOptions(status)}
+        </select>
+      </label>
+      <label class="field-group wide-field">
+        <span>Catatan</span>
+        <textarea data-edit-field="notes" rows="2">${escapeHtml(record.notes || '')}</textarea>
+      </label>
+      <p class="inline-edit-status" data-inline-edit-status></p>
+    </div>
+  `;
+}
+
+function getInlineEditField(editor, fieldName) {
+  return editor.querySelector(`[data-edit-field="${fieldName}"]`);
+}
+
+function writeInlineOrderReferenceTo(editor, source) {
+  const orderReferenceInput = getInlineEditField(editor, 'orderReference');
+
+  if (!orderReferenceInput) {
+    return;
+  }
+
+  if (source === 'whatsapp') {
+    editor.dataset.whatsappReference = orderReferenceInput.value.trim();
+    return;
+  }
+
+  editor.dataset.shopeeReference = orderReferenceInput.value.trim();
+}
+
+function updateInlineOrderReferenceField(editor, nextSource) {
+  const previousSource = editor.dataset.orderSource === 'whatsapp' ? 'whatsapp' : 'shopee';
+  const safeNextSource = nextSource === 'whatsapp' ? 'whatsapp' : 'shopee';
+  const label = editor.querySelector('[data-order-reference-label]');
+  const orderReferenceInput = getInlineEditField(editor, 'orderReference');
+
+  writeInlineOrderReferenceTo(editor, previousSource);
+  editor.dataset.orderSource = safeNextSource;
+
+  if (label) {
+    label.textContent = getOrderReferenceLabel(safeNextSource);
+  }
+
+  if (orderReferenceInput) {
+    orderReferenceInput.type = safeNextSource === 'whatsapp' ? 'tel' : 'text';
+    orderReferenceInput.inputMode = safeNextSource === 'whatsapp' ? 'tel' : 'text';
+    orderReferenceInput.value = safeNextSource === 'whatsapp' ?
+      editor.dataset.whatsappReference || '' :
+      editor.dataset.shopeeReference || '';
+  }
+}
+
+function updateInlineEditExpiry(editor) {
+  const startDateInput = getInlineEditField(editor, 'startDate');
+  const durationInput = getInlineEditField(editor, 'durationDays');
+  const expiryInput = getInlineEditField(editor, 'expiryDate');
+  const startDate = fromDateInput(startDateInput?.value || '');
+  const durationDays = Number(durationInput?.value || 0);
+
+  if (!startDate || !durationDays || !expiryInput) {
+    return;
+  }
+
+  expiryInput.value = toDateInputValue(addDays(startDate, durationDays));
+}
+
+function getInlineEditRecord(recordCard, previousRecord) {
+  const editor = recordCard.querySelector('[data-inline-editor]');
+  const now = new Date().toISOString();
+  const orderSource = getInlineEditField(editor, 'orderSource')?.value === 'whatsapp' ? 'whatsapp' : 'shopee';
+  const orderReference = getInlineEditField(editor, 'orderReference')?.value.trim() || '';
+  const productName = getInlineEditField(editor, 'productName')?.value.trim() || '';
+  const status = getInlineEditField(editor, 'status')?.value || getStoredStatus(previousRecord);
+
+  writeInlineOrderReferenceTo(editor, orderSource);
+
+  return applyCompletenessStatus({
+    id: previousRecord.id,
+    customerName: getInlineEditField(editor, 'customerName')?.value.trim() || '',
+    activatedEmail: getInlineEditField(editor, 'activatedEmail')?.value.trim() || '',
+    whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
+    orderNumber: orderSource === 'shopee' ? orderReference : '',
+    orderSource,
+    productName: simplifyProductName(productName) || productName,
+    durationDays: Number(getInlineEditField(editor, 'durationDays')?.value) || 30,
+    startDate: getInlineEditField(editor, 'startDate')?.value || '',
+    expiryDate: getInlineEditField(editor, 'expiryDate')?.value || '',
+    status,
+    notes: getInlineEditField(editor, 'notes')?.value.trim() || '',
+    createdAt: previousRecord.createdAt || now,
+    updatedAt: now
+  }, previousRecord.status);
+}
+
+function setInlineEditStatus(recordCard, message, type = '') {
+  const statusElement = recordCard.querySelector('[data-inline-edit-status]');
+
+  if (!statusElement) {
+    return;
+  }
+
+  statusElement.textContent = message;
+  statusElement.dataset.type = type;
+}
+
+async function saveInlineEdit(recordCard, previousRecord) {
+  const nextRecord = getInlineEditRecord(recordCard, previousRecord);
+  const duplicateRecord = findDuplicateRecord(nextRecord);
+
+  if (duplicateRecord) {
+    setInlineEditStatus(recordCard, getDuplicateMessage(nextRecord, duplicateRecord), 'error');
+    setSyncStatus('Data duplikat', 'warning');
+    return;
+  }
+
+  try {
+    beginRecordsMutation();
+    setInlineEditStatus(recordCard, 'Menyimpan perubahan...', 'saving');
+    await pushRecordToApi(nextRecord);
+    records = sortRecords(records.map((record) => record.id === nextRecord.id ? nextRecord : record));
+    editingRecordId = '';
+    saveRecords();
+    renderRecords();
+    setSyncStatus('Tersimpan web', 'success');
+    syncStatus.title = 'Perubahan data tersimpan di Cloudflare D1.';
+    window.setTimeout(() => syncRecordsWithApi({ silent: true }), 600);
+  } catch (error) {
+    setInlineEditStatus(recordCard, error.message, 'error');
+    setSyncStatus(error.status === 409 ? 'Data duplikat' : 'Gagal simpan web', 'warning');
+    syncStatus.title = error.message;
+  } finally {
+    endRecordsMutation();
+  }
 }
 
 function resetForm() {
@@ -1800,9 +2049,10 @@ function renderRecords() {
     const missingFields = getIncompleteFields(record);
     const duplicateFields = getDuplicateFields(record, duplicateIndex);
     const isSelected = selectedRecordIds.has(record.id);
+    const isEditing = editingRecordId === record.id;
 
     return `
-      <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${duplicateFields.length ? 'status-duplicate' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''}" data-id="${escapeHtml(record.id)}">
+      <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${duplicateFields.length ? 'status-duplicate' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''} ${isEditing ? 'is-editing' : ''}" data-id="${escapeHtml(record.id)}">
         <div class="record-top">
           <label class="record-select" aria-label="Pilih data customer">
             <input type="checkbox" data-select-record="${escapeHtml(record.id)}" ${isSelected ? 'checked' : ''} />
@@ -1830,11 +2080,17 @@ function renderRecords() {
           ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
           ${duplicateFields.length ? `<div class="record-duplicate"><span>Ganda</span>${escapeHtml(duplicateFields.join(', '))}</div>` : ''}
         </div>
+        ${isEditing ? renderInlineEditForm(record, status) : ''}
         <div class="record-actions">
-          ${renderStatusMenu(status)}
-          ${whatsappLink ? `<a class="secondary-button compact-button" href="${escapeHtml(whatsappLink)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-          <button class="secondary-button" type="button" data-action="edit">Edit</button>
-          <button class="danger-button" type="button" data-action="delete">Hapus</button>
+          ${isEditing ? `
+            <button class="primary-button" type="button" data-action="save-inline-edit">Simpan</button>
+            <button class="secondary-button" type="button" data-action="cancel-inline-edit">Batal</button>
+          ` : `
+            ${renderStatusMenu(status)}
+            ${whatsappLink ? `<a class="secondary-button compact-button" href="${escapeHtml(whatsappLink)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+            <button class="secondary-button" type="button" data-action="edit">Edit</button>
+            <button class="danger-button" type="button" data-action="delete">Hapus</button>
+          `}
         </div>
       </article>
     `;
@@ -2149,10 +2405,6 @@ function applyOcrText(rawText) {
 
   if (email) {
     activatedEmailInput.value = email;
-  }
-
-  if (detectedEmails.length) {
-    setLookupEmails(detectedEmails, `${detectedEmails.length} email dari OCR input.`);
   }
 
   if (whatsapp) {
@@ -2717,13 +2969,6 @@ lookupScreenshotInput.addEventListener('change', (event) => {
 });
 emailLookupInput.addEventListener('input', renderRecords);
 clearLookupBtn.addEventListener('click', clearLookup);
-activatedEmailInput.addEventListener('input', debounce(() => {
-  const emails = extractEmails(activatedEmailInput.value);
-
-  if (emails.length) {
-    setLookupEmails(emails, 'Email input dicari.');
-  }
-}));
 packagePresetSelect.addEventListener('change', syncPackagePreset);
 durationDaysInput.addEventListener('input', () => {
   syncDurationPreset();
@@ -2784,6 +3029,22 @@ recordsList.addEventListener('change', (event) => {
     return;
   }
 
+  const inlineField = event.target.closest('[data-edit-field]');
+
+  if (inlineField) {
+    const editor = inlineField.closest('[data-inline-editor]');
+
+    if (editor && inlineField.dataset.editField === 'orderSource') {
+      updateInlineOrderReferenceField(editor, inlineField.value);
+    }
+
+    if (editor && (inlineField.dataset.editField === 'startDate' || inlineField.dataset.editField === 'durationDays')) {
+      updateInlineEditExpiry(editor);
+    }
+
+    return;
+  }
+
   const checkbox = event.target.closest('[data-select-record]');
 
   if (!checkbox) {
@@ -2797,6 +3058,20 @@ recordsList.addEventListener('change', (event) => {
   }
 
   renderRecords();
+});
+
+recordsList.addEventListener('input', (event) => {
+  const inlineField = event.target.closest('[data-edit-field]');
+
+  if (!inlineField || inlineField.dataset.editField !== 'durationDays') {
+    return;
+  }
+
+  const editor = inlineField.closest('[data-inline-editor]');
+
+  if (editor) {
+    updateInlineEditExpiry(editor);
+  }
 });
 
 recordsList.addEventListener('click', async (event) => {
@@ -2866,7 +3141,31 @@ recordsList.addEventListener('click', async (event) => {
   }
 
   if (action === 'edit') {
-    fillForm(record);
+    editingRecordId = editingRecordId === record.id ? '' : record.id;
+    closeStatusMenus();
+    renderRecords();
+
+    if (editingRecordId) {
+      window.requestAnimationFrame(() => {
+        const editedCard = [...recordsList.querySelectorAll('.record-card')].find((card) => card.dataset.id === editingRecordId);
+        const firstField = editedCard?.querySelector('[data-inline-editor] input, [data-inline-editor] select, [data-inline-editor] textarea');
+
+        firstField?.focus();
+        editedCard?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+
+    return;
+  }
+
+  if (action === 'cancel-inline-edit') {
+    editingRecordId = '';
+    renderRecords();
+    return;
+  }
+
+  if (action === 'save-inline-edit') {
+    await saveInlineEdit(recordCard, record);
     return;
   }
 

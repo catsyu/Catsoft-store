@@ -792,6 +792,26 @@ async function pushBulkStatusToApi(ids, status, updatedAt, options = {}) {
   return response.json();
 }
 
+async function patchRecordInApi(id, payload, options = {}) {
+  const response = await fetchWithTimeout(buildCustomerApiUrl(id), {
+    method: 'PATCH',
+    cache: 'no-store',
+    timeoutMs: options.timeoutMs,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}
+
 async function deleteRecordFromApi(id, options = {}) {
   const response = await fetchWithTimeout(buildCustomerApiUrl(id), {
     method: 'DELETE',
@@ -1065,6 +1085,8 @@ async function bulkApplyStatus() {
   const selectedRecords = getSelectedRecords();
 
   if (!nextStatus || !statusLabels[nextStatus] || !selectedRecords.length) {
+    setSyncStatus('Pilih data & status', 'warning');
+    syncStatus.title = 'Pilih data yang tampil dan status tujuan sebelum Apply.';
     return;
   }
 
@@ -1087,18 +1109,85 @@ async function bulkApplyStatus() {
 
   try {
     beginRecordsMutation();
-    await pushBulkStatusToApi(selectedIds, nextStatus, now, { timeoutMs: xlsxApiTimeoutMs });
+    setDatabaseLock(true);
+    showXlsxImportOverlay();
+    updateXlsxImportOverlay({
+      kicker: 'Bulk action',
+      title: 'Mengubah status',
+      message: `Mengubah ${selectedIds.length} data menjadi ${statusLabels[nextStatus]}.`,
+      progress: 5,
+      summary: `0/${selectedIds.length} status tersimpan`
+    });
+    await updateBulkStatusWithFallback(selectedIds, nextStatus, now, (updated, total, mode = '') => {
+      updateXlsxImportOverlay({
+        kicker: 'Bulk action',
+        title: 'Mengubah status',
+        message: mode || `Mengubah ${total} data menjadi ${statusLabels[nextStatus]}.`,
+        progress: 5 + ((updated / total) * 88),
+        summary: `${updated}/${total} status tersimpan`
+      });
+    });
     records = sortRecords(nextRecords);
+    selectedRecordIds.clear();
     saveRecords();
     renderRecords();
     setSyncStatus(`${updatedRecords.length} status tersimpan`, 'success');
     syncStatus.title = 'Update status bulk tersimpan di Cloudflare D1.';
-    syncRecordsWithApi({ silent: true });
+    updateXlsxImportOverlay({
+      kicker: 'Bulk action',
+      title: 'Status tersimpan',
+      message: `${updatedRecords.length} data berhasil diubah menjadi ${statusLabels[nextStatus]}.`,
+      progress: 100,
+      summary: `${updatedRecords.length} status tersimpan`,
+      mode: 'success'
+    });
+    xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1200);
+    window.setTimeout(() => syncRecordsWithApi({ silent: true }), 1300);
   } catch (error) {
     setSyncStatus('Gagal bulk web', 'warning');
     syncStatus.title = error.message;
+    updateXlsxImportOverlay({
+      kicker: 'Bulk action',
+      title: 'Status gagal',
+      message: 'Status belum tersimpan ke database pusat.',
+      progress: 100,
+      summary: error.message,
+      mode: 'error',
+      canClose: true
+    });
   } finally {
+    setDatabaseLock(false);
     endRecordsMutation();
+  }
+}
+
+async function updateBulkStatusWithFallback(ids, status, updatedAt, onProgress) {
+  try {
+    await pushBulkStatusToApi(ids, status, updatedAt, { timeoutMs: xlsxApiTimeoutMs });
+
+    if (onProgress) {
+      onProgress(ids.length, ids.length);
+    }
+  } catch (error) {
+    if (error.status !== 404 && error.status !== 405) {
+      throw error;
+    }
+
+    if (onProgress) {
+      onProgress(0, ids.length, 'Endpoint bulk-status belum aktif, memakai mode kompatibilitas.');
+    }
+
+    await updateRecordsStatusOneByOne(ids, status, updatedAt, onProgress);
+  }
+}
+
+async function updateRecordsStatusOneByOne(ids, status, updatedAt, onProgress) {
+  for (let index = 0; index < ids.length; index += 1) {
+    await patchRecordInApi(ids[index], { status, updatedAt }, { timeoutMs: xlsxApiTimeoutMs });
+
+    if (onProgress) {
+      onProgress(index + 1, ids.length, 'Mode kompatibilitas: status disimpan satu per satu.');
+    }
   }
 }
 

@@ -7,6 +7,7 @@ const customerFetchLimit = 500;
 const autoRefreshMs = 10000;
 const xlsxImportBatchSize = 8;
 const xlsxBulkImportChunkSize = 50;
+const bulkDeleteChunkSize = 100;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 
@@ -72,6 +73,7 @@ const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 const clearSelectionBtn = document.getElementById('clearSelectionBtn');
 const recordsList = document.getElementById('recordsList');
 const xlsxImportOverlay = document.getElementById('xlsxImportOverlay');
+const operationOverlayKicker = document.getElementById('operationOverlayKicker');
 const xlsxImportTitle = document.getElementById('xlsxImportTitle');
 const xlsxImportMessage = document.getElementById('xlsxImportMessage');
 const xlsxImportProgressBar = document.getElementById('xlsxImportProgressBar');
@@ -565,13 +567,14 @@ function showXlsxImportOverlay() {
   xlsxImportCloseBtn.classList.add('is-hidden');
 }
 
-function updateXlsxImportOverlay({ title, message, progress, summary, mode = '', canClose = false }) {
+function updateXlsxImportOverlay({ kicker = 'Update XLSX Shopee', title, message, progress, summary, mode = '', canClose = false }) {
   if (!xlsxImportOverlay) {
     return;
   }
 
   const progressValue = Math.min(Math.max(Number(progress) || 0, 0), 100);
 
+  operationOverlayKicker.textContent = kicker;
   xlsxImportTitle.textContent = title;
   xlsxImportMessage.textContent = message;
   xlsxImportProgressBar.style.width = `${progressValue}%`;
@@ -805,6 +808,26 @@ async function deleteRecordFromApi(id, options = {}) {
   return response.json();
 }
 
+async function deleteRecordsFromApi(ids, options = {}) {
+  const response = await fetchWithTimeout(buildCustomerApiActionUrl('bulk-delete'), {
+    method: 'POST',
+    cache: 'no-store',
+    timeoutMs: options.timeoutMs,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids })
+  });
+
+  if (!response.ok) {
+    const error = new Error(await getApiErrorMessage(response));
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}
+
 async function replaceRecordsFromApi(options = {}) {
   const apiRecords = await fetchApiRecords({ timeoutMs: options.timeoutMs });
 
@@ -982,13 +1005,18 @@ function sortFilteredRecords(recordList, duplicateIndex = getDuplicateIndex(reco
   });
 }
 
+function getVisibleRecordIdSet() {
+  return new Set(lastRenderedRecordIds);
+}
+
 function getSelectedRecords() {
-  return records.filter((record) => selectedRecordIds.has(record.id));
+  const visibleIds = getVisibleRecordIdSet();
+  return records.filter((record) => selectedRecordIds.has(record.id) && visibleIds.has(record.id));
 }
 
 function pruneSelection() {
-  const existingIds = new Set(records.map((record) => record.id));
-  selectedRecordIds = new Set([...selectedRecordIds].filter((id) => existingIds.has(id)));
+  const visibleIds = getVisibleRecordIdSet();
+  selectedRecordIds = new Set([...selectedRecordIds].filter((id) => visibleIds.has(id)));
 }
 
 function renderBulkState() {
@@ -1123,7 +1151,8 @@ async function bulkDeleteSelected() {
     return;
   }
 
-  const idsToDelete = new Set(selectedRecordIds);
+  const selectedRecords = getSelectedRecords();
+  const idsToDelete = new Set(selectedRecords.map((record) => record.id));
   const selectedTotal = idsToDelete.size;
 
   if (!selectedTotal || !window.confirm(`Hapus ${selectedTotal} data terpilih?`)) {
@@ -1132,12 +1161,24 @@ async function bulkDeleteSelected() {
 
   try {
     beginRecordsMutation();
-    const results = await Promise.allSettled([...idsToDelete].map((id) => deleteRecordFromApi(id)));
-    const failedCount = results.filter((result) => result.status === 'rejected').length;
-
-    if (failedCount) {
-      throw new Error(`${failedCount} data gagal dihapus dari web.`);
-    }
+    setDatabaseLock(true);
+    showXlsxImportOverlay();
+    updateXlsxImportOverlay({
+      kicker: 'Bulk action',
+      title: 'Menghapus data',
+      message: 'Data terpilih sedang dihapus dari database pusat.',
+      progress: 4,
+      summary: `0/${selectedTotal} data terhapus`
+    });
+    await deleteRecordsInChunks([...idsToDelete], (deleted, total) => {
+      updateXlsxImportOverlay({
+        kicker: 'Bulk action',
+        title: 'Menghapus data',
+        message: 'Data terpilih sedang dihapus dari database pusat.',
+        progress: 4 + ((deleted / total) * 90),
+        summary: `${deleted}/${total} data terhapus`
+      });
+    });
 
     records = records.filter((record) => !idsToDelete.has(record.id));
     selectedRecordIds.clear();
@@ -1145,12 +1186,64 @@ async function bulkDeleteSelected() {
     renderRecords();
     setSyncStatus(`${selectedTotal} data terhapus`, 'success');
     syncStatus.title = 'Hapus bulk sudah dikirim ke Cloudflare D1.';
-    syncRecordsWithApi({ silent: true });
+    updateXlsxImportOverlay({
+      kicker: 'Bulk action',
+      title: 'Hapus selesai',
+      message: 'Data terpilih sudah dihapus. Tampilan mengikuti filter aktif.',
+      progress: 100,
+      summary: `${selectedTotal} data terhapus`,
+      mode: 'success'
+    });
+    xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1200);
+    window.setTimeout(() => syncRecordsWithApi({ silent: true }), 1300);
   } catch (error) {
     setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
+    updateXlsxImportOverlay({
+      kicker: 'Bulk action',
+      title: 'Hapus gagal',
+      message: 'Sebagian data belum terhapus dari database pusat.',
+      progress: 100,
+      summary: error.message,
+      mode: 'error',
+      canClose: true
+    });
   } finally {
+    setDatabaseLock(false);
     endRecordsMutation();
+  }
+}
+
+async function deleteRecordsInChunks(ids, onProgress) {
+  let deleted = 0;
+
+  for (let index = 0; index < ids.length; index += bulkDeleteChunkSize) {
+    const chunk = ids.slice(index, index + bulkDeleteChunkSize);
+
+    try {
+      await deleteRecordsFromApi(chunk, { timeoutMs: xlsxApiTimeoutMs });
+    } catch (error) {
+      if (error.status !== 404 && error.status !== 405) {
+        throw error;
+      }
+
+      await deleteRecordsOneByOne(chunk);
+    }
+
+    deleted += chunk.length;
+
+    if (onProgress) {
+      onProgress(deleted, ids.length);
+    }
+  }
+}
+
+async function deleteRecordsOneByOne(ids) {
+  const results = await Promise.allSettled(ids.map((id) => deleteRecordFromApi(id, { timeoutMs: xlsxApiTimeoutMs })));
+  const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+  if (failedCount) {
+    throw new Error(`${failedCount} data gagal dihapus dari web.`);
   }
 }
 

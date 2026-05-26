@@ -95,6 +95,10 @@ export default {
       return bulkUpdateCustomerRecordStatus(request, env);
     }
 
+    if (url.pathname === '/api/customer-records/bulk-delete' && request.method === 'POST') {
+      return bulkDeleteCustomerRecords(request, env);
+    }
+
     if (url.pathname === '/api/customer-records/health' && request.method === 'GET') {
       return customerRecordsHealthCheck(request, env);
     }
@@ -568,6 +572,38 @@ async function bulkUpdateCustomerRecordStatus(request, env) {
   }, 200, request);
 }
 
+async function bulkDeleteCustomerRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const ids = uniqueValues((Array.isArray(payload.ids) ? payload.ids : [])
+    .map((id) => cleanValue(id, 120))
+    .filter(Boolean));
+
+  if (!ids.length) {
+    return json({ ok: false, error: 'Tidak ada data yang dipilih.' }, 400, request);
+  }
+
+  const deleted = await deleteCustomerRecordsBatch(customerDb, ids);
+
+  return json({
+    ok: true,
+    total: ids.length,
+    deleted
+  }, 200, request);
+}
+
 async function patchCustomerRecord(request, env, id) {
   const customerDb = getCustomerDb(env);
 
@@ -981,6 +1017,21 @@ async function updateCustomerRecordsStatusBatch(customerDb, ids, status, updated
   }
 
   return updated;
+}
+
+async function deleteCustomerRecordsBatch(customerDb, ids) {
+  const statement = customerDb.prepare('DELETE FROM customer_records WHERE id = ?');
+  let deleted = 0;
+
+  for (const chunk of chunkArray(ids, customerImportBatchSize)) {
+    const results = await customerDb.batch(chunk.map((id) => statement.bind(id)));
+
+    for (const result of results || []) {
+      deleted += result && result.meta && Number.isFinite(result.meta.changes) ? result.meta.changes : 0;
+    }
+  }
+
+  return deleted;
 }
 
 function cleanValue(value, maxLength = 500) {

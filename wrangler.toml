@@ -1,6 +1,7 @@
 name = "mail-base-all-catch"
 main = "cloudflare-email-worker.example.js"
 compatibility_date = "2026-05-25"
+account_id = "9b19f1b31d88513e013d1a522e583c08"
 
 routes = [
   { pattern = "catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
@@ -34,17 +35,17 @@ routes = [
 [[d1_databases]]
 binding = "ADMIN_DB"
 database_name = "admin_accounts"
-database_id = "ISI_DATABASE_ID_ADMIN_ACCOUNTS"
+database_id = "05cdff0f-1d32-49a3-97d0-1e240655c66c"
 
 [[d1_databases]]
 binding = "CUSTOMER_DB"
 database_name = "catsoft-customer-db"
-database_id = "ISI_DATABASE_ID_CUSTOMER_DB"
+database_id = "1e575674-84ef-4f09-a151-6f80e36bab5d"
 
 [[d1_databases]]
 binding = "EMAIL_DB"
 database_name = "email-db"
-database_id = "ISI_DATABASE_ID_EMAIL_DB"
+database_id = "17d3485b-c3f1-40a7-b583-f58ebd63bd87"
 
 [vars]
 FORWARD_TO = "cundigitora@gmail.com"

@@ -50,7 +50,7 @@ a {
 .brand-mark {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;
   color: #0f172a;
   font-size: 18px;
   font-weight: 900;
@@ -58,9 +58,49 @@ a {
 }
 
 .brand-mark img {
-  width: 42px;
+  width: auto;
   height: 42px;
   object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(37, 99, 235, 0.16));
+}
+
+.brand-mark span {
+  display: none;
+}
+
+.tutorial-menu-toggle {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.tutorial-menu-toggle span {
+  width: 20px;
+  height: 2px;
+  border-radius: 999px;
+  background: #1d4ed8;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.tutorial-menu-toggle.active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.tutorial-menu-toggle.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.tutorial-menu-toggle.active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
 }
 
 .header-actions,
@@ -154,6 +194,7 @@ a {
   max-width: 680px;
   color: #475569;
   font-size: 17px;
+  overflow-wrap: anywhere;
 }
 
 .hero-actions {
@@ -627,14 +668,61 @@ a {
     width: min(100%, calc(100vw - 24px));
   }
 
-  .header-inner {
-    align-items: stretch;
-    flex-direction: column;
+  .tutorial-header {
+    background: rgba(255, 255, 255, 0.9);
   }
 
-  .header-actions,
+  .header-inner {
+    position: relative;
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+    padding: 16px 0;
+  }
+
+  .brand-mark {
+    gap: 0;
+  }
+
+  .brand-mark img {
+    width: auto;
+    height: 42px;
+  }
+
+  .tutorial-menu-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .header-actions {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    left: 0;
+    z-index: 40;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(16px);
+  }
+
+  .header-actions.open {
+    display: flex;
+  }
+
   .header-actions .ghost-button,
-  .header-actions .primary-button,
+  .header-actions .primary-button {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    border-radius: 16px;
+  }
+
   .hero-actions,
   .hero-actions .ghost-button,
   .hero-actions .primary-button,
@@ -647,7 +735,7 @@ a {
   }
 
   .hero-copy h1 {
-    font-size: 32px;
+    font-size: 30px;
     line-height: 1.08;
   }
 
@@ -708,8 +796,8 @@ a {
 
 @media (max-width: 520px) {
   .tutorial-shell {
-    width: min(366px, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 32px));
     margin-right: auto;
-    margin-left: 12px;
+    margin-left: auto;
   }
 }

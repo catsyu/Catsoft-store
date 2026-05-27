@@ -403,9 +403,9 @@ button:disabled {
 
 @media (max-width: 520px) {
   .activation-page {
-    width: min(366px, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 32px));
     margin-right: auto;
-    margin-left: 12px;
+    margin-left: auto;
   }
 }
 

@@ -1,4 +1,35 @@
 (function () {
+  const menuToggle = document.querySelector('.tutorial-menu-toggle');
+  const headerActions = document.querySelector('.tutorial-header .header-actions');
+
+  if (menuToggle && headerActions) {
+    const closeMenu = () => {
+      headerActions.classList.remove('open');
+      menuToggle.classList.remove('active');
+      menuToggle.setAttribute('aria-expanded', 'false');
+    };
+
+    menuToggle.addEventListener('click', () => {
+      const isOpen = headerActions.classList.toggle('open');
+      menuToggle.classList.toggle('active', isOpen);
+      menuToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    headerActions.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', closeMenu);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!headerActions.classList.contains('open')) {
+        return;
+      }
+
+      if (!headerActions.contains(event.target) && !menuToggle.contains(event.target)) {
+        closeMenu();
+      }
+    });
+  }
+
   const optionButtons = Array.from(document.querySelectorAll('[data-tutorial-target][data-tutorial-group]'));
 
   if (!optionButtons.length) {

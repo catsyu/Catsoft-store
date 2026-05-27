@@ -950,10 +950,10 @@ a {
 
 @media (max-width: 520px) {
   .email-page {
-    width: min(366px, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 32px));
     max-width: none;
     margin-right: auto;
-    margin-left: 12px;
+    margin-left: auto;
   }
 
   .stats-grid {

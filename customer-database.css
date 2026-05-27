@@ -1471,7 +1471,7 @@ body.is-database-locked {
   }
 
   .xlsx-import-card {
-    width: min(366px, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 32px));
     padding: 18px;
   }
 
@@ -1617,9 +1617,9 @@ input[type="checkbox"]:indeterminate::after {
 
 @media (max-width: 520px) {
   .customer-page {
-    width: min(366px, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 32px));
     margin-right: auto;
-    margin-left: 12px;
+    margin-left: auto;
   }
 }
 

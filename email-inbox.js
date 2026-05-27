@@ -297,13 +297,25 @@ function htmlToText(value) {
   return String(value || '')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/(p|div|td|tr|h[1-6]|li)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&zwnj;/g, '')
+    .replace(/&#8204;/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => {
+      const point = Number(code);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : ' ';
+    })
+    .replace(/&#x([A-Fa-f0-9]+);/g, (_, code) => {
+      const point = parseInt(code, 16);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : ' ';
+    })
     .replace(/\s+\n/g, '\n')
     .replace(/\n\s+/g, '\n')
     .trim();
@@ -314,11 +326,13 @@ function normalizeEmail(rawEmail) {
   const from = cleanAddress(rawEmail.from || rawEmail.sender);
   const to = cleanAddress(rawEmail.to || rawEmail.recipient);
   const htmlBody = rawEmail.htmlBody || rawEmail.html_body || '';
-  const body = rawEmail.body || rawEmail.textBody || rawEmail.text_body || htmlToText(htmlBody) || rawEmail.rawContent || rawEmail.raw_content || '';
-  const snippet = rawEmail.snippet || rawEmail.preview || body.slice(0, 180);
+  const textBody = rawEmail.body || rawEmail.textBody || rawEmail.text_body || '';
+  const htmlText = htmlToText(htmlBody);
+  const body = buildReadableMessageBody(textBody, htmlText, rawEmail.rawContent || rawEmail.raw_content || '');
   const receivedAt = rawEmail.receivedAt || rawEmail.received_at || rawEmail.timestamp || rawEmail.date || new Date().toISOString();
   const subject = rawEmail.subject || '(Tanpa subject)';
   const category = normalizeCategory(rawEmail.category, { from, to, subject, body });
+  const snippet = getReadableSnippet(rawEmail.snippet || rawEmail.preview, subject, body, category);
   const otpCode = rawEmail.otpCode || rawEmail.otp_code || extractOtp(`${subject}\n${body}`);
   const hasServerReadState = Object.prototype.hasOwnProperty.call(rawEmail, 'read')
     || Object.prototype.hasOwnProperty.call(rawEmail, 'readAt')
@@ -340,6 +354,42 @@ function normalizeEmail(rawEmail) {
     read,
     size: rawEmail.size || rawEmail.rawSize || 0
   };
+}
+
+function buildReadableMessageBody(textBody, htmlText, rawContent) {
+  const text = cleanMessageText(textBody);
+  const html = cleanMessageText(htmlText);
+
+  if (isUsefulMessageText(text) && (!html || text.length >= Math.min(html.length, 120))) {
+    return text;
+  }
+
+  return html || text || cleanMessageText(rawContent);
+}
+
+function getReadableSnippet(snippet, subject, body, category) {
+  const text = cleanMessageText(snippet);
+
+  if (isUsefulMessageText(text)) {
+    return text.slice(0, 180);
+  }
+
+  return cleanMessageText(body || subject || (category === 'adobe' ? 'Email Adobe' : 'Isi email tersedia')).slice(0, 180);
+}
+
+function cleanMessageText(value) {
+  return String(value || '')
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isUsefulMessageText(value) {
+  return cleanMessageText(value)
+    .replace(/[-=_*•·\s]/g, '')
+    .trim()
+    .length >= 24;
 }
 
 function normalizeCategory(value, email) {
@@ -770,7 +820,7 @@ function deleteEmail(email) {
   }
 }
 
-function getReadableBody(email) {
+function getSelectedEmailBody(email) {
   const raw = String(email.body || email.snippet || 'Isi email belum tersedia.')
     .replace(/\r\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -827,7 +877,7 @@ function renderSelectedEmail(email) {
     return;
   }
 
-  const body = getReadableBody(selectedEmail);
+  const body = getSelectedEmailBody(selectedEmail);
   const recipientLabel = getRecipientLabel(selectedEmail);
   const senderLabel = getSenderName(selectedEmail.from, selectedEmail.category);
   const otpMarkup = selectedEmail.otpCode ? `

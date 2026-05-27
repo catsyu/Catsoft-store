@@ -153,7 +153,7 @@ async function saveEmailMessage(message, env) {
   const subject = decodeMimeHeader(message.headers.get('subject') || '(Tanpa subject)');
   const textBody = extractMimePart(rawContent, 'text/plain');
   const htmlBody = extractMimePart(rawContent, 'text/html');
-  const readableBody = textBody || stripHtml(htmlBody) || stripHeaders(rawContent);
+  const readableBody = getReadableEmailBody(textBody, htmlBody, rawContent);
   const category = categorizeEmail({
     sender: message.from,
     recipient: message.to,
@@ -358,7 +358,7 @@ async function listEmails(request, env) {
       category: row.category,
       receivedAt: row.received_at,
       size: row.size,
-      snippet: row.snippet,
+      snippet: getReadableEmailSnippet(row.snippet, row.subject, row.category),
       otpCode: row.otp_code,
       readAt: row.read_at
     }))
@@ -418,8 +418,8 @@ async function getEmail(request, env, id) {
     category: row.category,
     receivedAt: row.received_at,
     size: row.size,
-    snippet: row.snippet,
-    textBody: row.text_body,
+    snippet: getReadableEmailSnippet(row.snippet, row.subject, row.category),
+    textBody: getReadableEmailBody(row.text_body, row.html_body, row.raw_content),
     htmlBody: row.html_body,
     rawContent: row.raw_content,
     otpCode: row.otp_code,
@@ -1605,7 +1605,7 @@ function corsHeaders(request) {
   const headers = {
     Vary: 'Origin',
     'Access-Control-Allow-Methods': 'GET, PATCH, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-catsoft-inbox-key'
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Cache-Control, Pragma, x-catsoft-inbox-key'
   };
 
   if (origin) {
@@ -1731,6 +1731,45 @@ function decodeMimeHeader(value) {
   });
 }
 
+function getReadableEmailBody(textBody, htmlBody, rawContent) {
+  const text = cleanEmailText(textBody);
+  const htmlText = cleanEmailText(stripHtml(htmlBody));
+
+  if (isUsefulEmailText(text) && (!htmlText || text.length >= Math.min(htmlText.length, 120))) {
+    return text;
+  }
+
+  return htmlText || text || cleanEmailText(stripHeaders(rawContent));
+}
+
+function getReadableEmailSnippet(snippet, subject, category) {
+  const text = cleanEmailText(snippet);
+
+  if (isUsefulEmailText(text)) {
+    return compactText(text).slice(0, 220);
+  }
+
+  return compactText(subject || (category === 'adobe' ? 'Email Adobe' : 'Isi email tersedia')).slice(0, 220);
+}
+
+function cleanEmailText(value) {
+  return String(value || '')
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function isUsefulEmailText(value) {
+  const text = compactText(value)
+    .replace(/[-=_*•·\s]/g, '')
+    .trim();
+
+  return text.length >= 24;
+}
+
 function stripHeaders(rawContent) {
   const normalized = String(rawContent || '').replace(/\r\n/g, '\n');
   const splitIndex = normalized.indexOf('\n\n');
@@ -1742,11 +1781,25 @@ function stripHtml(value) {
   return String(value || '')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|td|tr|h[1-6]|li)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&zwnj;/g, '')
+    .replace(/&#8204;/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => {
+      const point = Number(code);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : ' ';
+    })
+    .replace(/&#x([A-Fa-f0-9]+);/g, (_, code) => {
+      const point = parseInt(code, 16);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : ' ';
+    });
 }
 
 function categorizeEmail(email) {

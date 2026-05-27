@@ -148,6 +148,32 @@ const productPackages = {
       }
     ]
   },
+  lutapplelog: {
+    name: 'LUT Apple Log ProRes',
+    plans: [
+      {
+        value: 'lut-pack',
+        label: 'LUT Apple Log ProRes Pack — Rp100.000',
+        name: 'LUT Apple Log ProRes Pack',
+        price: 'Rp100.000',
+        duration: 'Akses lifetime',
+        terms: '4 file LUT .cube untuk footage iPhone Apple Log, panduan penggunaan, dan support admin'
+      }
+    ]
+  },
+  lightroompreset: {
+    name: 'Preset Lightroom Street Photography',
+    plans: [
+      {
+        value: 'street-140',
+        label: 'Preset Lightroom 140++ Street Photography — Rp125.000',
+        name: 'Preset Lightroom 140++ Street Photography',
+        price: 'Rp125.000',
+        duration: 'Akses lifetime',
+        terms: '140++ preset Lightroom untuk mobile, iPad, Mac, Windows, PC, lengkap dengan tutorial instalasi'
+      }
+    ]
+  },
   likeig: {
     name: 'Like IG Bergaransi Permanen',
     plans: [
@@ -343,8 +369,58 @@ const productDetailContent = {
       'Membeli berarti setuju dengan ketentuan toko pada deskripsi maupun foto produk.'
     ],
     note: 'Klaim garansi di luar jam operasional akan dibalas saat jam operasional berikutnya.',
+    tutorialUrl: 'tutorial-after-effects-assets.html',
+    tutorialLabel: 'Tutorial penggunaan',
     orderProduct: 'aeassets',
     orderPlan: 'assets-pack-5000'
+  },
+  lutapplelog: {
+    label: 'LUT Apple Log ProRes',
+    title: 'LUT iPhone Apple Log ProRes',
+    lead: 'Paket 4 file LUT .cube untuk pengguna iPhone Pro yang merekam Apple Log/ProRes Log dan ingin mendapatkan warna cinematic lebih cepat.',
+    summary: [
+      'Berisi Apple Log To CineColor, Apple Log To Mirrorless Neutral, Apple Log To Mirrorless STD, dan Apple Log STD Enhanced.',
+      'Dioptimalkan untuk footage Apple Log dari iPhone 15 Pro, 15 Pro Max, 16 Pro, dan 16 Pro Max.',
+      'Dapat digunakan di Blackmagic Camera App, Kino App, DaVinci Resolve, Final Cut Pro, atau editor video yang mendukung file LUT .cube.',
+      'Membantu mengubah footage Log yang flat menjadi look lebih siap publish tanpa grading dari nol.',
+      'Termasuk panduan penggunaan dan referensi workflow untuk pengguna iPhone.'
+    ],
+    terms: [
+      'Pastikan video direkam dengan Color Space/Encoding Apple Log agar warna LUT sesuai.',
+      'Tidak disarankan untuk video standar non-Log karena hasil warna bisa terlalu kontras atau tidak natural.',
+      'Untuk hasil terbaik, gunakan exposure dan white balance yang konsisten saat merekam.',
+      'Kompatibilitas aplikasi mengikuti dukungan import LUT .cube pada aplikasi masing-masing.',
+      'Produk digital, tidak ada pengiriman fisik, dan support diberikan sesuai jam operasional Catsoft.'
+    ],
+    note: 'Jika belum pernah merekam Apple Log, buka tutorial produk terlebih dahulu sebelum menggunakan LUT.',
+    tutorialUrl: 'tutorial-lut-apple-log.html',
+    tutorialLabel: 'Tutorial LUT',
+    orderProduct: 'lutapplelog',
+    orderPlan: 'lut-pack'
+  },
+  lightroompreset: {
+    label: 'Preset Lightroom',
+    title: 'Preset Lightroom 140++ Street Photography Professional',
+    lead: 'Paket preset Lightroom untuk membuat foto street photography terlihat lebih aesthetic, konsisten, dan profesional di mobile, iPad, Mac, Windows, maupun PC.',
+    summary: [
+      'Berisi 140++ preset Lightroom dengan tone street photography yang beragam.',
+      'Mudah digunakan untuk pemula, konten kreator, fotografer mobile, dan kebutuhan editing cepat.',
+      'Kompatibel untuk Lightroom mobile di Android, iPhone, iPad, serta Lightroom desktop di Mac dan Windows.',
+      'File bisa digunakan selamanya setelah pembelian.',
+      'Dilengkapi tutorial instalasi lengkap untuk tiap device dan bantuan admin jika ada kendala.'
+    ],
+    terms: [
+      'Customer wajib mengikuti format file dan tutorial sesuai device yang digunakan.',
+      'Jika menggunakan preset XMP di mobile dan ingin sinkron antar device, gunakan akun Adobe yang sama.',
+      'Untuk preset DNG, simpan file DNG lalu buat preset dari foto contoh di Lightroom mobile.',
+      'Hasil warna dapat berbeda tergantung pencahayaan foto, kamera, dan kondisi file original.',
+      'Produk digital, tidak ada pengiriman fisik, dan klaim garansi akan dibantu sesuai jam operasional.'
+    ],
+    note: 'Buka tutorial terlebih dahulu jika belum pernah memasang preset Lightroom di perangkat Anda.',
+    tutorialUrl: 'tutorial-lightroom-preset.html',
+    tutorialLabel: 'Tutorial preset',
+    orderProduct: 'lightroompreset',
+    orderPlan: 'street-140'
   },
   likeig: {
     label: 'Like IG Bergaransi Permanen',
@@ -1940,6 +2016,16 @@ const orderNotificationItems = [
     initial: 'A',
     title: 'After Effects Assets',
     text: 'Assets Pack 5000+'
+  },
+  {
+    initial: 'L',
+    title: 'LUT Apple Log ProRes',
+    text: 'LUT Pack iPhone'
+  },
+  {
+    initial: 'Lr',
+    title: 'Preset Lightroom',
+    text: 'Street 140++ Preset'
   },
   {
     initial: 'A',

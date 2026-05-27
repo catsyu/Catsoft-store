@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Preset Lightroom</title>
+  <desc id="desc">Ikon preset Lightroom Catsoft</desc>
+  <defs>
+    <linearGradient id="lrBg" x1="38" y1="32" x2="218" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071426"/>
+      <stop offset="0.52" stop-color="#0f4b8f"/>
+      <stop offset="1" stop-color="#31d2f7"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="208" height="208" rx="46" fill="url(#lrBg)"/>
+  <rect x="48" y="52" width="160" height="152" rx="28" fill="#0b1220" opacity="0.38"/>
+  <circle cx="176" cy="82" r="18" fill="#60a5fa"/>
+  <path d="M72 172V82h24v69h39v21H72Z" fill="#dff8ff"/>
+  <path d="M145 172v-62h20l2 10c4-7 11-12 22-12 3 0 6 .3 8 1v23c-3-1-6-1-10-1-12 0-19 7-19 21v20h-23Z" fill="#9eeeff"/>
+</svg>

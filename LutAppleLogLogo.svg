@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">LUT Apple Log ProRes</title>
+  <desc id="desc">Ikon LUT video untuk produk Apple Log ProRes Catsoft</desc>
+  <defs>
+    <linearGradient id="bg" x1="44" y1="34" x2="216" y2="222" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f172a"/>
+      <stop offset="0.48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#14b8a6"/>
+    </linearGradient>
+    <linearGradient id="strip" x1="62" y1="90" x2="194" y2="166" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f97316"/>
+      <stop offset="0.33" stop-color="#facc15"/>
+      <stop offset="0.66" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="208" height="208" rx="48" fill="url(#bg)"/>
+  <rect x="54" y="62" width="148" height="92" rx="22" fill="#f8fafc" opacity="0.94"/>
+  <rect x="68" y="82" width="120" height="18" rx="9" fill="url(#strip)"/>
+  <rect x="68" y="114" width="44" height="18" rx="9" fill="#0f172a" opacity="0.88"/>
+  <rect x="122" y="114" width="66" height="18" rx="9" fill="#0f172a" opacity="0.2"/>
+  <text x="128" y="195" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="900" letter-spacing="0" text-anchor="middle">LUT</text>
+</svg>

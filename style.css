@@ -1877,9 +1877,12 @@ footer {
 }
 
 .floating-whatsapp-icon img {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: block;
+  object-fit: contain;
+  object-position: center;
+  margin: auto;
 }
 
 .order-notification {
@@ -2011,7 +2014,7 @@ footer {
     height: 40px;
   }
 
-  .floating-whatsapp span {
+  .floating-whatsapp > span:not(.floating-whatsapp-icon) {
     display: none;
   }
 

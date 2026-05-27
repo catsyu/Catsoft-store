@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial LUT Apple Log ProRes iPhone | Catsoft</title>
+  <meta name="description" content="Panduan customer Catsoft untuk menggunakan LUT Apple Log ProRes di iPhone, Blackmagic Camera App, Kino App, dan aplikasi editing video." />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="office-tutorial.css" />
+</head>
+<body>
+  <header class="tutorial-header">
+    <div class="tutorial-shell header-inner">
+      <a class="brand-mark" href="index.html" aria-label="Catsoft">
+        <img src="logo.png" alt="Catsoft" />
+        <span>Catsoft</span>
+      </a>
+      <nav class="header-actions" aria-label="Navigasi tutorial">
+        <a class="ghost-button" href="tutorial.html">Pusat Tutorial</a>
+        <a class="ghost-button" href="index.html#produk">Produk</a>
+        <a class="primary-button" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20butuh%20bantuan%20menggunakan%20LUT%20Apple%20Log%20ProRes." target="_blank" rel="noopener">Chat Admin</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-section">
+      <div class="tutorial-shell hero-grid">
+        <div class="hero-copy">
+          <span class="section-kicker">Tutorial LUT iPhone</span>
+          <h1>LUT Apple Log ProRes</h1>
+          <p>Panduan ini untuk customer yang ingin memakai 4 file LUT Catsoft pada footage Apple Log dari iPhone Pro. Pastikan video direkam dalam Apple Log agar warna LUT tampil sesuai.</p>
+          <div class="hero-actions">
+            <a class="primary-button" href="#aplikasi-lut">Pilih Aplikasi</a>
+            <a class="ghost-button" href="#langkah">Mulai dari Awal</a>
+          </div>
+        </div>
+
+        <aside class="product-panel" aria-label="Isi paket LUT">
+          <img src="LutAppleLogLogo.svg" alt="LUT Apple Log ProRes" />
+          <div>
+            <span>Isi paket</span>
+            <ul>
+              <li>Apple Log To CineColor</li>
+              <li>Apple Log To Mirrorless Neutral</li>
+              <li>Apple Log To Mirrorless STD</li>
+              <li>Apple Log STD Enhanced</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="tutorial-shell guide-layout" id="langkah">
+      <article class="guide-panel">
+        <div class="panel-heading">
+          <span class="section-kicker">Langkah awal</span>
+          <h2>Siapkan file dan footage Apple Log</h2>
+        </div>
+
+        <ol class="step-list">
+          <li>
+            <strong>Simpan file LUT di iPhone</strong>
+            <p>Download file dari admin Catsoft, lalu simpan atau ekstrak file ke aplikasi Files. Pastikan file yang akan dipakai berformat .cube.</p>
+          </li>
+          <li>
+            <strong>Aktifkan Apple ProRes Log</strong>
+            <p>Di iPhone, buka Settings &gt; Camera &gt; Formats, aktifkan Apple ProRes. Saat merekam di Camera bawaan, pilih mode Video lalu pilih ProRes Log jika tersedia.</p>
+          </li>
+          <li>
+            <strong>Cek ruang penyimpanan</strong>
+            <p>Video ProRes/Log ukurannya besar. Sebelum merekam, pastikan storage iPhone cukup atau gunakan external storage yang mendukung jika Anda merekam durasi panjang.</p>
+          </li>
+          <li>
+            <strong>Pilih workflow</strong>
+            <p>Gunakan Blackmagic Camera untuk preview LUT saat merekam, Kino untuk grade langsung di iPhone, atau aplikasi editing seperti DaVinci Resolve, Final Cut Pro, dan CapCut desktop untuk proses setelah shooting.</p>
+          </li>
+          <li>
+            <strong>Simpan file asli</strong>
+            <p>Simpan video Apple Log original dan file LUT di folder yang mudah ditemukan. Jangan hapus file asli sebelum hasil edit final selesai diexport.</p>
+          </li>
+        </ol>
+      </article>
+
+      <aside class="note-panel" id="kompatibilitas">
+        <span class="section-kicker">Kompatibilitas</span>
+        <h2>Khusus pengguna iPhone Apple Log</h2>
+        <p>Produk ini dioptimalkan untuk iPhone 15 Pro, iPhone 15 Pro Max, iPhone 16 Pro, dan iPhone 16 Pro Max. Berdasarkan dokumentasi Apple, Log recording membutuhkan iPhone 15 Pro atau yang lebih baru, sehingga model Pro lebih baru yang mendukung Apple Log juga bisa digunakan.</p>
+        <a class="primary-button" href="#aplikasi-lut">Pilih Aplikasi</a>
+      </aside>
+    </section>
+
+    <section class="tutorial-shell compact-section" id="aplikasi-lut">
+      <div class="panel-heading">
+        <span class="section-kicker">Pilih aplikasi</span>
+        <h2>Tutorial per aplikasi</h2>
+      </div>
+
+      <div class="tutorial-option-grid" role="tablist" aria-label="Pilihan tutorial LUT Apple Log">
+        <button class="tutorial-option-card is-active" type="button" role="tab" aria-selected="true" aria-controls="blackmagic" data-tutorial-group="lut" data-tutorial-target="blackmagic">
+          <strong>Blackmagic Camera</strong>
+          <span>Import LUT .cube untuk preview warna saat merekam di iPhone/iPad.</span>
+        </button>
+        <button class="tutorial-option-card" type="button" role="tab" aria-selected="false" aria-controls="kino" data-tutorial-group="lut" data-tutorial-target="kino">
+          <strong>Kino</strong>
+          <span>Import LUT .cube dan pilih input Apple Log langsung dari aplikasi Kino.</span>
+        </button>
+        <button class="tutorial-option-card" type="button" role="tab" aria-selected="false" aria-controls="editing-lut" data-tutorial-group="lut" data-tutorial-target="editing-lut">
+          <strong>Aplikasi Editing</strong>
+          <span>Gunakan LUT di DaVinci Resolve, Final Cut Pro, CapCut desktop, atau editor lain.</span>
+        </button>
+        <button class="tutorial-option-card" type="button" role="tab" aria-selected="false" aria-controls="tips-lut" data-tutorial-group="lut" data-tutorial-target="tips-lut">
+          <strong>Tips &amp; Kendala</strong>
+          <span>Cek aturan Apple Log, exposure, white balance, dan penyimpanan file asli.</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="tutorial-shell guide-layout tutorial-choice-panel is-active" id="blackmagic" data-tutorial-group="lut" data-tutorial-panel="blackmagic" role="tabpanel">
+      <article class="guide-panel">
+        <div class="panel-heading">
+          <span class="section-kicker">Blackmagic Camera</span>
+          <h2>Import dan preview LUT</h2>
+        </div>
+
+        <ol class="step-list">
+          <li>
+            <strong>Buka file LUT dari Files</strong>
+            <p>Simpan semua file .cube di folder Files yang mudah ditemukan, misalnya Catsoft LUT Apple Log.</p>
+          </li>
+          <li>
+            <strong>Buka Blackmagic Camera</strong>
+            <p>Masuk ke menu Settings atau pengaturan LUT di Blackmagic Camera, lalu cari bagian LUTS.</p>
+          </li>
+          <li>
+            <strong>Pilih Import LUT</strong>
+            <p>Tekan Import LUT, pilih file .cube dari Files, lalu tunggu sampai nama LUT muncul di daftar LUT.</p>
+          </li>
+          <li>
+            <strong>Aktifkan Display 3D LUT</strong>
+            <p>Gunakan Display 3D LUT jika ingin melihat preview warna saat merekam. Ini membantu menilai tone tanpa harus menunggu proses edit.</p>
+          </li>
+          <li>
+            <strong>Tentukan apakah LUT ikut direkam</strong>
+            <p>Jika tersedia opsi Record LUT to Clip, aktifkan hanya bila ingin look LUT menempel pada file. Untuk editing fleksibel, cukup gunakan LUT sebagai preview dan simpan footage Apple Log original.</p>
+          </li>
+        </ol>
+      </article>
+
+      <aside class="note-panel">
+        <span class="section-kicker">Rekomendasi</span>
+        <h2>Jangan buru-buru bake LUT</h2>
+        <p>Untuk hasil paling aman, rekam Apple Log original lalu gunakan LUT saat editing. Preview LUT boleh aktif agar warna di layar terlihat mendekati hasil akhir.</p>
+        <a class="primary-button" href="#kino">Lihat Kino</a>
+      </aside>
+    </section>
+
+    <section class="tutorial-shell guide-layout tutorial-choice-panel" id="kino" data-tutorial-group="lut" data-tutorial-panel="kino" role="tabpanel" hidden>
+      <article class="guide-panel">
+        <div class="panel-heading">
+          <span class="section-kicker">Kino App</span>
+          <h2>Import LUT ke Kino</h2>
+        </div>
+
+        <ol class="step-list">
+          <li>
+            <strong>Simpan file .cube di Files</strong>
+            <p>Pastikan file LUT sudah diekstrak dan terlihat sebagai file .cube, bukan masih dalam ZIP/RAR.</p>
+          </li>
+          <li>
+            <strong>Buka dari Files</strong>
+            <p>Tap file .cube, pilih Share atau Open In, lalu pilih Kino. Jika opsi tidak muncul, buka Kino terlebih dahulu lalu masuk ke Settings &gt; Grade &gt; Import.</p>
+          </li>
+          <li>
+            <strong>Pilih input Apple Log</strong>
+            <p>Saat import, pilih input Apple Log agar Kino membaca LUT sesuai jenis footage yang direkam.</p>
+          </li>
+          <li>
+            <strong>Simpan sebagai grade</strong>
+            <p>Beri nama grade sesuai file LUT Catsoft, lalu simpan. Ulangi proses untuk LUT lain yang ingin digunakan.</p>
+          </li>
+          <li>
+            <strong>Tes rekaman pendek</strong>
+            <p>Rekam 5-10 detik sebagai test, cek warna kulit, highlight, dan shadow. Jika terlalu kuat, pilih LUT lain atau koreksi exposure sebelum rekaman utama.</p>
+          </li>
+        </ol>
+      </article>
+
+      <aside class="note-panel">
+        <span class="section-kicker">Penting</span>
+        <h2>Input harus Apple Log</h2>
+        <p>Jika input dipilih salah, warna bisa terlalu kontras atau tidak natural. Untuk LUT Catsoft ini, pilih Apple Log saat import di Kino.</p>
+        <a class="primary-button" href="#editing-lut">Lihat Editing</a>
+      </aside>
+    </section>
+
+    <section class="tutorial-shell guide-layout tutorial-choice-panel" id="editing-lut" data-tutorial-group="lut" data-tutorial-panel="editing-lut" role="tabpanel" hidden>
+      <article class="guide-panel">
+        <div class="panel-heading">
+          <span class="section-kicker">Editing Desktop</span>
+          <h2>Pakai LUT saat edit video</h2>
+        </div>
+
+        <ol class="step-list">
+          <li>
+            <strong>Pindahkan footage dan LUT ke komputer</strong>
+            <p>Kirim video Apple Log dan file .cube ke Mac/Windows. Simpan dalam satu folder project agar mudah dicari.</p>
+          </li>
+          <li>
+            <strong>Import video ke aplikasi editing</strong>
+            <p>Buka DaVinci Resolve, Final Cut Pro, CapCut desktop, atau aplikasi lain yang mendukung LUT .cube, lalu import footage Apple Log.</p>
+          </li>
+          <li>
+            <strong>Apply LUT ke clip atau adjustment layer</strong>
+            <p>Gunakan menu LUT/Color/Effects sesuai aplikasi. Pilih file .cube Catsoft, lalu apply ke clip utama atau adjustment layer agar mudah dikontrol.</p>
+          </li>
+          <li>
+            <strong>Koreksi exposure dan white balance</strong>
+            <p>Jika hasil terlalu terang, gelap, kuning, atau biru, koreksi exposure dan white balance sebelum atau setelah LUT sampai warna terlihat natural.</p>
+          </li>
+          <li>
+            <strong>Export hasil akhir</strong>
+            <p>Setelah warna aman, export ke format yang dibutuhkan. Untuk upload social media, gunakan resolusi dan bitrate sesuai platform tujuan.</p>
+          </li>
+        </ol>
+      </article>
+
+      <aside class="note-panel">
+        <span class="section-kicker">Catatan aplikasi</span>
+        <h2>Menu LUT tiap editor berbeda</h2>
+        <p>Nama menunya bisa berbeda di tiap aplikasi. Yang penting aplikasi tersebut mendukung import LUT .cube. Jika tidak menemukan menu LUT, kirim screenshot aplikasi ke admin.</p>
+        <a class="primary-button" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20butuh%20bantuan%20apply%20LUT%20di%20aplikasi%20editing." target="_blank" rel="noopener">Tanya Admin</a>
+      </aside>
+    </section>
+
+    <section class="tutorial-shell compact-section tutorial-choice-panel" id="tips-lut" data-tutorial-group="lut" data-tutorial-panel="tips-lut" role="tabpanel" hidden>
+      <div class="panel-heading">
+        <span class="section-kicker">Tips dan kendala</span>
+        <h2>Checklist hasil rapi</h2>
+      </div>
+
+      <div class="help-grid">
+        <article class="help-card">
+          <h3>Gunakan Apple Log</h3>
+          <p>Jangan apply LUT ini ke video standar non-Log jika ingin warna tetap natural.</p>
+        </article>
+        <article class="help-card">
+          <h3>Jaga exposure</h3>
+          <p>Hindari highlight terlalu putih dan bayangan terlalu gelap agar detail tetap bisa diproses.</p>
+        </article>
+        <article class="help-card">
+          <h3>Kunci white balance</h3>
+          <p>White balance yang berubah-ubah membuat warna tiap clip tidak konsisten.</p>
+        </article>
+        <article class="help-card">
+          <h3>Simpan file asli</h3>
+          <p>Backup file LUT dan footage original sebelum edit agar aman saat revisi.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="tutorial-shell compact-section">
+      <div class="reference-panel">
+        <span class="section-kicker">Referensi kompatibilitas</span>
+        <h2>Sumber resmi</h2>
+        <ul class="reference-list">
+          <li><a href="https://support.apple.com/en-mide/109041" target="_blank" rel="noopener">Apple Support - About Apple ProRes on iPhone</a></li>
+          <li><a href="https://support.apple.com/en-ie/guide/final-cut-camera/dev8637f6692/ios" target="_blank" rel="noopener">Apple Support - About standard, log, and RAW video</a></li>
+          <li><a href="https://www.blackmagicdesign.com/products/blackmagiccamera/techspecs" target="_blank" rel="noopener">Blackmagic Design - Blackmagic Camera Tech Specs</a></li>
+          <li><a href="https://luxoptics.zendesk.com/hc/en-us/articles/27122248183949-Importing-LUT-files-to-Kino" target="_blank" rel="noopener">Halide Support - Importing LUT files to Kino</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="tutorial-shell product-marquee-section" aria-labelledby="productChoiceTitle">
+      <div class="panel-heading">
+        <span class="section-kicker">Produk pilihan</span>
+        <h2 id="productChoiceTitle">Layanan populer Catsoft</h2>
+      </div>
+
+      <div class="product-marquee" aria-label="Produk pilihan Catsoft">
+        <div class="product-marquee-track">
+          <a class="mini-product" href="index.html?produk=lutapplelog&amp;paket=lut-pack#order"><img src="LutAppleLogLogo.svg" alt="" /><span><strong>LUT Apple Log</strong><span>4 LUT iPhone</span></span></a>
+          <a class="mini-product" href="index.html?produk=aeassets&amp;paket=assets-pack-5000#order"><img src="AfterEffectsLogoProduk.svg" alt="" /><span><strong>After Effects Assets</strong><span>5000+ item</span></span></a>
+          <a class="mini-product" href="index.html?produk=lightroompreset&amp;paket=street-140#order"><img src="LightroomPresetLogo.svg" alt="" /><span><strong>Preset Lightroom</strong><span>140++ Street</span></span></a>
+          <a class="mini-product" href="index.html?produk=capcut&amp;paket=private-1-bulan#order"><img src="CapcutLogoProduk.svg" alt="" /><span><strong>CapCut Pro</strong><span>Editing premium</span></span></a>
+          <a class="mini-product" href="index.html?produk=canva&amp;paket=1-bulan#order"><img src="CanvaLogoProduk.svg" alt="" /><span><strong>Canva Pro</strong><span>Mulai Rp25.000</span></span></a>
+          <a class="mini-product" href="index.html?produk=chatgpt&amp;paket=sharing-7-10#order"><img src="ChatGPTLogoProduk.svg" alt="" /><span><strong>ChatGPT Plus</strong><span>Mulai Rp42.500</span></span></a>
+          <a class="mini-product" href="index.html?produk=office&amp;paket=office-2024#order"><img src="OfficeLogoProduk.svg" alt="" /><span><strong>Microsoft Office</strong><span>Lifetime license</span></span></a>
+          <a class="mini-product" href="index.html?produk=lutapplelog&amp;paket=lut-pack#order"><img src="LutAppleLogLogo.svg" alt="" /><span><strong>LUT Apple Log</strong><span>4 LUT iPhone</span></span></a>
+          <a class="mini-product" href="index.html?produk=aeassets&amp;paket=assets-pack-5000#order"><img src="AfterEffectsLogoProduk.svg" alt="" /><span><strong>After Effects Assets</strong><span>5000+ item</span></span></a>
+          <a class="mini-product" href="index.html?produk=lightroompreset&amp;paket=street-140#order"><img src="LightroomPresetLogo.svg" alt="" /><span><strong>Preset Lightroom</strong><span>140++ Street</span></span></a>
+          <a class="mini-product" href="index.html?produk=capcut&amp;paket=private-1-bulan#order"><img src="CapcutLogoProduk.svg" alt="" /><span><strong>CapCut Pro</strong><span>Editing premium</span></span></a>
+          <a class="mini-product" href="index.html?produk=canva&amp;paket=1-bulan#order"><img src="CanvaLogoProduk.svg" alt="" /><span><strong>Canva Pro</strong><span>Mulai Rp25.000</span></span></a>
+          <a class="mini-product" href="index.html?produk=chatgpt&amp;paket=sharing-7-10#order"><img src="ChatGPTLogoProduk.svg" alt="" /><span><strong>ChatGPT Plus</strong><span>Mulai Rp42.500</span></span></a>
+          <a class="mini-product" href="index.html?produk=office&amp;paket=office-2024#order"><img src="OfficeLogoProduk.svg" alt="" /><span><strong>Microsoft Office</strong><span>Lifetime license</span></span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <a class="floating-whatsapp" href="https://wa.me/6282318082303?text=Halo%20Min%20Catsoft,%20saya%20butuh%20bantuan%20tutorial%20LUT%20Apple%20Log." target="_blank" rel="noopener">
+    <span class="floating-whatsapp-icon"><img src="WhatsAppLogo.svg" alt="" aria-hidden="true" /></span>
+    <span>Chat WhatsApp</span>
+  </a>
+  <script src="tutorial.js"></script>
+</body>
+</html>

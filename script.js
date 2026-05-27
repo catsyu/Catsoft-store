@@ -490,6 +490,227 @@ const productDetailContent = {
   }
 };
 
+const catsoftContentStorageKey = 'catsoftContentOverrides';
+const catsoftContentPreviewStorageKey = 'catsoftContentPreviewOverrides';
+
+function cloneCatsoftContent(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function mergeCatsoftContent(target, source) {
+  if (!source || typeof source !== 'object') {
+    return target;
+  }
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      target[key] = value;
+      return;
+    }
+
+    if (value && typeof value === 'object') {
+      if (!target[key] || typeof target[key] !== 'object' || Array.isArray(target[key])) {
+        target[key] = {};
+      }
+
+      mergeCatsoftContent(target[key], value);
+      return;
+    }
+
+    if (value !== undefined) {
+      target[key] = value;
+    }
+  });
+
+  return target;
+}
+
+const catsoftDefaultContent = {
+  productPackages: cloneCatsoftContent(productPackages),
+  productDetailContent: cloneCatsoftContent(productDetailContent)
+};
+
+function loadCatsoftContentOverrides() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('preview') === 'content') {
+      const previewContent = JSON.parse(sessionStorage.getItem(catsoftContentPreviewStorageKey) || '{}');
+
+      if (previewContent && typeof previewContent === 'object') {
+        return previewContent;
+      }
+    }
+
+    const savedContent = JSON.parse(localStorage.getItem(catsoftContentStorageKey) || '{}');
+    return savedContent && typeof savedContent === 'object' ? savedContent : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function applyCatsoftContentOverrides() {
+  const overrides = loadCatsoftContentOverrides();
+
+  if (overrides.productPackages && typeof overrides.productPackages === 'object') {
+    Object.keys(productPackages).forEach((key) => {
+      delete productPackages[key];
+    });
+    mergeCatsoftContent(productPackages, overrides.productPackages);
+  }
+
+  if (overrides.productDetailContent && typeof overrides.productDetailContent === 'object') {
+    Object.keys(productDetailContent).forEach((key) => {
+      delete productDetailContent[key];
+    });
+    mergeCatsoftContent(productDetailContent, overrides.productDetailContent);
+  }
+}
+
+function getLowestProductPriceLabel(product) {
+  if (!product || !Array.isArray(product.plans) || !product.plans.length) {
+    return '';
+  }
+
+  const firstPrice = product.plans[0].price;
+
+  if (product.plans.length === 1) {
+    return firstPrice;
+  }
+
+  return `Mulai ${firstPrice}`;
+}
+
+function escapeCatsoftHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+function syncProductCardsFromContent() {
+  const productGrid = document.querySelector('.products');
+
+  document.querySelectorAll('[data-product-detail]').forEach((button) => {
+    const productKey = button.dataset.productDetail;
+    const card = button.closest('.product-card');
+    const product = productPackages[productKey];
+    const detail = productDetailContent[productKey];
+
+    if (!card) {
+      return;
+    }
+
+    if (!product || !detail) {
+      card.hidden = true;
+      return;
+    }
+
+    card.hidden = false;
+
+    const title = card.querySelector('h3');
+    const price = card.querySelector('.price');
+    const description = card.querySelector('.product-description');
+    const orderLink = card.querySelector('[data-order-product]');
+
+    if (title) {
+      title.textContent = detail.label || product.name;
+    }
+
+    if (price) {
+      price.textContent = getLowestProductPriceLabel(product);
+    }
+
+    if (description) {
+      description.textContent = detail.lead;
+    }
+
+    if (orderLink && product.plans[0]) {
+      orderLink.dataset.orderPlan = product.plans[0].value;
+      orderLink.href = `/order?produk=${encodeURIComponent(productKey)}&paket=${encodeURIComponent(product.plans[0].value)}`;
+    }
+  });
+
+  if (!productGrid) {
+    return;
+  }
+
+  Object.keys(productPackages).forEach((productKey) => {
+    const hasExistingCard = Array.from(document.querySelectorAll('[data-product-detail]'))
+      .some((button) => button.dataset.productDetail === productKey);
+
+    if (hasExistingCard) {
+      return;
+    }
+
+    const product = productPackages[productKey];
+    const detail = productDetailContent[productKey] || {};
+    const firstPlan = product.plans[0] || {};
+    const card = document.createElement('article');
+    card.className = 'product-card';
+    card.dataset.productCategory = 'software';
+    card.innerHTML = `
+      <div class="product-badge badge-assets">Baru</div>
+      <div class="product-icon">
+        <img src="/logo.png" alt="Logo ${escapeCatsoftHtml(detail.label || product.name)}" />
+      </div>
+      <h3>${escapeCatsoftHtml(detail.label || product.name)}</h3>
+      <div class="price">${escapeCatsoftHtml(getLowestProductPriceLabel(product))}</div>
+      <div class="product-meta">${escapeCatsoftHtml(firstPlan.duration || 'Paket Catsoft')}</div>
+      <p class="product-description">${escapeCatsoftHtml(detail.lead || 'Produk Catsoft siap dipesan melalui admin.')}</p>
+      <ul class="features">
+        ${(detail.summary || ['Paket dapat disesuaikan dari admin tools.']).slice(0, 3).map((item) => `<li>${escapeCatsoftHtml(item)}</li>`).join('')}
+      </ul>
+      <div class="secure-row">Aktivasi dan support dibantu admin Catsoft</div>
+      <div class="button-group">
+        <a class="btn btn-primary" href="/order?produk=${encodeURIComponent(productKey)}&paket=${encodeURIComponent(firstPlan.value || '')}" data-order-product="${escapeCatsoftHtml(productKey)}" data-order-plan="${escapeCatsoftHtml(firstPlan.value || '')}">Pilih Paket</a>
+        <button type="button" class="btn btn-secondary detail-btn" data-product-detail="${escapeCatsoftHtml(productKey)}" aria-haspopup="dialog" aria-controls="productDetailModal">Detail</button>
+      </div>
+    `;
+
+    productGrid.appendChild(card);
+
+    const detailButton = card.querySelector('[data-product-detail]');
+    if (detailButton) {
+      detailButton.addEventListener('click', () => {
+        openProductDetail(productKey);
+      });
+    }
+
+    const orderButton = card.querySelector('[data-order-product]');
+    if (orderButton) {
+      orderButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        openPackageModal(productKey, orderButton.dataset.orderPlan);
+      });
+    }
+  });
+}
+
+applyCatsoftContentOverrides();
+
+window.CatsoftContentAPI = {
+  storageKey: catsoftContentStorageKey,
+  previewStorageKey: catsoftContentPreviewStorageKey,
+  defaults: catsoftDefaultContent,
+  getContent() {
+    return {
+      productPackages: cloneCatsoftContent(productPackages),
+      productDetailContent: cloneCatsoftContent(productDetailContent)
+    };
+  },
+  getOverrides: loadCatsoftContentOverrides,
+  saveOverrides(content) {
+    localStorage.setItem(catsoftContentStorageKey, JSON.stringify(content));
+  },
+  clearOverrides() {
+    localStorage.removeItem(catsoftContentStorageKey);
+  }
+};
+
 faqItems.forEach((item) => {
   const question = item.querySelector('.faq-question');
 
@@ -2573,6 +2794,7 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
 window.addEventListener('DOMContentLoaded', initProductFilters);
+window.addEventListener('DOMContentLoaded', syncProductCardsFromContent);
 window.addEventListener('DOMContentLoaded', initClickTracking);
 window.addEventListener('DOMContentLoaded', initCleanSectionLinks);
 window.addEventListener('DOMContentLoaded', initThemedFormValidation);

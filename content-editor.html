@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Content Editor | Catsoft Admin</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="admin-tools.css" />
+</head>
+<body>
+  <main class="admin-page content-editor-page">
+    <header class="admin-header">
+      <div class="brand-mark">
+        <img src="logo.png" alt="Catsoft" />
+        <div>
+          <span>Catsoft Tools</span>
+          <h1>Content Editor</h1>
+        </div>
+      </div>
+      <nav class="admin-nav" aria-label="Navigasi admin">
+        <a class="ghost-button" href="admin-tools.html">Admin Tools</a>
+        <a class="ghost-button" href="index.html">Website</a>
+      </nav>
+    </header>
+
+    <section class="overview-band">
+      <div class="panel-heading">
+        <span class="section-kicker">Editor konten</span>
+        <h2>Produk, Pricelist, dan Tutorial</h2>
+        <p>Ubah teks popup produk, pilihan paket, harga, ketentuan, catatan, dan link tutorial. Simpan untuk menerapkan perubahan pada website di browser ini.</p>
+      </div>
+      <div class="access-summary dashboard-summary" aria-label="Ringkasan konten">
+        <div>
+          <span>Produk</span>
+          <strong id="contentProductCount">0</strong>
+        </div>
+        <div>
+          <span>Status</span>
+          <strong id="contentSaveState">Siap</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-editor-shell">
+      <aside class="content-database-panel">
+        <div class="content-database-head">
+          <div>
+            <span class="section-kicker">Database produk</span>
+            <h2>Produk aktif</h2>
+          </div>
+          <button class="primary-button" id="addProductBtn" type="button">Tambah Produk</button>
+        </div>
+
+        <div class="content-toolbar">
+          <label class="content-search">
+            Search
+            <input id="contentSearch" type="search" placeholder="Cari produk, kode, atau tutorial" autocomplete="off" />
+          </label>
+          <label class="content-search">
+            Urutkan
+            <select id="contentSort">
+              <option value="name">Nama Produk</option>
+              <option value="key">Kode Produk</option>
+              <option value="plans">Jumlah Paket</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="content-table-wrap">
+          <table class="content-product-table">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th>Kode</th>
+                <th>Paket</th>
+                <th>Tutorial</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="contentProductList"></tbody>
+          </table>
+        </div>
+      </aside>
+
+      <section class="content-workspace">
+        <div class="content-empty-state" id="contentEmptyState">
+          <span class="section-kicker">Belum ada produk dipilih</span>
+          <h2>Pilih produk dari database</h2>
+          <p>Klik <strong>Edit</strong> untuk menyunting produk, atau <strong>Lihat</strong> untuk melihat preview pricelist langsung di panel ini.</p>
+        </div>
+
+        <section class="content-preview-panel is-hidden" id="contentPreviewPanel" aria-live="polite"></section>
+
+      <form class="content-editor-panel is-hidden" id="contentEditorForm">
+        <div class="content-panel-top">
+          <div>
+            <span class="section-kicker" id="contentProductKey">Produk</span>
+            <h2 id="contentEditorTitle">Pilih produk</h2>
+          </div>
+          <div class="content-panel-actions">
+            <button class="ghost-button" id="contentPreviewBtn" type="button">Preview Tampilan</button>
+            <button class="ghost-button danger-button" id="deleteProductBtn" type="button">Hapus Produk</button>
+            <button class="primary-button" type="submit">Simpan</button>
+          </div>
+        </div>
+
+        <div class="content-form-grid">
+          <label>
+            Kode produk
+            <input id="contentProductSlug" name="productSlug" type="text" required />
+          </label>
+          <label>
+            Nama produk
+            <input id="contentProductName" name="productName" type="text" required />
+          </label>
+        </div>
+
+        <div class="content-form-grid">
+          <label>
+            Label popup
+            <input id="contentDetailLabel" name="detailLabel" type="text" required />
+          </label>
+          <label>
+            Judul detail produk
+            <input id="contentDetailTitle" name="detailTitle" type="text" required />
+          </label>
+        </div>
+
+        <label>
+          Deskripsi utama
+          <textarea id="contentDetailLead" name="detailLead" rows="4" required></textarea>
+        </label>
+
+        <div class="content-form-grid">
+          <label>
+            Link tutorial
+            <input id="contentTutorialUrl" name="tutorialUrl" type="text" placeholder="/tutorial/office" />
+          </label>
+          <label>
+            Label tombol tutorial
+            <input id="contentTutorialLabel" name="tutorialLabel" type="text" placeholder="Tutorial aktivasi" />
+          </label>
+        </div>
+
+        <div class="content-form-grid">
+          <label>
+            Produk order
+            <input id="contentOrderProduct" name="orderProduct" type="text" required />
+          </label>
+          <label>
+            Paket default order
+            <input id="contentOrderPlan" name="orderPlan" type="text" required />
+          </label>
+        </div>
+
+        <label>
+          Ringkasan popup
+          <textarea id="contentSummary" name="summary" rows="6" placeholder="Satu poin per baris"></textarea>
+        </label>
+
+        <label>
+          Ketentuan lengkap
+          <textarea id="contentTerms" name="terms" rows="6" placeholder="Satu ketentuan per baris"></textarea>
+        </label>
+
+        <label>
+          Catatan popup
+          <textarea id="contentNote" name="note" rows="3"></textarea>
+        </label>
+
+        <div class="content-section-heading">
+          <div>
+            <span class="section-kicker">Pricelist</span>
+            <h3>Paket Produk</h3>
+          </div>
+          <button class="ghost-button" id="addPlanBtn" type="button">Tambah Paket</button>
+        </div>
+
+        <div class="content-plan-list" id="contentPlanList"></div>
+
+        <div class="content-import-panel">
+          <div class="content-section-heading">
+            <div>
+              <span class="section-kicker">Backup</span>
+              <h3>Import dan Export</h3>
+            </div>
+            <div class="content-panel-actions">
+              <button class="ghost-button" id="exportContentBtn" type="button">Export JSON</button>
+              <button class="ghost-button" id="resetContentBtn" type="button">Reset Default</button>
+            </div>
+          </div>
+          <textarea id="contentJsonBox" rows="6" placeholder="Paste JSON hasil export di sini untuk import."></textarea>
+          <div class="content-panel-actions">
+            <button class="ghost-button" id="importContentBtn" type="button">Import JSON</button>
+            <button class="ghost-button" id="copyContentBtn" type="button">Copy JSON</button>
+          </div>
+        </div>
+
+        <p class="content-status" id="contentStatus" aria-live="polite">Pilih produk untuk mulai menyunting.</p>
+      </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="admin-auth.js" defer></script>
+  <script src="script.js" defer></script>
+  <script src="content-editor.js" defer></script>
+</body>
+</html>

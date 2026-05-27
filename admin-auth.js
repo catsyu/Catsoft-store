@@ -14,6 +14,7 @@ const CATSOFT_ADMIN_TOOLS = [
   { id: 'customer-database', label: 'Customer Database', path: 'customer-database.html' },
   { id: 'email-inbox', label: 'Email Inbox', path: 'email-inbox.html' },
   { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html' },
+  { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html' },
   { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html' },
   { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', ownerOnly: true }
 ];

@@ -3,6 +3,7 @@ const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 500;
 const OFFICE_SELLER_PAGE_URL = 'https://lastorialicense.com/get-conf-catsyu/';
 const OFFICE_SELLER_AJAX_URL = 'https://lastorialicense.com/wp-admin/admin-ajax.php';
+const STATIC_ASSET_BASE_URL = 'https://raw.githubusercontent.com/catsyu/Catsoft-store/main';
 const customerStatusValues = new Set(['active', 'expired', 'removed', 'refund', 'problem', 'incomplete']);
 const customerImportBatchSize = 25;
 const customerImportLookupSize = 50;
@@ -173,32 +174,66 @@ const staticRouteFallbacks = new Map([
 ]);
 
 async function serveStaticAsset(request, env) {
-  if (!env.ASSETS) {
-    return json({ error: 'Static assets binding is missing' }, 500, request);
-  }
-
   const url = new URL(request.url);
-  const response = await env.ASSETS.fetch(request);
 
-  if (response.status !== 404) {
-    return response;
+  if (env.ASSETS) {
+    const response = await env.ASSETS.fetch(request);
+
+    if (response.status !== 404) {
+      return response;
+    }
   }
 
-  const fallbackPath = getStaticFallbackPath(url.pathname);
+  const fallbackPath = getStaticFallbackPath(url.pathname) || url.pathname;
 
-  if (!fallbackPath) {
-    return response;
+  if (env.ASSETS && fallbackPath !== url.pathname) {
+    const fallbackUrl = new URL(request.url);
+    fallbackUrl.pathname = fallbackPath;
+    fallbackUrl.search = url.search;
+
+    const response = await env.ASSETS.fetch(new Request(fallbackUrl.toString(), request));
+
+    if (response.status !== 404) {
+      return response;
+    }
   }
 
-  const fallbackUrl = new URL(request.url);
-  fallbackUrl.pathname = fallbackPath;
-  fallbackUrl.search = url.search;
+  return fetchGitHubStaticAsset(fallbackPath, url.search);
+}
 
-  return env.ASSETS.fetch(new Request(fallbackUrl.toString(), request));
+async function fetchGitHubStaticAsset(pathname, search = '') {
+  const path = pathname.replace(/^\/+/, '') || 'index.html';
+  const assetResponse = await fetch(`${STATIC_ASSET_BASE_URL}/${path}${search}`, {
+    headers: {
+      Accept: '*/*'
+    }
+  });
+
+  if (!assetResponse.ok) {
+    return new Response('Not found', {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
+      }
+    });
+  }
+
+  return new Response(assetResponse.body, {
+    status: 200,
+    headers: {
+      'Content-Type': getStaticContentType(path),
+      'Cache-Control': 'public, max-age=300'
+    }
+  });
 }
 
 function getStaticFallbackPath(pathname) {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+
+  if (normalizedPath === '/') {
+    return '/index.html';
+  }
 
   if (staticRouteFallbacks.has(normalizedPath)) {
     return staticRouteFallbacks.get(normalizedPath);
@@ -213,6 +248,22 @@ function getStaticFallbackPath(pathname) {
   }
 
   return '';
+}
+
+function getStaticContentType(pathname) {
+  const extension = pathname.split('.').pop().toLowerCase();
+  const types = {
+    css: 'text/css; charset=utf-8',
+    html: 'text/html; charset=utf-8',
+    js: 'application/javascript; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+    png: 'image/png',
+    svg: 'image/svg+xml',
+    txt: 'text/plain; charset=utf-8',
+    webp: 'image/webp'
+  };
+
+  return types[extension] || 'application/octet-stream';
 }
 
 async function saveEmailMessage(message, env) {

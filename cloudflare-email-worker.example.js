@@ -68,6 +68,10 @@ export default {
       return new Response(null, { headers: corsHeaders(request) });
     }
 
+    if (!url.pathname.startsWith('/api/')) {
+      return fetch(request);
+    }
+
     if (!isAuthorized(request, env)) {
       return json({ error: 'Unauthorized' }, 401, request);
     }

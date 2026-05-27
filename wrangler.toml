@@ -6,6 +6,10 @@ account_id = "9b19f1b31d88513e013d1a522e583c08"
 # HTTP routes are assigned from the Cloudflare dashboard after unassigning
 # them from the email-only Worker `mail-base-all-catch`.
 
+[assets]
+directory = "."
+binding = "ASSETS"
+
 [[d1_databases]]
 binding = "ADMIN_DB"
 database_name = "admin_accounts"

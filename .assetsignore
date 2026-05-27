@@ -1,0 +1,11 @@
+.git/
+.github/
+.wrangler/
+backups/
+scripts/
+cloudflare-email-schema.sql
+cloudflare-email-worker.example.js
+cloudflare-worker-routes.txt
+email-routing-setup.md
+verify-cloudflare-api.sh
+wrangler.toml

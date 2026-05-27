@@ -147,9 +147,73 @@ export default {
       return deleteEmailMessage(request, env, detailMatch[1]);
     }
 
+    if (!url.pathname.startsWith('/api/')) {
+      return serveStaticAsset(request, env);
+    }
+
     return json({ error: 'Not found' }, 404, request);
   }
 };
+
+const staticRouteFallbacks = new Map([
+  ['/tutorial/office', '/office-tutorial.html'],
+  ['/tutorial/lutapplelog', '/tutorial-lut-apple-log.html'],
+  ['/tutorial/lut-apple-log', '/tutorial-lut-apple-log.html'],
+  ['/tutorial/aeassets', '/tutorial-after-effects-assets.html'],
+  ['/tutorial/after-effects-assets', '/tutorial-after-effects-assets.html'],
+  ['/tutorial/lightroompreset', '/tutorial-lightroom-preset.html'],
+  ['/tutorial/lightroom-preset', '/tutorial-lightroom-preset.html'],
+  ['/tutorial', '/tutorial.html'],
+  ['/produk', '/index.html'],
+  ['/order', '/index.html'],
+  ['/keunggulan', '/index.html'],
+  ['/testimoni', '/index.html'],
+  ['/faq', '/index.html'],
+  ['/kontak', '/index.html']
+]);
+
+async function serveStaticAsset(request, env) {
+  if (!env.ASSETS) {
+    return json({ error: 'Static assets binding is missing' }, 500, request);
+  }
+
+  const url = new URL(request.url);
+  const response = await env.ASSETS.fetch(request);
+
+  if (response.status !== 404) {
+    return response;
+  }
+
+  const fallbackPath = getStaticFallbackPath(url.pathname);
+
+  if (!fallbackPath) {
+    return response;
+  }
+
+  const fallbackUrl = new URL(request.url);
+  fallbackUrl.pathname = fallbackPath;
+  fallbackUrl.search = url.search;
+
+  return env.ASSETS.fetch(new Request(fallbackUrl.toString(), request));
+}
+
+function getStaticFallbackPath(pathname) {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+
+  if (staticRouteFallbacks.has(normalizedPath)) {
+    return staticRouteFallbacks.get(normalizedPath);
+  }
+
+  if (normalizedPath.startsWith('/produk/')) {
+    return '/index.html';
+  }
+
+  if (!normalizedPath.includes('.')) {
+    return `${normalizedPath}/index.html`;
+  }
+
+  return '';
+}
 
 async function saveEmailMessage(message, env) {
   if (!env.EMAIL_DB) {

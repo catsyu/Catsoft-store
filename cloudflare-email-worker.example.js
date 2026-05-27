@@ -1149,9 +1149,27 @@ function isCustomerSharedActivationEmailProduct(record) {
   return Boolean(getCustomerAiProductType(record.productName || record.product_name));
 }
 
+function isCustomerTargetLinkProduct(record) {
+  const text = cleanValue(record.productName || record.product_name, 240)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!text) {
+    return false;
+  }
+
+  const hasSocialBrand = /\b(instagram|ig|reels|tiktok|youtube|shorts)\b/.test(text);
+  const hasTargetService = /\b(view|views|viewer|like|likes|komen|komentar|comment|comments|follower|followers|follow|subscriber|subscribers|share|save)\b/.test(text);
+
+  return hasSocialBrand || hasTargetService;
+}
+
 function shouldCheckCustomerActivationEmailDuplicate(record) {
   return Boolean(normalizeCustomerUniqueEmail(record.activatedEmail || record.activated_email)) &&
-    !isCustomerSharedActivationEmailProduct(record);
+    !isCustomerSharedActivationEmailProduct(record) &&
+    !isCustomerTargetLinkProduct(record);
 }
 
 function customerDateValue(value) {

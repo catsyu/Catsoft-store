@@ -355,7 +355,7 @@ const productDetailContent = {
       'Likes naik secara alami dan bertahap.',
       'Aman dari banned selama instruksi produk diikuti.',
       '100% real, aman, dan bergaransi sesuai ketentuan.',
-      'Cukup kirim link postingan Instagram setelah checkout.'
+      'Cukup kirim link target Instagram setelah checkout.'
     ],
     terms: [
       'Akun Instagram wajib public selama proses berlangsung.',
@@ -382,7 +382,7 @@ const productDetailContent = {
     terms: [
       'Akun Instagram wajib public selama proses berlangsung.',
       'Dilarang mengganti username selama proses.',
-      'Kirim link Reels atau username serta screenshot postingan di chat setelah checkout.',
+      'Kirim link target Reels atau username serta screenshot postingan di chat setelah checkout.',
       'Klaim garansi wajib menyertakan detail kendala dan bukti order.',
       'Membeli berarti setuju dengan kebijakan pada foto produk maupun deskripsi.'
     ],
@@ -1085,8 +1085,8 @@ const validationMessages = {
     typeMismatch: 'Email Canva tidak valid.'
   },
   instagramPostLink: {
-    valueMissing: 'Link postingan Instagram wajib diisi.',
-    typeMismatch: 'Link postingan Instagram tidak valid.'
+    valueMissing: 'Link target Instagram wajib diisi.',
+    typeMismatch: 'Link target Instagram tidak valid.'
   },
   likeIgOrderStatus: {
     valueMissing: 'Pilih status order.'
@@ -1168,7 +1168,7 @@ function getValidationMessage(field) {
   }
 
   if (field.id === 'instagramPostLink' && value && !hasValidInstagramPostLink(value)) {
-    return messages.typeMismatch || 'Link postingan Instagram tidak valid.';
+    return messages.typeMismatch || 'Link target Instagram tidak valid.';
   }
 
   return '';
@@ -1516,7 +1516,7 @@ function updateOrderSummary() {
 
   if (orderFormStatus) {
     orderFormStatus.textContent = isSocialMediaOrder
-      ? 'Untuk produk Instagram, isi link postingan atau Reels. Jika sudah order di Shopee, masukkan nomor pesanan agar admin bisa mencocokkan transaksi.'
+      ? 'Untuk produk Instagram, isi link target. Jika sudah order di Shopee, masukkan nomor pesanan agar admin bisa mencocokkan transaksi.'
       : 'Pesan WhatsApp akan dibuat otomatis sesuai pilihan paket.';
   }
 }
@@ -1562,7 +1562,7 @@ function buildOrderMessage() {
 
   if (isSocialMediaProduct(orderProductSelect.value)) {
     messageLines.push(
-      `Link postingan Instagram: ${instagramPostLink || '-'}`,
+      `Link target Instagram: ${instagramPostLink || '-'}`,
       `Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`
     );
 
@@ -1604,7 +1604,7 @@ function buildConsultationMessage() {
     messageLines.push(`Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`);
 
     if (instagramPostLink) {
-      messageLines.push(`Link postingan Instagram: ${instagramPostLink}`);
+      messageLines.push(`Link target Instagram: ${instagramPostLink}`);
     }
 
     if (likeIgOrderStatus === 'sudah-order-shopee' && shopeeOrderNumber) {

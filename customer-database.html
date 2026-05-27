@@ -57,8 +57,8 @@
           </label>
 
           <label class="field-group">
-            <span>Email aktivasi</span>
-            <input id="activatedEmail" type="email" placeholder="email@customer.com" />
+            <span id="activationFieldLabel">Email aktivasi</span>
+            <input id="activatedEmail" type="text" inputmode="email" placeholder="email@customer.com" />
           </label>
 
           <input id="whatsappNumber" type="hidden" />
@@ -77,9 +77,19 @@
             <input id="orderReference" type="text" placeholder="26052127RS304V" autocomplete="off" />
           </label>
 
-          <label class="field-group wide-field">
+          <label class="field-group wide-field product-field">
             <span>Produk yang diorder</span>
-            <input id="productName" type="text" placeholder="Contoh: Canva Pro 1 Bulan" required />
+            <input id="productName" type="text" list="registeredProductList" placeholder="Pilih atau ketik produk" required />
+            <datalist id="registeredProductList"></datalist>
+            <button class="text-link-button" id="editRegisteredProductsBtn" type="button">Edit produk terdaftar</button>
+            <div class="product-editor is-hidden" id="registeredProductsEditor">
+              <textarea id="registeredProductsInput" rows="5"></textarea>
+              <div class="product-editor-actions">
+                <span id="registeredProductsCount">0 produk</span>
+                <button class="secondary-button compact-button" id="cancelRegisteredProductsBtn" type="button">Batal</button>
+                <button class="secondary-button compact-button" id="saveRegisteredProductsBtn" type="button">Simpan</button>
+              </div>
+            </div>
           </label>
 
           <label class="field-group">
@@ -193,7 +203,7 @@
           <label class="field-group">
             <span>Search</span>
             <div class="search-controls">
-              <input id="searchInput" type="search" placeholder="Cari produk, email, WA, pesanan" />
+              <input id="searchInput" type="search" placeholder="Cari produk, email/link, WA, pesanan" />
               <button class="secondary-button" id="searchBtn" type="button">Search</button>
             </div>
           </label>
@@ -224,7 +234,7 @@
               <option value="expiryDate">Expire</option>
               <option value="startDate">Mulai</option>
               <option value="customerName">Nama</option>
-              <option value="activatedEmail">Email</option>
+              <option value="activatedEmail">Email/Target</option>
               <option value="productName">Produk</option>
               <option value="status">Status</option>
             </select>
@@ -303,6 +313,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260526-duplicate-renewal" defer></script>
+  <script src="customer-database.js?v=20260526-product-target" defer></script>
 </body>
 </html>

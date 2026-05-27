@@ -267,6 +267,59 @@ a {
   text-align: left;
 }
 
+.product-field {
+  position: relative;
+}
+
+.text-link-button {
+  align-self: flex-start;
+  width: auto;
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+}
+
+.text-link-button:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.product-editor {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.product-editor textarea {
+  min-height: 128px;
+  font-size: 13px;
+}
+
+.product-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.product-editor-actions span {
+  margin-right: auto;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .field-group input:focus,
 .field-group select:focus,
 .field-group textarea:focus {
@@ -921,6 +974,17 @@ body.is-database-locked {
   color: #64748b;
   font-size: 12px;
   font-weight: 850;
+}
+
+.record-link {
+  color: #1d4ed8;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.record-link:hover {
+  text-decoration: underline;
 }
 
 .record-missing {

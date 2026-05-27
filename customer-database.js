@@ -12,6 +12,7 @@ const bulkDeleteChunkSize = 500;
 const bulkPatchFallbackConcurrency = 8;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
+const productRegistryStorageKey = 'catsoftCustomerDatabaseProducts';
 
 const form = document.getElementById('customerForm');
 const resetFormBtn = document.getElementById('resetFormBtn');
@@ -24,6 +25,7 @@ const ocrStatus = document.getElementById('ocrStatus');
 const ocrProgress = document.getElementById('ocrProgress');
 const ocrProgressBar = document.getElementById('ocrProgressBar');
 const customerNameInput = document.getElementById('customerName');
+const activationFieldLabel = document.getElementById('activationFieldLabel');
 const activatedEmailInput = document.getElementById('activatedEmail');
 const whatsappNumberInput = document.getElementById('whatsappNumber');
 const orderNumberInput = document.getElementById('orderNumber');
@@ -31,6 +33,13 @@ const orderSourceSelect = document.getElementById('orderSource');
 const orderReferenceLabel = document.getElementById('orderReferenceLabel');
 const orderReferenceInput = document.getElementById('orderReference');
 const productNameInput = document.getElementById('productName');
+const registeredProductList = document.getElementById('registeredProductList');
+const editRegisteredProductsBtn = document.getElementById('editRegisteredProductsBtn');
+const registeredProductsEditor = document.getElementById('registeredProductsEditor');
+const registeredProductsInput = document.getElementById('registeredProductsInput');
+const registeredProductsCount = document.getElementById('registeredProductsCount');
+const saveRegisteredProductsBtn = document.getElementById('saveRegisteredProductsBtn');
+const cancelRegisteredProductsBtn = document.getElementById('cancelRegisteredProductsBtn');
 const packagePresetSelect = document.getElementById('packagePreset');
 const durationDaysGroup = document.getElementById('durationDaysGroup');
 const durationDaysInput = document.getElementById('durationDays');
@@ -149,8 +158,30 @@ const orderSourceLabels = {
   whatsapp: 'WhatsApp'
 };
 
+const defaultRegisteredProducts = [
+  'ChatGPT',
+  'ChatGPT Plus',
+  'Canva Pro',
+  'CapCut Pro',
+  'Microsoft Office Original Lifetime',
+  'Office Professional Plus 2016',
+  'Office Professional Plus 2019',
+  'Office Professional Plus 2021',
+  'Office Professional Plus 2024',
+  'After Effects Assets Pack',
+  'After Effects Assets Pack 5000+',
+  'Like IG Bergaransi Permanen',
+  'View Reels IG Bergaransi',
+  'Komen IG Bergaransi',
+  'Instagram Like',
+  'Instagram View',
+  'Instagram Comment',
+  'Instagram Followers'
+];
+
 let localStorageWarning = '';
 let records = loadRecords();
+let registeredProducts = loadRegisteredProducts();
 let activeOrderSource = 'shopee';
 let isSyncingRecords = false;
 let isMutatingRecords = false;
@@ -423,6 +454,166 @@ function saveRecords(nextRecords = records) {
     syncStatus.title = error.message;
     return false;
   }
+}
+
+function cleanProductName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 240);
+}
+
+function normalizeProductKey(value) {
+  return cleanProductName(value).toLowerCase();
+}
+
+function normalizeProductList(values) {
+  const productMap = new Map();
+
+  values.forEach((value) => {
+    const productName = cleanProductName(value);
+    const key = normalizeProductKey(productName);
+
+    if (productName && !productMap.has(key)) {
+      productMap.set(key, productName);
+    }
+  });
+
+  return [...productMap.values()].sort((first, second) => first.localeCompare(second, 'id'));
+}
+
+function loadRegisteredProducts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(productRegistryStorageKey) || '[]');
+    return normalizeProductList(Array.isArray(parsed) ? parsed : []);
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveRegisteredProducts(nextProducts = registeredProducts) {
+  registeredProducts = normalizeProductList(nextProducts);
+
+  try {
+    localStorage.setItem(productRegistryStorageKey, JSON.stringify(registeredProducts));
+  } catch (error) {
+    setSyncStatus('Produk lokal gagal', 'warning');
+    syncStatus.title = error.message;
+  }
+
+  renderProductOptions();
+}
+
+function getRecordProductNames() {
+  return records.map((record) => record.productName).filter(Boolean);
+}
+
+function getRegisteredProductOptions() {
+  return normalizeProductList([
+    ...defaultRegisteredProducts,
+    ...registeredProducts,
+    ...getRecordProductNames()
+  ]);
+}
+
+function registerProductsFromRecords(recordList) {
+  const newProducts = normalizeProductList(recordList.map((record) => record.productName));
+  const existingKeys = new Set(registeredProducts.map(normalizeProductKey));
+  const productsToAdd = newProducts.filter((productName) => !existingKeys.has(normalizeProductKey(productName)));
+
+  if (productsToAdd.length) {
+    saveRegisteredProducts([...registeredProducts, ...productsToAdd]);
+    return;
+  }
+
+  renderProductOptions();
+}
+
+function addRegisteredProduct(productName) {
+  const cleanName = cleanProductName(productName);
+
+  if (!cleanName) {
+    return;
+  }
+
+  const exists = getRegisteredProductOptions().some((registeredProduct) => {
+    return normalizeProductKey(registeredProduct) === normalizeProductKey(cleanName);
+  });
+
+  if (!exists) {
+    saveRegisteredProducts([...registeredProducts, cleanName]);
+    return;
+  }
+
+  renderProductOptions();
+}
+
+function renderProductOptions() {
+  const products = getRegisteredProductOptions();
+
+  if (registeredProductList) {
+    registeredProductList.innerHTML = products
+      .map((productName) => `<option value="${escapeHtml(productName)}"></option>`)
+      .join('');
+  }
+
+  if (registeredProductsCount) {
+    registeredProductsCount.textContent = `${products.length} produk`;
+  }
+}
+
+function normalizeExternalUrl(value) {
+  const text = String(value || '').trim();
+
+  if (!text) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(text)) {
+    return text;
+  }
+
+  return `https://${text}`;
+}
+
+function renderActivationValue(record) {
+  const value = record.activatedEmail || '';
+
+  if (!value) {
+    return '-';
+  }
+
+  if (!isTargetLinkProduct(record)) {
+    return escapeHtml(value);
+  }
+
+  const href = normalizeExternalUrl(value);
+  return `<a class="record-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`;
+}
+
+function openRegisteredProductEditor() {
+  if (!registeredProductsEditor || !registeredProductsInput) {
+    return;
+  }
+
+  registeredProductsInput.value = getRegisteredProductOptions().join('\n');
+  registeredProductsEditor.classList.remove('is-hidden');
+  registeredProductsInput.focus();
+}
+
+function closeRegisteredProductEditor() {
+  registeredProductsEditor?.classList.add('is-hidden');
+}
+
+function saveRegisteredProductEditor() {
+  if (!registeredProductsInput) {
+    return;
+  }
+
+  const nextProducts = registeredProductsInput.value
+    .split(/\n+/)
+    .map(cleanProductName)
+    .filter(Boolean);
+
+  saveRegisteredProducts(nextProducts);
+  closeRegisteredProductEditor();
 }
 
 function normalizeRecordList(recordList) {
@@ -859,6 +1050,7 @@ async function replaceRecordsFromApi(options = {}) {
   }
 
   records = sortRecords(normalizeRecordList(apiRecords));
+  registerProductsFromRecords(records);
   saveRecords();
   renderRecords();
   return records;
@@ -1242,7 +1434,7 @@ function getRecordsCsv(recordList) {
   const duplicateIndex = getDuplicateIndex(records);
   const header = [
     'Nama/User',
-    'Email Aktivasi',
+    'Email/Link Target',
     'Sumber Order',
     'WhatsApp',
     'No Pesanan',
@@ -1488,7 +1680,7 @@ function getIncompleteFields(record) {
   const missingFields = [];
 
   if (!record.activatedEmail && isActivationEmailRequired(record)) {
-    missingFields.push('email aktivasi');
+    missingFields.push(getActivationFieldConfig(record).missingLabel);
   }
 
   if (!record.orderNumber && !record.whatsappNumber) {
@@ -1596,6 +1788,7 @@ function fillForm(record) {
   orderNumberInput.value = record.orderNumber || '';
   updateOrderReferenceField(getRecordOrderSource(record), getOrderReferenceValue(record) || '');
   productNameInput.value = record.productName || '';
+  updateActivationFieldMode(record.productName || '');
   durationDaysInput.value = record.durationDays || 30;
   syncDurationPreset();
   startDateInput.value = record.startDate || '';
@@ -1615,6 +1808,7 @@ function renderStatusSelectOptions(currentStatus) {
 function renderInlineEditForm(record, status) {
   const orderSource = getRecordOrderSource(record);
   const orderReference = getOrderReferenceValue(record);
+  const activationConfig = getActivationFieldConfig(record);
 
   return `
     <div class="inline-edit-form" data-inline-editor data-order-source="${escapeHtml(orderSource)}" data-shopee-reference="${escapeHtml(record.orderNumber || '')}" data-whatsapp-reference="${escapeHtml(record.whatsappNumber || '')}">
@@ -1623,8 +1817,8 @@ function renderInlineEditForm(record, status) {
         <input data-edit-field="customerName" type="text" value="${escapeHtml(record.customerName || '')}" />
       </label>
       <label class="field-group">
-        <span>Email aktivasi</span>
-        <input data-edit-field="activatedEmail" type="email" value="${escapeHtml(record.activatedEmail || '')}" />
+        <span data-inline-activation-label>${escapeHtml(activationConfig.label)}</span>
+        <input data-edit-field="activatedEmail" type="${escapeHtml(activationConfig.type)}" inputmode="${escapeHtml(activationConfig.inputMode)}" placeholder="${escapeHtml(activationConfig.placeholder)}" value="${escapeHtml(record.activatedEmail || '')}" />
       </label>
       <label class="field-group">
         <span>Sumber order</span>
@@ -1639,7 +1833,7 @@ function renderInlineEditForm(record, status) {
       </label>
       <label class="field-group">
         <span>Produk</span>
-        <input data-edit-field="productName" type="text" value="${escapeHtml(record.productName || '')}" />
+        <input data-edit-field="productName" type="text" list="registeredProductList" value="${escapeHtml(record.productName || '')}" />
       </label>
       <label class="field-group">
         <span>Durasi hari</span>
@@ -1723,6 +1917,23 @@ function updateInlineEditExpiry(editor) {
   expiryInput.value = toDateInputValue(addDays(startDate, durationDays));
 }
 
+function updateInlineActivationFieldMode(editor) {
+  const productName = getInlineEditField(editor, 'productName')?.value || '';
+  const activationInput = getInlineEditField(editor, 'activatedEmail');
+  const activationLabel = editor.querySelector('[data-inline-activation-label]');
+  const config = getActivationFieldConfig(productName);
+
+  if (activationLabel) {
+    activationLabel.textContent = config.label;
+  }
+
+  if (activationInput) {
+    activationInput.type = config.type;
+    activationInput.inputMode = config.inputMode;
+    activationInput.placeholder = config.placeholder;
+  }
+}
+
 function getInlineEditRecord(recordCard, previousRecord) {
   const editor = recordCard.querySelector('[data-inline-editor]');
   const now = new Date().toISOString();
@@ -1776,6 +1987,7 @@ async function saveInlineEdit(recordCard, previousRecord) {
     beginRecordsMutation();
     setInlineEditStatus(recordCard, 'Menyimpan perubahan...', 'saving');
     await pushRecordToApi(nextRecord);
+    addRegisteredProduct(nextRecord.productName);
     records = sortRecords(records.map((record) => record.id === nextRecord.id ? nextRecord : record));
     editingRecordId = '';
     saveRecords();
@@ -1801,6 +2013,7 @@ function resetForm() {
   whatsappNumberInput.value = '';
   orderNumberInput.value = '';
   updateOrderReferenceField('shopee', '');
+  updateActivationFieldMode('');
   syncPackagePreset();
   screenshotInput.value = '';
   screenshotPreview.removeAttribute('src');
@@ -1908,11 +2121,11 @@ async function submitRecord(event) {
   if (duplicateRecord) {
     ocrStatus.textContent = getDuplicateMessage(nextRecord, duplicateRecord);
 
-    if (nextRecord.activatedEmail &&
-      normalizeUniqueEmail(nextRecord.activatedEmail) === normalizeUniqueEmail(duplicateRecord.activatedEmail)) {
-      activatedEmailInput.focus();
-    } else {
+    if (nextRecord.orderNumber &&
+      normalizeUniqueOrderNumber(nextRecord.orderNumber) === normalizeUniqueOrderNumber(duplicateRecord.orderNumber)) {
       orderReferenceInput.focus();
+    } else {
+      activatedEmailInput.focus();
     }
 
     return;
@@ -1954,6 +2167,7 @@ async function submitRecord(event) {
     records.unshift(nextRecord);
   }
 
+  addRegisteredProduct(nextRecord.productName);
   records = sortRecords(records);
   saveRecords();
   renderRecords();
@@ -2057,11 +2271,12 @@ function renderRecords() {
     const orderReferenceTitle = orderSource === 'shopee' ? 'No. pesanan' : 'WA';
     const whatsapp = normalizeWhatsapp(record.whatsappNumber);
     const whatsappLink = whatsapp ? `https://wa.me/${whatsapp}` : '';
-    const isLookupMatch = lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
-    const missingFields = getIncompleteFields(record);
-    const duplicateFields = getDuplicateFields(record, duplicateIndex);
-    const isSelected = selectedRecordIds.has(record.id);
-    const isEditing = editingRecordId === record.id;
+	    const isLookupMatch = lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
+	    const missingFields = getIncompleteFields(record);
+	    const duplicateFields = getDuplicateFields(record, duplicateIndex);
+	    const isSelected = selectedRecordIds.has(record.id);
+	    const isEditing = editingRecordId === record.id;
+	    const activationConfig = getActivationFieldConfig(record);
 
     return `
       <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${duplicateFields.length ? 'status-duplicate' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''} ${isEditing ? 'is-editing' : ''}" data-id="${escapeHtml(record.id)}">
@@ -2072,7 +2287,7 @@ function renderRecords() {
           <div class="record-title">
             <div class="record-title-row">
               <h3>${escapeHtml(record.productName || '-')}</h3>
-              ${isLookupMatch ? '<span class="match-pill">Email match</span>' : ''}
+	              ${isLookupMatch ? `<span class="match-pill">${escapeHtml(activationConfig.sortLabel)} match</span>` : ''}
             </div>
             <p>${escapeHtml(record.customerName || record.activatedEmail || record.whatsappNumber || 'Customer')}</p>
           </div>
@@ -2086,7 +2301,7 @@ function renderRecords() {
           <div><span>Expire</span>${escapeHtml(formatDate(record.expiryDate))}</div>
           <div><span>Mulai</span>${escapeHtml(formatDate(record.startDate))}</div>
           <div><span>Durasi</span>${escapeHtml(getDurationLabel(record.durationDays))}</div>
-          <div><span>Email</span>${escapeHtml(record.activatedEmail || '-')}</div>
+	          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
           <div><span>Last update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
           ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
@@ -2254,8 +2469,60 @@ function isSharedActivationEmailProduct(record) {
   return Boolean(getAiProductType(record.productName));
 }
 
+function isTargetLinkProduct(recordOrProductName) {
+  const productName = typeof recordOrProductName === 'string' ? recordOrProductName : recordOrProductName?.productName;
+  const text = normalizeSearch(productName)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s{2,}/g, ' ');
+
+  if (!text) {
+    return false;
+  }
+
+  const hasSocialBrand = /\b(instagram|ig|reels|tiktok|youtube|shorts)\b/.test(text);
+  const hasTargetService = /\b(view|views|viewer|like|likes|komen|komentar|comment|comments|follower|followers|follow|subscriber|subscribers|share|save)\b/.test(text);
+
+  return hasSocialBrand || hasTargetService;
+}
+
+function getActivationFieldConfig(recordOrProductName) {
+  if (isTargetLinkProduct(recordOrProductName)) {
+    return {
+      label: 'Link target',
+      placeholder: 'https://instagram.com/p/...',
+      inputMode: 'url',
+      type: 'text',
+      missingLabel: 'link target',
+      sortLabel: 'Target'
+    };
+  }
+
+  return {
+    label: 'Email aktivasi',
+    placeholder: 'email@customer.com',
+    inputMode: 'email',
+    type: 'text',
+    missingLabel: 'email aktivasi',
+    sortLabel: 'Email'
+  };
+}
+
+function updateActivationFieldMode(productName = productNameInput.value) {
+  const config = getActivationFieldConfig(productName);
+
+  if (activationFieldLabel) {
+    activationFieldLabel.textContent = config.label;
+  }
+
+  activatedEmailInput.placeholder = config.placeholder;
+  activatedEmailInput.type = config.type;
+  activatedEmailInput.inputMode = config.inputMode;
+}
+
 function shouldCheckActivationEmailDuplicate(record) {
-  return Boolean(normalizeUniqueEmail(record.activatedEmail)) && !isSharedActivationEmailProduct(record);
+  return Boolean(normalizeUniqueEmail(record.activatedEmail)) &&
+    !isSharedActivationEmailProduct(record) &&
+    !isTargetLinkProduct(record);
 }
 
 function doSubscriptionPeriodsOverlap(firstRecord, secondRecord) {
@@ -2287,7 +2554,7 @@ function shouldBlockActivationEmailDuplicate(firstRecord, secondRecord) {
 }
 
 function hasProductHint(line) {
-  return /adobe|canva|chatgpt|chat\s*gpt|chat\s*with|virtual\s*ai|asisten\s*virtual|assistant\s*virtual|capcut|cap\s*cut|office|microsoft|template|after effects|aftereffects|instagram|like|view|reels|komen|pro|premium|garansi/i.test(line);
+  return /adobe|canva|chatgpt|chat\s*gpt|chat\s*with|virtual\s*ai|asisten\s*virtual|assistant\s*virtual|capcut|cap\s*cut|office|microsoft|template|after effects|aftereffects|after preset|preset|lut|instagram|like|view|reels|komen|komentar|followers|follower|pro|premium|garansi/i.test(line);
 }
 
 function hasProductLineNoise(line) {
@@ -2330,8 +2597,13 @@ function simplifyProductName(productText) {
     return /pro/.test(text) ? 'CapCut Pro' : 'CapCut';
   }
 
-  if (/after\s*effects|aftereffects/.test(text)) {
-    return 'After Effects';
+  if (/after\s*effects|aftereffects|after\s*preset|\bae\b|\blut\b|preset/.test(text)) {
+    const cleanCreativeProduct = cleanProductName(productText)
+      .replace(/\b(full\s+garansi|garansi|premium)\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    return cleanCreativeProduct || 'After Effects Assets Pack';
   }
 
   if (/adobe|creative cloud|photoshop|illustrator|premiere/.test(text)) {
@@ -2342,7 +2614,23 @@ function simplifyProductName(productText) {
     return 'Microsoft 365';
   }
 
-  if (/instagram|reels|followers|like|view|komen/.test(text)) {
+  if (/instagram|reels|followers|follower|like|view|komen|komentar|comment|\big\b/.test(text)) {
+    if (/komen|komentar|comment/.test(text)) {
+      return 'Instagram Comment';
+    }
+
+    if (/followers|follower|follow/.test(text)) {
+      return 'Instagram Followers';
+    }
+
+    if (/view|views|reels|reel/.test(text)) {
+      return 'Instagram View';
+    }
+
+    if (/like|likes/.test(text)) {
+      return 'Instagram Like';
+    }
+
     return 'Instagram';
   }
 
@@ -2449,6 +2737,8 @@ function applyOcrText(rawText) {
 
   if (productName) {
     productNameInput.value = productName;
+    addRegisteredProduct(productName);
+    updateActivationFieldMode(productName);
   }
 
   if (customerName) {
@@ -2856,14 +3146,15 @@ async function importShopeeXlsx(file) {
       }
     }
 
-    updateXlsxImportOverlay({
-      title: 'Final sync',
-      message: 'Memastikan tampilan memakai data terakhir dari database pusat.',
-      progress: 94,
-      summary: importSummary
-    });
-    records = sortRecords(stagedRecords);
-    saveRecords();
+	    updateXlsxImportOverlay({
+	      title: 'Final sync',
+	      message: 'Memastikan tampilan memakai data terakhir dari database pusat.',
+	      progress: 94,
+	      summary: importSummary
+	    });
+	    records = sortRecords(stagedRecords);
+	    registerProductsFromRecords(records);
+	    saveRecords();
     renderRecords();
     let finalSyncMessage = '';
 
@@ -2992,8 +3283,9 @@ function importJson(file) {
         await pushRecordsToApi(changedRecords);
       }
 
-      records = sortRecords(stagedRecords);
-      saveRecords();
+	      records = sortRecords(stagedRecords);
+	      registerProductsFromRecords(records);
+	      saveRecords();
       renderRecords();
       syncRecordsWithApi({ silent: true });
       ocrStatus.textContent = skippedDuplicates ? `Import JSON berhasil. ${skippedDuplicates} data duplikat dilewati.` : 'Import JSON berhasil.';
@@ -3021,6 +3313,16 @@ lookupScreenshotInput.addEventListener('change', (event) => {
 });
 emailLookupInput.addEventListener('input', renderRecords);
 clearLookupBtn.addEventListener('click', clearLookup);
+productNameInput.addEventListener('input', () => {
+  updateActivationFieldMode();
+});
+productNameInput.addEventListener('change', () => {
+  updateActivationFieldMode();
+  addRegisteredProduct(productNameInput.value);
+});
+editRegisteredProductsBtn?.addEventListener('click', openRegisteredProductEditor);
+saveRegisteredProductsBtn?.addEventListener('click', saveRegisteredProductEditor);
+cancelRegisteredProductsBtn?.addEventListener('click', closeRegisteredProductEditor);
 packagePresetSelect.addEventListener('change', syncPackagePreset);
 durationDaysInput.addEventListener('input', () => {
   syncDurationPreset();
@@ -3090,6 +3392,11 @@ recordsList.addEventListener('change', (event) => {
       updateInlineOrderReferenceField(editor, inlineField.value);
     }
 
+    if (editor && inlineField.dataset.editField === 'productName') {
+      updateInlineActivationFieldMode(editor);
+      addRegisteredProduct(inlineField.value);
+    }
+
     if (editor && (inlineField.dataset.editField === 'startDate' || inlineField.dataset.editField === 'durationDays')) {
       updateInlineEditExpiry(editor);
     }
@@ -3115,14 +3422,18 @@ recordsList.addEventListener('change', (event) => {
 recordsList.addEventListener('input', (event) => {
   const inlineField = event.target.closest('[data-edit-field]');
 
-  if (!inlineField || inlineField.dataset.editField !== 'durationDays') {
+  if (!inlineField || (inlineField.dataset.editField !== 'durationDays' && inlineField.dataset.editField !== 'productName')) {
     return;
   }
 
   const editor = inlineField.closest('[data-inline-editor]');
 
-  if (editor) {
+  if (editor && inlineField.dataset.editField === 'durationDays') {
     updateInlineEditExpiry(editor);
+  }
+
+  if (editor && inlineField.dataset.editField === 'productName') {
+    updateInlineActivationFieldMode(editor);
   }
 });
 
@@ -3263,6 +3574,8 @@ statCards.forEach((card) => {
 
 updateOrderReferenceField('shopee', '');
 syncPackagePreset();
+updateActivationFieldMode('');
+registerProductsFromRecords(records);
 renderRecords();
 setSyncStatus(localStorageWarning || (records.length ? 'Cache lokal' : 'Menghubungkan web'), localStorageWarning || records.length ? 'warning' : '');
 syncRecordsWithApi();

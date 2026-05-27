@@ -1751,3 +1751,60 @@ body {
     padding: 12px;
   }
 }
+
+.mobile-collapse-toggle {
+  display: none;
+}
+
+.mobile-collapsible-panel {
+  display: grid;
+  gap: 18px;
+}
+
+@media (max-width: 680px) {
+  .mobile-collapse-toggle {
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0 12px;
+    padding: 11px 13px;
+    border: 1px solid rgba(191, 219, 254, 0.95);
+    border-radius: 16px;
+    background: rgba(239, 246, 255, 0.92);
+    color: #0f172a;
+    font: inherit;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .mobile-collapse-toggle strong {
+    color: #1d4ed8;
+    font-size: 13px;
+  }
+
+  .mobile-collapse-toggle::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    border-right: 3px solid #2563eb;
+    border-bottom: 3px solid #2563eb;
+    transform: rotate(45deg);
+    transition: transform 0.18s ease;
+  }
+
+  .mobile-collapse-toggle.is-open::after {
+    transform: rotate(225deg);
+  }
+
+  .mobile-collapsible-panel {
+    display: none;
+  }
+
+  .mobile-collapsible-panel.is-open {
+    display: grid;
+  }
+}

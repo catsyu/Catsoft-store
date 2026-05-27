@@ -50,6 +50,7 @@ Cek urut dari belakang:
 
 1. Buka `https://catsoft.store/api/email-messages`.
 2. Jika hasilnya 404, route HTTP `/api/email-messages*` belum diarahkan ke Worker.
+   Untuk sinkron akses admin lintas device, route `/api/admin-accounts*` juga harus menuju Worker yang sama.
 3. Jika hasilnya 401, API terkunci. Aktifkan Cloudflare Access untuk route itu, atau sementara set variable `ALLOW_UNAUTHENTICATED_API = "true"` hanya untuk testing.
 4. Jika hasilnya 500, buka Worker Logs dan cek D1 binding `EMAIL_DB` serta apakah schema sudah dijalankan.
 5. Jika hasilnya `{"emails":[]}`, Worker API sudah hidup, tapi email belum tersimpan. Cek apakah Worker email memakai kode `cloudflare-email-worker.example.js`, bukan starter Worker kosong.
@@ -108,6 +109,7 @@ Hasil health check:
 Jika log menampilkan `Failed to save incoming email to D1`, buka detail log dan lihat error lengkapnya. Error yang sering terjadi:
 
 - `no column named ...`: tabel lama sudah ada tapi kolom belum lengkap. Jalankan `ALTER TABLE` yang ada di bagian bawah `cloudflare-email-schema.sql` hanya untuk kolom yang belum ada.
+  Untuk sinkron read/delete email lintas device, pastikan kolom `email_messages.deleted_at` sudah ada. Untuk sinkron admin, pastikan tabel `admin_accounts` sudah dibuat.
 - `too large`: ukuran email terlalu besar. Worker sudah membatasi body yang disimpan, deploy ulang Worker terbaru.
 - `NOT NULL constraint failed`: schema tabel tidak sama dengan schema terbaru.
 

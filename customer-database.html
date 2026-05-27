@@ -34,27 +34,33 @@
           <h2>Data langganan</h2>
         </div>
 
-        <div class="upload-panel">
-          <input id="screenshotInput" type="file" accept="image/*" />
-          <label for="screenshotInput">
-            <strong>Upload screenshot pesanan</strong>
-            <span>OCR akan mencoba mengambil user, produk singkat, durasi, tanggal, dan nomor pesanan/WA.</span>
-          </label>
-          <div class="ocr-progress" id="ocrProgress" hidden>
-            <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+        <button class="mobile-collapse-toggle" id="customerFormToggle" type="button" aria-expanded="false" aria-controls="customerFormFields">
+          <span>Form input customer</span>
+          <strong>Tampilkan</strong>
+        </button>
+
+        <div class="mobile-collapsible-panel" id="customerFormFields">
+          <div class="upload-panel">
+            <input id="screenshotInput" type="file" accept="image/*" />
+            <label for="screenshotInput">
+              <strong>Upload screenshot pesanan</strong>
+              <span>OCR akan mencoba mengambil user, produk singkat, durasi, tanggal, dan nomor pesanan/WA.</span>
+            </label>
+            <div class="ocr-progress" id="ocrProgress" hidden>
+              <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+            </div>
+            <p class="status-text" id="ocrStatus">Belum ada screenshot dipilih.</p>
           </div>
-          <p class="status-text" id="ocrStatus">Belum ada screenshot dipilih.</p>
-        </div>
 
-        <div class="screenshot-preview is-hidden" id="screenshotPreviewWrap">
-          <img id="screenshotPreview" alt="Preview screenshot pesanan" />
-        </div>
+          <div class="screenshot-preview is-hidden" id="screenshotPreviewWrap">
+            <img id="screenshotPreview" alt="Preview screenshot pesanan" />
+          </div>
 
-        <div class="form-grid">
-          <label class="field-group">
-            <span>Nama/User customer</span>
-            <input id="customerName" type="text" placeholder="Contoh: adhiesetiawan44" />
-          </label>
+          <div class="form-grid">
+            <label class="field-group">
+              <span>Nama/User customer</span>
+              <input id="customerName" type="text" placeholder="Contoh: adhiesetiawan44" />
+            </label>
 
           <label class="field-group">
             <span id="activationFieldLabel">Email aktivasi</span>
@@ -129,15 +135,16 @@
             </select>
           </label>
 
-          <label class="field-group wide-field">
-            <span>Catatan admin</span>
-            <textarea id="adminNotes" rows="3" placeholder="Catatan akun, tim, kendala, atau follow up"></textarea>
-          </label>
-        </div>
+            <label class="field-group wide-field">
+              <span>Catatan admin</span>
+              <textarea id="adminNotes" rows="3" placeholder="Catatan akun, tim, kendala, atau follow up"></textarea>
+            </label>
+          </div>
 
-        <div class="action-row">
-          <button class="primary-button" type="submit">Simpan Data</button>
-          <button class="secondary-button" id="clearBtn" type="button">Kosongkan</button>
+          <div class="action-row">
+            <button class="primary-button" type="submit">Simpan Data</button>
+            <button class="secondary-button" id="clearBtn" type="button">Kosongkan</button>
+          </div>
         </div>
       </form>
 

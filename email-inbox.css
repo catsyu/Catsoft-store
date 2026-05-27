@@ -546,7 +546,8 @@ a {
 }
 
 .email-meta-row,
-.detail-actions {
+.detail-actions,
+.detail-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -634,25 +635,35 @@ a {
 
 .detail-header {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   padding-bottom: 18px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.detail-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.detail-subject {
+  margin: 0;
+  color: #0f172a;
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .detail-title {
   min-width: 0;
 }
 
-.detail-title h2 {
-  margin-top: 8px;
-  font-size: 24px;
-  line-height: 1.25;
-  letter-spacing: 0;
-  overflow-wrap: anywhere;
-}
-
 .detail-address {
-  margin-top: 5px;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 14px;
 }
 
 .detail-domain {
@@ -683,8 +694,13 @@ a {
   overflow-wrap: anywhere;
 }
 
-.detail-actions {
-  justify-content: flex-start;
+.detail-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .mobile-close-button {
@@ -774,16 +790,16 @@ a {
   margin-top: 18px;
 }
 
-.message-body pre {
+.message-content {
   max-height: none;
-  min-height: 360px;
+  min-height: 260px;
   overflow: auto;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  background: #f8fafc;
+  background: #ffffff;
   color: #0f172a;
-  padding: 16px;
-  font: 14px/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  padding: 18px;
+  font: 15px/1.7 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -936,8 +952,8 @@ a {
     flex-direction: column;
   }
 
-  .detail-actions,
-  .detail-actions .secondary-button,
+  .detail-toolbar,
+  .detail-toolbar .secondary-button,
   .otp-strip .secondary-button {
     width: 100%;
   }
@@ -972,7 +988,7 @@ a {
     padding: 14px;
   }
 
-  .detail-title h2 {
+  .detail-subject {
     font-size: 21px;
   }
 }
@@ -1088,7 +1104,7 @@ body {
   padding-bottom: 12px;
 }
 
-.detail-title h2 {
+.detail-subject {
   font-size: 21px;
 }
 
@@ -1105,8 +1121,8 @@ body {
   grid-template-columns: auto auto repeat(4, auto);
 }
 
-.message-body pre {
-  min-height: 420px;
+.message-content {
+  min-height: 360px;
 }
 
 @media (max-width: 760px) {
@@ -1161,5 +1177,62 @@ body {
 
   .email-meta-row {
     margin-left: 40px;
+  }
+}
+
+.mobile-collapse-toggle {
+  display: none;
+}
+
+.mobile-collapsible-panel {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 620px) {
+  .mobile-collapse-toggle {
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0 12px;
+    padding: 11px 13px;
+    border: 1px solid rgba(191, 219, 254, 0.95);
+    border-radius: 16px;
+    background: rgba(239, 246, 255, 0.92);
+    color: #0f172a;
+    font: inherit;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .mobile-collapse-toggle strong {
+    color: #1d4ed8;
+    font-size: 13px;
+  }
+
+  .mobile-collapse-toggle::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    border-right: 3px solid #2563eb;
+    border-bottom: 3px solid #2563eb;
+    transform: rotate(45deg);
+    transition: transform 0.18s ease;
+  }
+
+  .mobile-collapse-toggle.is-open::after {
+    transform: rotate(225deg);
+  }
+
+  .mobile-collapsible-panel {
+    display: none;
+  }
+
+  .mobile-collapsible-panel.is-open {
+    display: grid;
   }
 }

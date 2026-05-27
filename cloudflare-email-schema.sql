@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS email_messages (
   html_body TEXT,
   raw_content TEXT,
   otp_code TEXT,
-  read_at TEXT
+  read_at TEXT,
+  deleted_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_messages_received_at
@@ -25,6 +26,22 @@ CREATE INDEX IF NOT EXISTS idx_email_messages_category
 
 CREATE INDEX IF NOT EXISTS idx_email_messages_read_at
   ON email_messages (read_at);
+
+CREATE INDEX IF NOT EXISTS idx_email_messages_deleted_at
+  ON email_messages (deleted_at);
+
+CREATE TABLE IF NOT EXISTS admin_accounts (
+  username TEXT PRIMARY KEY,
+  password TEXT NOT NULL,
+  tools TEXT NOT NULL DEFAULT '[]',
+  inbox_access_all INTEGER NOT NULL DEFAULT 0,
+  inbox_rules TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_accounts_updated_at
+  ON admin_accounts (updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS customer_records (
   id TEXT PRIMARY KEY,
@@ -82,3 +99,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
 -- ALTER TABLE email_messages ADD COLUMN raw_content TEXT;
 -- ALTER TABLE email_messages ADD COLUMN otp_code TEXT;
 -- ALTER TABLE email_messages ADD COLUMN read_at TEXT;
+-- ALTER TABLE email_messages ADD COLUMN deleted_at TEXT;
+-- CREATE TABLE IF NOT EXISTS admin_accounts (
+--   username TEXT PRIMARY KEY,
+--   password TEXT NOT NULL,
+--   tools TEXT NOT NULL DEFAULT '[]',
+--   inbox_access_all INTEGER NOT NULL DEFAULT 0,
+--   inbox_rules TEXT NOT NULL DEFAULT '[]',
+--   created_at TEXT NOT NULL,
+--   updated_at TEXT NOT NULL
+-- );

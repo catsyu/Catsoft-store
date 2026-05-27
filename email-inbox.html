@@ -46,63 +46,70 @@
           </button>
         </div>
 
-        <form class="filter-panel" id="filterForm">
-          <label class="field-group recipient-field">
-            <span>Penerima</span>
-            <input id="recipientFilter" type="email" placeholder="chatgpt@catsoft.store" autocomplete="off" />
-          </label>
+        <button class="mobile-collapse-toggle" id="emailControlToggle" type="button" aria-expanded="false" aria-controls="emailControlPanel">
+          <span>Filter &amp; bulk action</span>
+          <strong>Tampilkan</strong>
+        </button>
 
-          <label class="field-group">
-            <span>Domain</span>
-            <select id="domainFilter">
-              <option value="all">Semua</option>
-              <option value="catsoft.store">catsoft.store</option>
-              <option value="catsoft.digital">catsoft.digital</option>
-              <option value="catsoft.online">catsoft.online</option>
-            </select>
-          </label>
+        <div class="mobile-collapsible-panel" id="emailControlPanel">
+          <form class="filter-panel" id="filterForm">
+            <label class="field-group recipient-field">
+              <span>Penerima</span>
+              <input id="recipientFilter" type="email" placeholder="chatgpt@catsoft.store" autocomplete="off" />
+            </label>
 
-          <label class="field-group">
-            <span>Kategori</span>
-            <select id="categoryFilter">
-              <option value="all">Semua</option>
-              <option value="chatgpt-otp">ChatGPT</option>
-              <option value="adobe">Adobe</option>
-              <option value="other">Lainnya</option>
-            </select>
-          </label>
+            <label class="field-group">
+              <span>Domain</span>
+              <select id="domainFilter">
+                <option value="all">Semua</option>
+                <option value="catsoft.store">catsoft.store</option>
+                <option value="catsoft.digital">catsoft.digital</option>
+                <option value="catsoft.online">catsoft.online</option>
+              </select>
+            </label>
 
-          <label class="field-group">
-            <span>Status</span>
-            <select id="statusFilter">
-              <option value="all">Semua</option>
-              <option value="unread">Belum dibaca</option>
-              <option value="read">Dibaca</option>
-            </select>
-          </label>
+            <label class="field-group">
+              <span>Kategori</span>
+              <select id="categoryFilter">
+                <option value="all">Semua</option>
+                <option value="chatgpt-otp">ChatGPT</option>
+                <option value="adobe">Adobe</option>
+                <option value="other">Lainnya</option>
+              </select>
+            </label>
 
-          <label class="field-group search-field">
-            <span>Cari</span>
-            <input id="keywordFilter" type="search" placeholder="Subject, pengirim, isi" autocomplete="off" />
-          </label>
-        </form>
+            <label class="field-group">
+              <span>Status</span>
+              <select id="statusFilter">
+                <option value="all">Semua</option>
+                <option value="unread">Belum dibaca</option>
+                <option value="read">Dibaca</option>
+              </select>
+            </label>
 
-        <div class="category-tabs" id="categoryTabs" aria-label="Filter kategori cepat">
-          <button class="category-tab active" type="button" data-category-tab="all">Semua</button>
-          <button class="category-tab" type="button" data-category-tab="chatgpt-otp">ChatGPT</button>
-          <button class="category-tab" type="button" data-category-tab="adobe">Adobe</button>
-        </div>
+            <label class="field-group search-field">
+              <span>Cari</span>
+              <input id="keywordFilter" type="search" placeholder="Subject, pengirim, isi" autocomplete="off" />
+            </label>
+          </form>
 
-        <div class="bulk-toolbar" id="bulkToolbar" aria-label="Bulk action email">
-          <label class="bulk-select-all">
-            <input id="selectAllEmails" type="checkbox" />
-            <span>Pilih semua</span>
-          </label>
-          <strong id="selectedEmailCount">0 dipilih</strong>
-          <button class="secondary-button" type="button" data-bulk-action="read">Tandai dibaca</button>
-          <button class="secondary-button" type="button" data-bulk-action="unread">Tandai belum dibaca</button>
-          <button class="danger-button" type="button" data-bulk-action="delete">Hapus</button>
-          <button class="secondary-button" type="button" data-bulk-action="clear">Clear</button>
+          <div class="category-tabs" id="categoryTabs" aria-label="Filter kategori cepat">
+            <button class="category-tab active" type="button" data-category-tab="all">Semua</button>
+            <button class="category-tab" type="button" data-category-tab="chatgpt-otp">ChatGPT</button>
+            <button class="category-tab" type="button" data-category-tab="adobe">Adobe</button>
+          </div>
+
+          <div class="bulk-toolbar" id="bulkToolbar" aria-label="Bulk action email">
+            <label class="bulk-select-all">
+              <input id="selectAllEmails" type="checkbox" />
+              <span>Pilih semua</span>
+            </label>
+            <strong id="selectedEmailCount">0 dipilih</strong>
+            <button class="secondary-button" type="button" data-bulk-action="read">Tandai dibaca</button>
+            <button class="secondary-button" type="button" data-bulk-action="unread">Tandai belum dibaca</button>
+            <button class="danger-button" type="button" data-bulk-action="delete">Hapus</button>
+            <button class="secondary-button" type="button" data-bulk-action="clear">Clear</button>
+          </div>
         </div>
 
         <div class="email-list" id="emailList" aria-live="polite">

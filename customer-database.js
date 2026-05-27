@@ -21,6 +21,8 @@ const productRegistryStorageKey = 'catsoftCustomerDatabaseProducts';
 const form = document.getElementById('customerForm');
 const resetFormBtn = document.getElementById('resetFormBtn');
 const clearBtn = document.getElementById('clearBtn');
+const customerFormToggle = document.getElementById('customerFormToggle');
+const customerFormFields = document.getElementById('customerFormFields');
 const recordIdInput = document.getElementById('recordId');
 const screenshotInput = document.getElementById('screenshotInput');
 const screenshotPreviewWrap = document.getElementById('screenshotPreviewWrap');
@@ -125,6 +127,32 @@ const monthMap = {
   des: 11,
   dec: 11
 };
+
+function setupMobileCollapse(toggle, panel) {
+  if (!toggle || !panel) {
+    return;
+  }
+
+  const toggleLabel = toggle.querySelector('strong');
+
+  const setOpen = (isOpen) => {
+    panel.classList.toggle('is-open', isOpen);
+    toggle.classList.toggle('is-open', isOpen);
+    toggle.setAttribute('aria-expanded', String(isOpen));
+
+    if (toggleLabel) {
+      toggleLabel.textContent = isOpen ? 'Sembunyikan' : 'Tampilkan';
+    }
+  };
+
+  setOpen(false);
+
+  toggle.addEventListener('click', () => {
+    setOpen(!panel.classList.contains('is-open'));
+  });
+}
+
+setupMobileCollapse(customerFormToggle, customerFormFields);
 
 const monthNames = [
   'Januari',

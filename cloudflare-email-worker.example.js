@@ -80,6 +80,14 @@ export default {
       return healthCheck(request, env);
     }
 
+    if (url.pathname === '/api/admin-accounts' && request.method === 'GET') {
+      return listAdminAccounts(request, env);
+    }
+
+    if (url.pathname === '/api/admin-accounts' && request.method === 'POST') {
+      return saveAdminAccountsApi(request, env);
+    }
+
     if (url.pathname === '/api/customer-records' && request.method === 'GET') {
       return listCustomerRecords(request, env);
     }
@@ -125,6 +133,10 @@ export default {
 
     if (detailMatch && request.method === 'PATCH') {
       return markEmailRead(request, env, detailMatch[1]);
+    }
+
+    if (detailMatch && request.method === 'DELETE') {
+      return deleteEmailMessage(request, env, detailMatch[1]);
     }
 
     return json({ error: 'Not found' }, 404, request);
@@ -299,6 +311,8 @@ async function listEmails(request, env) {
     where.push('read_at IS NOT NULL');
   }
 
+  where.push('deleted_at IS NULL');
+
   if (query) {
     where.push('(LOWER(sender) LIKE ? OR LOWER(recipient) LIKE ? OR LOWER(subject) LIKE ? OR LOWER(snippet) LIKE ?)');
     params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
@@ -364,7 +378,7 @@ async function getEmail(request, env, id) {
     SELECT id, sender, recipient, subject, category, received_at, size,
       snippet, text_body, html_body, raw_content, otp_code, read_at
     FROM email_messages
-    WHERE id = ?
+    WHERE id = ? AND deleted_at IS NULL
   `).bind(id).first();
 
   if (!row) {
@@ -393,13 +407,131 @@ async function markEmailRead(request, env, id) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
 
+  const payload = await readJson(request).catch(() => ({}));
+  const shouldRead = payload.read !== false;
+
   await env.EMAIL_DB.prepare(`
     UPDATE email_messages
-    SET read_at = COALESCE(read_at, ?)
+    SET read_at = ?
+    WHERE id = ?
+  `).bind(shouldRead ? new Date().toISOString() : null, id).run();
+
+  return json({ ok: true }, 200, request);
+}
+
+async function deleteEmailMessage(request, env, id) {
+  if (!env.EMAIL_DB) {
+    return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await env.EMAIL_DB.prepare(`
+    UPDATE email_messages
+    SET deleted_at = COALESCE(deleted_at, ?)
     WHERE id = ?
   `).bind(new Date().toISOString(), id).run();
 
   return json({ ok: true }, 200, request);
+}
+
+function getAdminDb(env) {
+  return env.CUSTOMER_DB || env.EMAIL_DB;
+}
+
+function parseJsonArray(value) {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function mapAdminAccountRow(row) {
+  return {
+    username: row.username,
+    password: row.password,
+    tools: parseJsonArray(row.tools),
+    inboxAccessAll: Boolean(row.inbox_access_all),
+    inboxRules: parseJsonArray(row.inbox_rules),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function listAdminAccounts(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  const result = await adminDb.prepare(`
+    SELECT username, password, tools, inbox_access_all, inbox_rules, created_at, updated_at
+    FROM admin_accounts
+    ORDER BY updated_at DESC
+  `).all();
+
+  return json({
+    accounts: (result.results || []).map(mapAdminAccountRow)
+  }, 200, request);
+}
+
+async function saveAdminAccountsApi(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  const payload = await readJson(request);
+  const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+  const now = new Date().toISOString();
+
+  const existing = await adminDb.prepare('SELECT username FROM admin_accounts').all();
+  const incomingNames = new Set(accounts.map((account) => normalizeSearch(account.username)).filter(Boolean));
+  const statements = [];
+
+  accounts.forEach((account) => {
+    const username = String(account.username || '').trim();
+    const password = String(account.password || '');
+
+    if (!username || !password) {
+      return;
+    }
+
+    statements.push(adminDb.prepare(`
+      INSERT INTO admin_accounts (
+        username, password, tools, inbox_access_all, inbox_rules, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(username) DO UPDATE SET
+        password = excluded.password,
+        tools = excluded.tools,
+        inbox_access_all = excluded.inbox_access_all,
+        inbox_rules = excluded.inbox_rules,
+        updated_at = excluded.updated_at
+    `).bind(
+      username,
+      password,
+      JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
+      account.inboxAccessAll ? 1 : 0,
+      JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
+      account.createdAt || now,
+      account.updatedAt || now
+    ));
+  });
+
+  (existing.results || []).forEach((row) => {
+    if (!incomingNames.has(normalizeSearch(row.username))) {
+      statements.push(adminDb.prepare('DELETE FROM admin_accounts WHERE username = ?').bind(row.username));
+    }
+  });
+
+  if (statements.length) {
+    await adminDb.batch(statements);
+  }
+
+  return json({ ok: true, accounts: accounts.length }, 200, request);
 }
 
 async function listCustomerRecords(request, env) {
@@ -1406,6 +1538,14 @@ function json(payload, status = 200, request) {
       ...corsHeaders(request)
     }
   });
+}
+
+async function readJson(request) {
+  try {
+    return await request.json();
+  } catch (error) {
+    return {};
+  }
 }
 
 function corsHeaders(request) {

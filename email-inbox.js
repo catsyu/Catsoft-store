@@ -25,6 +25,8 @@ const categoryTabs = document.getElementById('categoryTabs');
 const bulkToolbar = document.getElementById('bulkToolbar');
 const selectAllEmails = document.getElementById('selectAllEmails');
 const selectedEmailCount = document.getElementById('selectedEmailCount');
+const emailControlToggle = document.getElementById('emailControlToggle');
+const emailControlPanel = document.getElementById('emailControlPanel');
 const emailList = document.getElementById('emailList');
 const messagePanel = document.getElementById('messagePanel');
 const mobileDetailQuery = window.matchMedia('(max-width: 1060px)');
@@ -78,6 +80,36 @@ const inboxAccess = currentAdminAccess && currentAdminAccess.role !== 'owner' &&
 
 let isLoadingEmails = false;
 let autoRefreshTimer;
+
+function canUseDemoFallback() {
+  return window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname.toLowerCase());
+}
+
+function setupMobileCollapse(toggle, panel) {
+  if (!toggle || !panel) {
+    return;
+  }
+
+  const toggleLabel = toggle.querySelector('strong');
+
+  const setOpen = (isOpen) => {
+    panel.classList.toggle('is-open', isOpen);
+    toggle.classList.toggle('is-open', isOpen);
+    toggle.setAttribute('aria-expanded', String(isOpen));
+
+    if (toggleLabel) {
+      toggleLabel.textContent = isOpen ? 'Sembunyikan' : 'Tampilkan';
+    }
+  };
+
+  setOpen(false);
+
+  toggle.addEventListener('click', () => {
+    setOpen(!panel.classList.contains('is-open'));
+  });
+}
+
+setupMobileCollapse(emailControlToggle, emailControlPanel);
 
 function getDefaultApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
@@ -288,7 +320,12 @@ function normalizeEmail(rawEmail) {
   const subject = rawEmail.subject || '(Tanpa subject)';
   const category = normalizeCategory(rawEmail.category, { from, to, subject, body });
   const otpCode = rawEmail.otpCode || rawEmail.otp_code || extractOtp(`${subject}\n${body}`);
-  const read = Boolean(rawEmail.read || rawEmail.readAt || rawEmail.read_at || state.readIds.has(id));
+  const hasServerReadState = Object.prototype.hasOwnProperty.call(rawEmail, 'read')
+    || Object.prototype.hasOwnProperty.call(rawEmail, 'readAt')
+    || Object.prototype.hasOwnProperty.call(rawEmail, 'read_at');
+  const read = hasServerReadState
+    ? Boolean(rawEmail.read || rawEmail.readAt || rawEmail.read_at)
+    : state.readIds.has(id);
 
   return {
     id,
@@ -419,7 +456,6 @@ async function loadEmails(options = {}) {
     const data = await response.json();
     const emails = parseEmailsResponse(data)
       .map(normalizeEmail)
-      .filter((email) => !state.deletedIds.has(email.id))
       .filter(isEmailAllowed);
 
     state.source = 'api';
@@ -433,14 +469,22 @@ async function loadEmails(options = {}) {
       return;
     }
 
-    state.source = 'demo';
-    state.emails = sortEmails(createSampleEmails()
-      .map(normalizeEmail)
-      .filter((email) => !state.deletedIds.has(email.id))
-      .filter(isEmailAllowed));
-    state.lastUpdatedAt = new Date();
-    setStatus('Data demo', 'warning');
-    syncStatus.title = error.message;
+    if (canUseDemoFallback()) {
+      state.source = 'demo';
+      state.emails = sortEmails(createSampleEmails()
+        .map(normalizeEmail)
+        .filter((email) => !state.deletedIds.has(email.id))
+        .filter(isEmailAllowed));
+      state.lastUpdatedAt = new Date();
+      setStatus('Data demo', 'warning');
+      syncStatus.title = error.message;
+    } else {
+      state.source = 'api';
+      state.emails = [];
+      state.lastUpdatedAt = new Date();
+      setStatus('Tidak tersinkron', 'warning');
+      syncStatus.title = `${error.message}. Data demo dinonaktifkan di catsoft.store agar inbox selalu memakai database.`;
+    }
   } finally {
     isLoadingEmails = false;
     refreshBtn.disabled = false;
@@ -718,6 +762,29 @@ function deleteEmail(email) {
   if (state.selectedId === email.id) {
     state.selectedId = null;
   }
+
+  if (state.source === 'api') {
+    fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
+  }
+}
+
+function getReadableBody(email) {
+  const raw = String(email.body || email.snippet || 'Isi email belum tersedia.')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!raw) {
+    return 'Isi email belum tersedia.';
+  }
+
+  if (/^to view this email as a web page/i.test(raw)) {
+    return raw.split(/\n\s*\n/)[0] || raw;
+  }
+
+  return raw;
 }
 
 function runBulkAction(action) {
@@ -760,7 +827,9 @@ function renderSelectedEmail(email) {
     return;
   }
 
-  const body = selectedEmail.body || selectedEmail.snippet || 'Isi email belum tersedia.';
+  const body = getReadableBody(selectedEmail);
+  const recipientLabel = getRecipientLabel(selectedEmail);
+  const senderLabel = getSenderName(selectedEmail.from, selectedEmail.category);
   const otpMarkup = selectedEmail.otpCode ? `
     <div class="otp-strip">
       <div>
@@ -773,26 +842,29 @@ function renderSelectedEmail(email) {
 
   messagePanel.innerHTML = `
     <div class="detail-header">
+      <div class="detail-toolbar">
+        <button class="secondary-button mobile-close-button" type="button" data-detail-action="close-detail">Tutup</button>
+        <button class="secondary-button" type="button" data-detail-action="copy-recipient" data-copy-value="${escapeHtml(selectedEmail.to)}">Copy Email</button>
+        <button class="secondary-button" type="button" data-detail-action="copy-body" data-copy-value="${escapeHtml(body)}">Copy Isi</button>
+      </div>
+      <h2 class="detail-subject">${escapeHtml(selectedEmail.subject)}</h2>
       <div class="detail-top">
         <span class="sender-avatar detail-avatar" aria-hidden="true">${escapeHtml(getSenderInitial(selectedEmail))}</span>
         <div class="detail-title">
-          <span class="category-badge ${escapeHtml(selectedEmail.category)}">${escapeHtml(categoryLabels[selectedEmail.category] || categoryLabels.other)}</span>
-          <strong class="sender-name">${escapeHtml(getSenderName(selectedEmail.from, selectedEmail.category))}</strong>
-          <h2>${escapeHtml(selectedEmail.subject)}</h2>
-          <p class="detail-address">Masuk ke: ${escapeHtml(getRecipientLabel(selectedEmail))}</p>
-          <p class="detail-address">Dari: ${escapeHtml(getSenderName(selectedEmail.from, selectedEmail.category))}</p>
+          <strong class="sender-name">${escapeHtml(senderLabel)}</strong>
+          <p class="detail-address">Kepada ${escapeHtml(recipientLabel)}</p>
         </div>
         <span class="email-time">${escapeHtml(formatDateTime(selectedEmail.receivedAt))}</span>
       </div>
-      <div class="detail-actions">
-        <button class="secondary-button mobile-close-button" type="button" data-detail-action="close-detail">Tutup</button>
-        <button class="secondary-button" type="button" data-detail-action="copy-recipient" data-copy-value="${escapeHtml(selectedEmail.to)}">Copy Penerima</button>
-        <button class="secondary-button" type="button" data-detail-action="copy-body" data-copy-value="${escapeHtml(body)}">Copy Isi</button>
+      <div class="detail-meta-line">
+        <span class="category-badge ${escapeHtml(selectedEmail.category)}">${escapeHtml(categoryLabels[selectedEmail.category] || categoryLabels.other)}</span>
+        <span>Dari ${escapeHtml(senderLabel)}</span>
+        <span>${escapeHtml(formatDateTime(selectedEmail.receivedAt))}</span>
       </div>
     </div>
     ${otpMarkup}
     <div class="message-body">
-      <pre>${escapeHtml(body)}</pre>
+      <div class="message-content">${escapeHtml(body)}</div>
     </div>
   `;
 }

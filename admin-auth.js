@@ -2,6 +2,10 @@ const CATSOFT_OWNER_USERNAME = 'OwnerCatsoft';
 const CATSOFT_OWNER_PASSWORD = 'Rhyhusnul24!';
 const CATSOFT_ADMIN_SESSION_KEY = 'catsoftAdminSession';
 const CATSOFT_ADMIN_ACCOUNTS_KEY = 'catsoftAdminAccounts';
+const CATSOFT_ADMIN_ACCOUNTS_SYNC_KEY = 'catsoftAdminAccountsLastSync';
+const CATSOFT_ADMIN_ACCOUNTS_API = window.CATSOFT_ADMIN_ACCOUNTS_API || getDefaultAdminAccountsApiEndpoint();
+const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 10000;
+let catsoftAdminAccountsRefreshTimer = null;
 
 const CATSOFT_ADMIN_TOOLS = [
   { id: 'refund-calculator', label: 'Refund Calculator', path: 'refund-calculator.html' },
@@ -62,6 +66,17 @@ function getCurrentPageName() {
   return page || 'index.html';
 }
 
+function getDefaultAdminAccountsApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/admin-accounts';
+  }
+
+  return '/api/admin-accounts';
+}
+
 function getCurrentAdminToolId() {
   const pageName = getCurrentPageName();
   const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.path === pageName);
@@ -88,6 +103,66 @@ function loadAdminAccounts() {
 
 function saveAdminAccounts(accounts) {
   localStorage.setItem(CATSOFT_ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function normalizeAdminAccount(account) {
+  return {
+    username: String(account.username || '').trim(),
+    password: String(account.password || ''),
+    tools: Array.isArray(account.tools) ? account.tools : [],
+    inboxAccessAll: Boolean(account.inboxAccessAll),
+    inboxRules: normalizeInboxRules(account),
+    createdAt: account.createdAt || new Date().toISOString(),
+    updatedAt: account.updatedAt || new Date().toISOString()
+  };
+}
+
+function parseAdminAccountsResponse(data) {
+  const accounts = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : [];
+  return accounts.map(normalizeAdminAccount).filter((account) => account.username && account.password);
+}
+
+async function syncAdminAccountsFromApi(options = {}) {
+  try {
+    const response = await fetch(`${CATSOFT_ADMIN_ACCOUNTS_API}?_=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API admin ${response.status}`);
+    }
+
+    const accounts = parseAdminAccountsResponse(await response.json());
+    saveAdminAccounts(accounts);
+    localStorage.setItem(CATSOFT_ADMIN_ACCOUNTS_SYNC_KEY, new Date().toISOString());
+
+    if (!options.silent) {
+      setAccessStatus('Akses admin tersinkron.', 'success');
+    }
+
+    return accounts;
+  } catch (error) {
+    if (!options.silent) {
+      setAccessStatus(`Gagal sinkron admin: ${error.message}`);
+    }
+
+    return loadAdminAccounts();
+  }
+}
+
+async function pushAdminAccountsToApi(accounts) {
+  const response = await fetch(CATSOFT_ADMIN_ACCOUNTS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accounts: accounts.map(normalizeAdminAccount) })
+  });
+
+  if (!response.ok) {
+    throw new Error(`API admin ${response.status}`);
+  }
 }
 
 function loadAdminSession() {
@@ -184,12 +259,13 @@ function getAllowedInboxRecipients() {
   return getInboxAccess().rules;
 }
 
-function loginAdmin(username, password) {
+async function loginAdmin(username, password) {
   if (isOwnerCredential(username, password)) {
     saveAdminSession({ username: CATSOFT_OWNER_USERNAME, role: 'owner', loggedInAt: new Date().toISOString() });
     return { ok: true };
   }
 
+  await syncAdminAccountsFromApi({ silent: true });
   const account = getAccountByUsername(username);
 
   if (!account || account.password !== password) {
@@ -800,14 +876,19 @@ function renderLogin(message = '') {
     </section>
   `);
 
-  document.getElementById('adminLoginForm').addEventListener('submit', (event) => {
+  document.getElementById('adminLoginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const username = document.getElementById('adminLoginUsername').value;
     const password = document.getElementById('adminLoginPassword').value;
-    const result = loginAdmin(username, password);
+    const submitButton = event.currentTarget.querySelector('.admin-login-submit');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Memeriksa...';
+    const result = await loginAdmin(username, password);
 
     if (!result.ok) {
       document.getElementById('adminLoginError').textContent = result.message;
+      submitButton.disabled = false;
+      submitButton.textContent = 'Masuk Admin Tools';
       return;
     }
 
@@ -1055,7 +1136,7 @@ function wireOwnerAccessPanel() {
     input.addEventListener('change', updateInboxAccessVisibility);
   });
 
-  document.getElementById('adminAccessForm').addEventListener('submit', (event) => {
+  document.getElementById('adminAccessForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const values = getAccessFormValues();
 
@@ -1099,7 +1180,14 @@ function wireOwnerAccessPanel() {
     saveAdminAccounts(nextAccounts);
     resetAccessForm();
     renderAdminAccountList();
-    setAccessStatus('Akses admin tersimpan.', 'success');
+    setAccessStatus('Akses admin tersimpan lokal, mengirim sync...', 'success');
+
+    try {
+      await pushAdminAccountsToApi(nextAccounts);
+      setAccessStatus('Akses admin tersimpan dan tersinkron.', 'success');
+    } catch (error) {
+      setAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+    }
   });
 }
 
@@ -1246,7 +1334,7 @@ function editAdminAccount(username) {
   setAccessStatus('Mode edit admin.');
 }
 
-function deleteAdminAccount(username) {
+async function deleteAdminAccount(username) {
   const nextAccounts = loadAdminAccounts().filter((account) => normalizeAdminValue(account.username) !== normalizeAdminValue(username));
   saveAdminAccounts(nextAccounts);
 
@@ -1256,7 +1344,37 @@ function deleteAdminAccount(username) {
   }
 
   renderAdminAccountList();
-  setAccessStatus('Admin dihapus.', 'success');
+  setAccessStatus('Admin dihapus lokal, mengirim sync...', 'success');
+
+  try {
+    await pushAdminAccountsToApi(nextAccounts);
+    setAccessStatus('Admin dihapus dan tersinkron.', 'success');
+  } catch (error) {
+      setAccessStatus(`Hapus belum tersinkron ke device lain. Sync web gagal: ${error.message}`);
+  }
+}
+
+function startAdminAccountsAutoRefresh() {
+  window.clearInterval(catsoftAdminAccountsRefreshTimer);
+
+  const refresh = async () => {
+    const admin = getCurrentAdmin();
+
+    if (!admin) {
+      return;
+    }
+
+    await syncAdminAccountsFromApi({ silent: true });
+
+    if (document.getElementById('adminAccountList')) {
+      renderAdminAccountList();
+    }
+
+    filterAdminToolCards();
+  };
+
+  catsoftAdminAccountsRefreshTimer = window.setInterval(refresh, CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS);
+  refresh();
 }
 
 function initAdminAuth() {
@@ -1279,6 +1397,7 @@ function initAdminAuth() {
   addSessionControls();
   filterAdminToolCards();
   renderOwnerAccessPanel();
+  startAdminAccountsAutoRefresh();
 }
 
 window.CatsoftAdminAuth = {

@@ -1,0 +1,52 @@
+name = "mail-base-all-catch"
+main = "cloudflare-email-worker.example.js"
+compatibility_date = "2026-05-25"
+
+routes = [
+  { pattern = "catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
+
+  { pattern = "catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
+
+  { pattern = "catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" }
+]
+
+[[d1_databases]]
+binding = "ADMIN_DB"
+database_name = "admin_accounts"
+database_id = "ISI_DATABASE_ID_ADMIN_ACCOUNTS"
+
+[[d1_databases]]
+binding = "CUSTOMER_DB"
+database_name = "catsoft-customer-db"
+database_id = "ISI_DATABASE_ID_CUSTOMER_DB"
+
+[[d1_databases]]
+binding = "EMAIL_DB"
+database_name = "email-db"
+database_id = "ISI_DATABASE_ID_EMAIL_DB"
+
+[vars]
+FORWARD_TO = "cundigitora@gmail.com"
+# Untuk testing sementara saja. Hapus atau ubah ke false jika API sudah dilindungi token/Access.
+ALLOW_UNAUTHENTICATED_API = "true"

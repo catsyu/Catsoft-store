@@ -275,10 +275,32 @@ async function insertCoreEmail(env, email) {
   ).run();
 }
 
+async function ensureEmailMaintenanceColumns(emailDb) {
+  const columns = await emailDb.prepare('PRAGMA table_info(email_messages)').all();
+  const columnNames = new Set((columns.results || []).map((column) => column.name));
+
+  if (!columnNames.has('deleted_at')) {
+    try {
+      await emailDb.prepare('ALTER TABLE email_messages ADD COLUMN deleted_at TEXT').run();
+    } catch (error) {
+      if (!/duplicate column|already exists/i.test(error.message || '')) {
+        throw error;
+      }
+    }
+  }
+
+  await emailDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_email_messages_deleted_at
+    ON email_messages (deleted_at)
+  `).run();
+}
+
 async function listEmails(request, env) {
   if (!env.EMAIL_DB) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
+
+  await ensureEmailMaintenanceColumns(env.EMAIL_DB);
 
   const url = new URL(request.url);
   const where = [];
@@ -352,6 +374,7 @@ async function healthCheck(request, env) {
   }
 
   try {
+    await ensureEmailMaintenanceColumns(env.EMAIL_DB);
     const row = await env.EMAIL_DB.prepare('SELECT COUNT(*) AS total FROM email_messages').first();
     const columns = await env.EMAIL_DB.prepare('PRAGMA table_info(email_messages)').all();
 
@@ -373,6 +396,8 @@ async function getEmail(request, env, id) {
   if (!env.EMAIL_DB) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
+
+  await ensureEmailMaintenanceColumns(env.EMAIL_DB);
 
   const row = await env.EMAIL_DB.prepare(`
     SELECT id, sender, recipient, subject, category, received_at, size,
@@ -407,6 +432,8 @@ async function markEmailRead(request, env, id) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
 
+  await ensureEmailMaintenanceColumns(env.EMAIL_DB);
+
   const payload = await readJson(request).catch(() => ({}));
   const shouldRead = payload.read !== false;
 
@@ -424,6 +451,8 @@ async function deleteEmailMessage(request, env, id) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
 
+  await ensureEmailMaintenanceColumns(env.EMAIL_DB);
+
   await env.EMAIL_DB.prepare(`
     UPDATE email_messages
     SET deleted_at = COALESCE(deleted_at, ?)
@@ -434,7 +463,26 @@ async function deleteEmailMessage(request, env, id) {
 }
 
 function getAdminDb(env) {
-  return env.CUSTOMER_DB || env.EMAIL_DB;
+  return env.ADMIN_DB || env.CUSTOMER_DB || env.EMAIL_DB;
+}
+
+async function ensureAdminAccountsTable(adminDb) {
+  await adminDb.prepare(`
+    CREATE TABLE IF NOT EXISTS admin_accounts (
+      username TEXT PRIMARY KEY,
+      password TEXT NOT NULL,
+      tools TEXT NOT NULL DEFAULT '[]',
+      inbox_access_all INTEGER NOT NULL DEFAULT 0,
+      inbox_rules TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await adminDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_admin_accounts_updated_at
+    ON admin_accounts (updated_at DESC)
+  `).run();
 }
 
 function parseJsonArray(value) {
@@ -462,8 +510,10 @@ async function listAdminAccounts(request, env) {
   const adminDb = getAdminDb(env);
 
   if (!adminDb) {
-    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
   }
+
+  await ensureAdminAccountsTable(adminDb);
 
   const result = await adminDb.prepare(`
     SELECT username, password, tools, inbox_access_all, inbox_rules, created_at, updated_at
@@ -480,8 +530,10 @@ async function saveAdminAccountsApi(request, env) {
   const adminDb = getAdminDb(env);
 
   if (!adminDb) {
-    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
   }
+
+  await ensureAdminAccountsTable(adminDb);
 
   const payload = await readJson(request);
   const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];

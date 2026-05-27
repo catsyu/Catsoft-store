@@ -88,16 +88,32 @@ Jika health check sudah `ok:true` tetapi `total` tetap 0 setelah mengirim email 
 9. Buka Triggers atau Workers Routes.
 10. Tambahkan route HTTP:
    - Route: `catsoft.store/api/email-messages*`
+   - Route: `www.catsoft.store/api/email-messages*`
    - Worker: `mail-base-all-catch`
 11. Tambahkan route HTTP kedua untuk Customer Database:
    - Route: `catsoft.store/api/customer-records*`
+   - Route: `www.catsoft.store/api/customer-records*`
    - Worker: `mail-base-all-catch`
 12. Tambahkan route HTTP ketiga untuk aktivasi Office:
    - Route: `catsoft.store/api/office-confirmation*`
+   - Route: `www.catsoft.store/api/office-confirmation*`
    - Worker: `mail-base-all-catch`
-13. Buka Email Routing > Routing rules.
-14. Pastikan Catch-All action menuju Worker `mail-base-all-catch`.
-15. Buka `https://catsoft.store/api/email-messages/health` dan `https://catsoft.store/api/customer-records/health`.
+13. Tambahkan route HTTP keempat untuk sinkron akun admin:
+   - Route: `catsoft.store/api/admin-accounts*`
+   - Route: `www.catsoft.store/api/admin-accounts*`
+   - Worker: `mail-base-all-catch`
+14. Buka Email Routing > Routing rules.
+15. Pastikan Catch-All action menuju Worker `mail-base-all-catch`.
+16. Buka `https://catsoft.store/api/email-messages/health`, `https://catsoft.store/api/customer-records/health`, dan `https://catsoft.store/api/admin-accounts`.
+
+Jika ingin domain lain seperti `catsoft.digital`, `catsoft.online`, atau subdomain `www`-nya memakai D1 yang sama, arahkan route API domain tersebut ke Worker yang sama dan jangan buat binding D1 baru. Contoh:
+
+- `catsoft.digital/api/email-messages*`
+- `catsoft.digital/api/customer-records*`
+- `catsoft.digital/api/admin-accounts*`
+- `catsoft.online/api/email-messages*`
+- `catsoft.online/api/customer-records*`
+- `catsoft.online/api/admin-accounts*`
 
 Hasil health check:
 
@@ -109,7 +125,7 @@ Hasil health check:
 Jika log menampilkan `Failed to save incoming email to D1`, buka detail log dan lihat error lengkapnya. Error yang sering terjadi:
 
 - `no column named ...`: tabel lama sudah ada tapi kolom belum lengkap. Jalankan `ALTER TABLE` yang ada di bagian bawah `cloudflare-email-schema.sql` hanya untuk kolom yang belum ada.
-  Untuk sinkron read/delete email lintas device, pastikan kolom `email_messages.deleted_at` sudah ada. Untuk sinkron admin, pastikan tabel `admin_accounts` sudah dibuat.
+  Untuk sinkron read/delete email lintas device, pastikan kolom `email_messages.deleted_at` sudah ada di database binding `EMAIL_DB`. Untuk sinkron admin, pastikan tabel `admin_accounts` sudah ada di database binding `ADMIN_DB`.
 - `too large`: ukuran email terlalu besar. Worker sudah membatasi body yang disimpan, deploy ulang Worker terbaru.
 - `NOT NULL constraint failed`: schema tabel tidak sama dengan schema terbaru.
 
@@ -122,13 +138,36 @@ compatibility_date = "2026-05-25"
 
 routes = [
   { pattern = "catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
   { pattern = "catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" }
+  { pattern = "www.catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
+
+  { pattern = "catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
+
+  { pattern = "catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" }
 ]
 
 [[d1_databases]]
 binding = "EMAIL_DB"
-database_name = "catsoft_email_inbox"
+database_name = "email-db"
 database_id = "ISI_DATABASE_ID_D1"
 
 [[d1_databases]]
@@ -136,15 +175,20 @@ binding = "CUSTOMER_DB"
 database_name = "catsoft-customer-db"
 database_id = "ISI_DATABASE_ID_D1_CUSTOMER"
 
+[[d1_databases]]
+binding = "ADMIN_DB"
+database_name = "admin_accounts"
+database_id = "ISI_DATABASE_ID_D1_ADMIN"
+
 [vars]
 FORWARD_TO = "cundigitora@gmail.com"
 ```
 
 ## Langkah deploy ringkas
 
-1. Buat D1 database di Cloudflare.
-2. Jalankan schema `cloudflare-email-schema.sql` ke D1.
-3. Deploy Worker dengan binding `EMAIL_DB` dan variable `FORWARD_TO`.
+1. Buat D1 database di Cloudflare untuk email, customer, dan admin.
+2. Jalankan schema `cloudflare-email-schema.sql` ke D1. Jika memakai database terpisah seperti `EMAIL_DB`, `CUSTOMER_DB`, dan `ADMIN_DB`, pastikan tabel yang sesuai ada di masing-masing database.
+3. Deploy Worker dengan binding `EMAIL_DB`, `CUSTOMER_DB`, `ADMIN_DB`, dan variable `FORWARD_TO`.
 4. Lindungi route `/api/email-messages*` dengan Cloudflare Access, atau set secret `INBOX_API_TOKEN`.
 5. Lindungi route `/api/office-confirmation*` dengan Cloudflare Access yang sama, atau gunakan mode testing `ALLOW_UNAUTHENTICATED_API = "true"`.
 6. Di Cloudflare Email Routing, ubah catch-all atau custom address agar action-nya menuju Email Worker `mail-base-all-catch`.
@@ -154,10 +198,10 @@ FORWARD_TO = "cundigitora@gmail.com"
 Jika memakai Wrangler:
 
 ```bash
-wrangler d1 execute catsoft_email_inbox --remote --file=cloudflare-email-schema.sql
+wrangler d1 execute email-db --remote --file=cloudflare-email-schema.sql
 ```
 
-Ganti `catsoft_email_inbox` dengan nama D1 database yang dibuat di Cloudflare jika namanya berbeda.
+Ganti `email-db` dengan nama D1 database yang dibuat di Cloudflare jika namanya berbeda. Untuk setup tiga database terpisah, jalankan schema yang relevan ke database email, customer, dan admin, atau deploy Worker terbaru agar tabel `admin_accounts` dan kolom `deleted_at` dibuat otomatis saat endpoint dipanggil.
 
 Jika lewat Dashboard Cloudflare:
 

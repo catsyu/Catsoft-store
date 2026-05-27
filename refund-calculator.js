@@ -1,3 +1,7 @@
+if (!window.CATSOFT_ADMIN_AUTHORIZED) {
+  throw new Error('Catsoft admin authorization required.');
+}
+
 const form = document.getElementById('refundForm');
 const resetBtn = document.getElementById('resetBtn');
 const screenshotInput = document.getElementById('screenshotInput');

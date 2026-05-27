@@ -608,3 +608,146 @@ a {
     padding: 14px;
   }
 }
+
+/* Compact admin workspace refresh */
+body {
+  background: #f6f8fb;
+  line-height: 1.45;
+}
+
+.refund-page {
+  padding: 18px 0 28px;
+}
+
+.refund-header {
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.brand-mark img {
+  width: 40px;
+  height: 40px;
+}
+
+.brand-mark h1 {
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.refund-layout {
+  gap: 14px;
+}
+
+.refund-form,
+.result-panel {
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.panel-heading {
+  margin-bottom: 12px;
+}
+
+.panel-heading h2 {
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.upload-panel {
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+
+.upload-panel label {
+  padding: 14px;
+}
+
+.status-text {
+  padding: 0 14px 12px;
+}
+
+.form-grid {
+  gap: 10px;
+}
+
+.field-group {
+  gap: 6px;
+}
+
+.field-group span,
+.field-group label {
+  font-size: 12px;
+}
+
+.field-group input,
+.field-group select {
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.mini-button,
+.ghost-button,
+.primary-button,
+.secondary-button {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 9px 13px;
+}
+
+.primary-button {
+  background: #2563eb;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
+}
+
+.action-row {
+  margin-top: 14px;
+}
+
+.result-cards {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.result-card {
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.result-card strong {
+  font-size: 22px;
+}
+
+.result-text {
+  min-height: 300px;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+@media (max-width: 760px) {
+  .refund-page {
+    padding-top: 12px;
+  }
+
+  .refund-header {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .brand-mark h1 {
+    font-size: 24px;
+  }
+
+  .refund-layout {
+    gap: 10px;
+  }
+
+  .refund-form,
+  .result-panel {
+    padding: 12px;
+  }
+}

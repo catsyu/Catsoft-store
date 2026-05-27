@@ -1,3 +1,7 @@
+if (!window.CATSOFT_ADMIN_AUTHORIZED) {
+  throw new Error('Catsoft admin authorization required.');
+}
+
 const productionApiEndpoint = 'https://catsoft.store/api/customer-records';
 const apiEndpoint = window.CATSOFT_CUSTOMER_DATABASE_API || getDefaultApiEndpoint();
 const apiTimeoutMs = 8000;

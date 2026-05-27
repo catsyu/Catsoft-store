@@ -1,6 +1,11 @@
+if (!window.CATSOFT_ADMIN_AUTHORIZED) {
+  throw new Error('Catsoft admin authorization required.');
+}
+
 const productionApiEndpoint = 'https://catsoft.store/api/email-messages';
 const apiEndpoint = window.CATSOFT_EMAIL_INBOX_API || getDefaultApiEndpoint();
 const readStorageKey = 'catsoftEmailInboxReadIds';
+const deletedStorageKey = 'catsoftEmailInboxDeletedIds';
 const autoRefreshMs = 15000;
 const emailFetchLimit = 500;
 
@@ -17,13 +22,16 @@ const categoryFilter = document.getElementById('categoryFilter');
 const statusFilter = document.getElementById('statusFilter');
 const keywordFilter = document.getElementById('keywordFilter');
 const categoryTabs = document.getElementById('categoryTabs');
+const bulkToolbar = document.getElementById('bulkToolbar');
+const selectAllEmails = document.getElementById('selectAllEmails');
+const selectedEmailCount = document.getElementById('selectedEmailCount');
 const emailList = document.getElementById('emailList');
 const messagePanel = document.getElementById('messagePanel');
 const mobileDetailQuery = window.matchMedia('(max-width: 1060px)');
 
 const categoryLabels = {
   all: 'Semua',
-  'chatgpt-otp': 'OTP ChatGPT',
+  'chatgpt-otp': 'ChatGPT',
   adobe: 'Adobe',
   canva: 'Canva',
   support: 'Support',
@@ -49,14 +57,24 @@ const categoryRules = [
   }
 ];
 
+const chatgptChecks = ['openai', 'chatgpt', 'tm.openai.com'];
+const adobeChecks = ['adobe', 'creative cloud', 'photoshop', 'illustrator', 'acrobat'];
+
 const state = {
   emails: [],
   filteredEmails: [],
   selectedId: null,
   source: 'api',
   readIds: loadReadIds(),
+  deletedIds: loadDeletedIds(),
+  selectedIds: new Set(),
   lastUpdatedAt: null
 };
+
+const currentAdminAccess = window.CatsoftAdminAuth ? window.CatsoftAdminAuth.getCurrentAdmin() : null;
+const inboxAccess = currentAdminAccess && currentAdminAccess.role !== 'owner' && window.CatsoftAdminAuth
+  ? window.CatsoftAdminAuth.getInboxAccess()
+  : { all: true, rules: [] };
 
 let isLoadingEmails = false;
 let autoRefreshTimer;
@@ -132,6 +150,19 @@ function saveReadIds() {
   localStorage.setItem(readStorageKey, JSON.stringify([...state.readIds]));
 }
 
+function loadDeletedIds() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(deletedStorageKey) || '[]');
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveDeletedIds() {
+  localStorage.setItem(deletedStorageKey, JSON.stringify([...state.deletedIds]));
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -147,6 +178,32 @@ function normalizeSearch(value) {
 
 function cleanAddress(value) {
   return String(value || '').trim();
+}
+
+function isEmailAllowed(email) {
+  if (inboxAccess.all) {
+    return true;
+  }
+
+  const rules = Array.isArray(inboxAccess.rules) ? inboxAccess.rules : [];
+
+  if (!rules.length) {
+    return false;
+  }
+
+  const haystack = normalizeSearch([
+    email.from,
+    email.to,
+    email.subject,
+    email.snippet,
+    email.body,
+    email.category,
+    categoryLabels[email.category],
+    getSenderName(email.from, email.category),
+    getRecipientLabel(email)
+  ].join(' '));
+
+  return rules.some((rule) => haystack.includes(rule));
 }
 
 function getEmailDomain(value) {
@@ -168,40 +225,20 @@ function getRecipientName(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function getRecipientLabel(email) {
-  if (email.category === 'chatgpt-otp') {
-    return 'ChatGPT OTP';
-  }
-
-  if (email.category === 'adobe') {
-    return 'Adobe';
-  }
-
-  if (email.category === 'canva') {
-    return 'Canva';
-  }
-
-  if (email.category === 'support') {
-    return 'Support';
-  }
-
-  return getRecipientName(email.to);
-}
-
 function getSenderName(value, category) {
   const address = cleanAddress(value);
   const lowerAddress = address.toLowerCase();
   const domain = getEmailDomain(address);
 
-  if (category === 'chatgpt-otp' || domain.includes('openai.com')) {
+  if (category === 'chatgpt-otp' || domain.includes('openai.com') || lowerAddress.includes('openai') || lowerAddress.includes('chatgpt')) {
     return 'OpenAI';
   }
 
-  if (domain.includes('adobe.com')) {
+  if (category === 'adobe' || domain.includes('adobe.com') || lowerAddress.includes('adobe')) {
     return 'Adobe';
   }
 
-  if (domain.includes('canva.com')) {
+  if (category === 'canva' || domain.includes('canva.com') || lowerAddress.includes('canva')) {
     return 'Canva';
   }
 
@@ -212,8 +249,12 @@ function getSenderName(value, category) {
   return address.split('@')[0] || 'Pengirim tidak diketahui';
 }
 
+function getRecipientLabel(email) {
+  return cleanAddress(email.to).toLowerCase() || 'Penerima tidak diketahui';
+}
+
 function getAddressSummary(email) {
-  return `${getSenderName(email.from, email.category)} -> ${getRecipientLabel(email)}`;
+  return `Dari ${getSenderName(email.from, email.category)} • Masuk ke ${getRecipientLabel(email)}`;
 }
 
 function getMessageDomain(email) {
@@ -270,7 +311,18 @@ function normalizeCategory(value, email) {
   }
 
   const haystack = normalizeSearch(`${email.to} ${email.from} ${email.subject} ${email.body}`);
-  const matchedRule = categoryRules.find((rule) => rule.checks.some((check) => haystack.includes(check)));
+
+  if (chatgptChecks.some((check) => haystack.includes(check))) {
+    return 'chatgpt-otp';
+  }
+
+  if (adobeChecks.some((check) => haystack.includes(check))) {
+    return 'adobe';
+  }
+
+  const matchedRule = categoryRules
+    .filter((rule) => rule.value !== 'chatgpt-otp' && rule.value !== 'adobe')
+    .find((rule) => rule.checks.some((check) => haystack.includes(check)));
 
   return matchedRule ? matchedRule.value : 'other';
 }
@@ -365,7 +417,10 @@ async function loadEmails(options = {}) {
     }
 
     const data = await response.json();
-    const emails = parseEmailsResponse(data).map(normalizeEmail);
+    const emails = parseEmailsResponse(data)
+      .map(normalizeEmail)
+      .filter((email) => !state.deletedIds.has(email.id))
+      .filter(isEmailAllowed);
 
     state.source = 'api';
     state.emails = sortEmails(emails);
@@ -379,7 +434,10 @@ async function loadEmails(options = {}) {
     }
 
     state.source = 'demo';
-    state.emails = sortEmails(createSampleEmails().map(normalizeEmail));
+    state.emails = sortEmails(createSampleEmails()
+      .map(normalizeEmail)
+      .filter((email) => !state.deletedIds.has(email.id))
+      .filter(isEmailAllowed));
     state.lastUpdatedAt = new Date();
     setStatus('Data demo', 'warning');
     syncStatus.title = error.message;
@@ -417,6 +475,10 @@ function applyFilters() {
     const domain = getMessageDomain(email);
     const searchable = normalizeSearch(`${email.from} ${email.to} ${email.subject} ${email.snippet} ${email.body}`);
 
+    if (state.deletedIds.has(email.id) || !isEmailAllowed(email)) {
+      return false;
+    }
+
     if (recipientQuery) {
       const isExactEmail = recipientQuery.includes('@');
       const recipientMatches = isExactEmail ? recipient === recipientQuery : recipient.includes(recipientQuery);
@@ -447,8 +509,19 @@ function applyFilters() {
 
   renderStats();
   renderCategoryTabs();
+  syncSelectedIds();
   renderEmailList();
   renderSelectedEmail();
+  renderBulkToolbar();
+}
+
+function syncSelectedIds() {
+  const filteredIds = new Set(state.filteredEmails.map((email) => email.id));
+  state.selectedIds.forEach((id) => {
+    if (!filteredIds.has(id)) {
+      state.selectedIds.delete(id);
+    }
+  });
 }
 
 function renderStats() {
@@ -456,14 +529,34 @@ function renderStats() {
 
   totalCount.textContent = state.emails.length;
   unreadCount.textContent = state.emails.filter((email) => !isRead(email)).length;
-  otpCount.textContent = state.emails.filter((email) => email.category === 'chatgpt-otp').length;
-  recipientCount.textContent = uniqueRecipients.size;
+
+  if (otpCount) {
+    otpCount.textContent = state.emails.filter((email) => email.category === 'chatgpt-otp').length;
+  }
+
+  if (recipientCount) {
+    recipientCount.textContent = uniqueRecipients.size;
+  }
 }
 
 function renderCategoryTabs() {
   categoryTabs.querySelectorAll('.category-tab').forEach((button) => {
     button.classList.toggle('active', button.dataset.categoryTab === categoryFilter.value);
   });
+}
+
+function renderBulkToolbar() {
+  const selectedCount = state.selectedIds.size;
+  const filteredCount = state.filteredEmails.length;
+
+  selectedEmailCount.textContent = `${selectedCount} dipilih`;
+  bulkToolbar.classList.toggle('has-selection', selectedCount > 0);
+  bulkToolbar.querySelectorAll('button[data-bulk-action]').forEach((button) => {
+    button.disabled = selectedCount === 0 && button.dataset.bulkAction !== 'clear';
+  });
+
+  selectAllEmails.checked = filteredCount > 0 && selectedCount === filteredCount;
+  selectAllEmails.indeterminate = selectedCount > 0 && selectedCount < filteredCount;
 }
 
 function renderEmailList() {
@@ -475,11 +568,18 @@ function renderEmailList() {
   emailList.innerHTML = state.filteredEmails.map((email) => {
     const read = isRead(email);
     const selected = email.id === state.selectedId;
+    const checked = state.selectedIds.has(email.id);
 
     return `
       <article class="email-item ${read ? '' : 'is-unread'} ${selected ? 'is-selected' : ''}" data-email-id="${escapeHtml(email.id)}" role="button" tabindex="0">
+        <label class="email-select" aria-label="Pilih email">
+          <input type="checkbox" data-email-select="${escapeHtml(email.id)}" ${checked ? 'checked' : ''} />
+          <span></span>
+        </label>
         <div class="email-top">
+          <span class="sender-avatar" aria-hidden="true">${escapeHtml(getSenderInitial(email))}</span>
           <div class="email-title">
+            <strong class="sender-name">${escapeHtml(getSenderName(email.from, email.category))}</strong>
             <h3>${escapeHtml(email.subject)}</h3>
             <p>${escapeHtml(getAddressSummary(email))}</p>
           </div>
@@ -488,12 +588,45 @@ function renderEmailList() {
         <p class="email-preview">${escapeHtml(email.snippet || email.body || 'Tidak ada preview.')}</p>
         <div class="email-meta-row">
           <span class="category-badge ${escapeHtml(email.category)}">${escapeHtml(categoryLabels[email.category] || categoryLabels.other)}</span>
-          <span class="domain-badge">${escapeHtml(getMessageDomain(email) || 'domain tidak diketahui')}</span>
           <span class="read-badge ${read ? '' : 'unread'}">${read ? 'Sudah dibaca' : 'Belum dibaca'}</span>
         </div>
       </article>
     `;
   }).join('');
+}
+
+function toggleEmailSelection(id, checked) {
+  if (checked) {
+    state.selectedIds.add(id);
+  } else {
+    state.selectedIds.delete(id);
+  }
+
+  renderEmailList();
+  renderBulkToolbar();
+}
+
+function clearEmailSelection() {
+  state.selectedIds.clear();
+  renderEmailList();
+  renderBulkToolbar();
+}
+
+function setAllFilteredSelection(checked) {
+  state.filteredEmails.forEach((email) => {
+    if (checked) {
+      state.selectedIds.add(email.id);
+    } else {
+      state.selectedIds.delete(email.id);
+    }
+  });
+  renderEmailList();
+  renderBulkToolbar();
+}
+
+function getSenderInitial(email) {
+  const name = getSenderName(email.from, email.category);
+  return (name || 'M').slice(0, 1).toUpperCase();
 }
 
 function formatDateTime(value) {
@@ -564,6 +697,56 @@ function markRead(email) {
   }
 }
 
+function markUnread(email) {
+  email.read = false;
+  state.readIds.delete(email.id);
+  saveReadIds();
+
+  if (state.source === 'api') {
+    fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ read: false })
+    }).catch(() => {});
+  }
+}
+
+function deleteEmail(email) {
+  state.deletedIds.add(email.id);
+  state.readIds.delete(email.id);
+
+  if (state.selectedId === email.id) {
+    state.selectedId = null;
+  }
+}
+
+function runBulkAction(action) {
+  const selectedEmails = state.emails.filter((email) => state.selectedIds.has(email.id));
+
+  if (action === 'clear') {
+    clearEmailSelection();
+    return;
+  }
+
+  if (!selectedEmails.length) {
+    return;
+  }
+
+  if (action === 'read') {
+    selectedEmails.forEach(markRead);
+  } else if (action === 'unread') {
+    selectedEmails.forEach(markUnread);
+  } else if (action === 'delete') {
+    selectedEmails.forEach(deleteEmail);
+    saveDeletedIds();
+    saveReadIds();
+    state.emails = state.emails.filter((email) => !state.deletedIds.has(email.id));
+  }
+
+  state.selectedIds.clear();
+  applyFilters();
+}
+
 function renderSelectedEmail(email) {
   const selectedEmail = email || state.emails.find((item) => item.id === state.selectedId);
 
@@ -591,16 +774,13 @@ function renderSelectedEmail(email) {
   messagePanel.innerHTML = `
     <div class="detail-header">
       <div class="detail-top">
+        <span class="sender-avatar detail-avatar" aria-hidden="true">${escapeHtml(getSenderInitial(selectedEmail))}</span>
         <div class="detail-title">
           <span class="category-badge ${escapeHtml(selectedEmail.category)}">${escapeHtml(categoryLabels[selectedEmail.category] || categoryLabels.other)}</span>
+          <strong class="sender-name">${escapeHtml(getSenderName(selectedEmail.from, selectedEmail.category))}</strong>
           <h2>${escapeHtml(selectedEmail.subject)}</h2>
-          <p class="detail-address">${escapeHtml(getAddressSummary(selectedEmail))}</p>
-          <span class="domain-badge detail-domain">${escapeHtml(getMessageDomain(selectedEmail) || 'domain tidak diketahui')}</span>
-          <details class="raw-addresses">
-            <summary>Alamat lengkap</summary>
-            <span>Dari: ${escapeHtml(selectedEmail.from || '-')}</span>
-            <span>Ke: ${escapeHtml(selectedEmail.to || '-')}</span>
-          </details>
+          <p class="detail-address">Masuk ke: ${escapeHtml(getRecipientLabel(selectedEmail))}</p>
+          <p class="detail-address">Dari: ${escapeHtml(getSenderName(selectedEmail.from, selectedEmail.category))}</p>
         </div>
         <span class="email-time">${escapeHtml(formatDateTime(selectedEmail.receivedAt))}</span>
       </div>
@@ -691,6 +871,18 @@ categoryTabs.addEventListener('click', (event) => {
 });
 
 emailList.addEventListener('click', (event) => {
+  const checkbox = event.target.closest('[data-email-select]');
+
+  if (checkbox) {
+    event.stopPropagation();
+    toggleEmailSelection(checkbox.dataset.emailSelect, checkbox.checked);
+    return;
+  }
+
+  if (event.target.closest('.email-select')) {
+    return;
+  }
+
   const item = event.target.closest('[data-email-id]');
 
   if (!item) {
@@ -698,6 +890,20 @@ emailList.addEventListener('click', (event) => {
   }
 
   selectEmail(item.dataset.emailId);
+});
+
+selectAllEmails.addEventListener('change', () => {
+  setAllFilteredSelection(selectAllEmails.checked);
+});
+
+bulkToolbar.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-bulk-action]');
+
+  if (!button) {
+    return;
+  }
+
+  runBulkAction(button.dataset.bulkAction);
 });
 
 emailList.addEventListener('keydown', (event) => {

@@ -30,6 +30,16 @@
         <h2 id="toolsTitle">Admin Tools</h2>
         <p>Tempat akses cepat untuk alat operasional Catsoft yang dipakai admin saat memproses order, refund, dan kebutuhan customer support.</p>
       </div>
+      <div class="access-summary dashboard-summary" aria-label="Ringkasan admin tools">
+        <div>
+          <span>Tools</span>
+          <strong data-admin-summary="tools">5 Aktif</strong>
+        </div>
+        <div>
+          <span>Access</span>
+          <strong data-admin-summary="access">Owner Only</strong>
+        </div>
+      </div>
     </section>
 
     <section class="tools-section" aria-labelledby="activeToolsTitle">
@@ -41,7 +51,26 @@
       </div>
 
       <div class="tools-grid">
-        <article class="tool-card">
+        <article class="tool-card owner-tool-card" data-admin-tool-card="admin-access">
+          <div class="tool-card-content">
+            <div class="tool-card-top">
+              <span class="tool-status">Owner</span>
+              <span class="tool-category">Access</span>
+            </div>
+            <h3>Admin Access</h3>
+            <p>Kelola akun admin, tentukan tool yang bisa dibuka, dan atur akses Email Inbox berdasarkan layanan seperti OpenAI, Adobe, Canva, domain, alamat email, atau keyword custom.</p>
+            <ul class="tool-features">
+              <li>Tambah, edit, dan hapus akun admin.</li>
+              <li>Permission per tool untuk setiap admin.</li>
+              <li>Rule inbox fleksibel untuk semua email masuk.</li>
+            </ul>
+          </div>
+          <div class="tool-card-actions">
+            <a class="primary-button" href="admin-access.html">Kelola Akses</a>
+          </div>
+        </article>
+
+        <article class="tool-card" data-admin-tool-card="refund-calculator">
           <div class="tool-card-content">
             <div class="tool-card-top">
               <span class="tool-status">Aktif</span>
@@ -60,7 +89,7 @@
           </div>
         </article>
 
-        <article class="tool-card">
+        <article class="tool-card" data-admin-tool-card="customer-database">
           <div class="tool-card-content">
             <div class="tool-card-top">
               <span class="tool-status">Aktif</span>
@@ -79,7 +108,7 @@
           </div>
         </article>
 
-        <article class="tool-card">
+        <article class="tool-card" data-admin-tool-card="email-inbox">
           <div class="tool-card-content">
             <div class="tool-card-top">
               <span class="tool-status">Baru</span>
@@ -89,7 +118,7 @@
             <p>Memantau email routing Catsoft berdasarkan penerima, kategori layanan, status baca, dan keyword isi email untuk kebutuhan OTP serta support admin.</p>
             <ul class="tool-features">
               <li>Filter email penerima seperti Chatgpt@catsoft.store.</li>
-              <li>Kategori cepat untuk OTP ChatGPT, Adobe, Canva, dan support.</li>
+              <li>Kategori cepat untuk ChatGPT, Adobe, Canva, dan support.</li>
               <li>Detail email dengan tombol copy penerima, isi email, dan OTP.</li>
             </ul>
           </div>
@@ -98,7 +127,7 @@
           </div>
         </article>
 
-        <article class="tool-card">
+        <article class="tool-card" data-admin-tool-card="office-activation">
           <div class="tool-card-content">
             <div class="tool-card-top">
               <span class="tool-status">Baru</span>
@@ -119,5 +148,6 @@
       </div>
     </section>
   </main>
+  <script src="admin-auth.js" defer></script>
 </body>
 </html>

@@ -418,3 +418,119 @@ button:disabled {
     font-size: 26px;
   }
 }
+
+/* Compact admin workspace refresh */
+body {
+  background: #f6f8fb;
+  line-height: 1.45;
+}
+
+.activation-page {
+  padding: 18px 0 28px;
+}
+
+.activation-header {
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.brand-mark img {
+  width: 40px;
+  height: 40px;
+}
+
+.brand-mark h1 {
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.activation-layout {
+  gap: 14px;
+}
+
+.activation-form,
+.workflow-panel {
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.panel-heading h2 {
+  margin-top: 4px;
+  font-size: 26px;
+}
+
+.panel-heading p {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.activation-id-field,
+.upload-panel {
+  margin-top: 14px;
+}
+
+.upload-panel {
+  border-width: 1px;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.upload-panel strong {
+  font-size: 16px;
+}
+
+.field-group {
+  gap: 6px;
+}
+
+.field-group input,
+.field-group textarea {
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.ghost-button,
+.primary-button,
+.secondary-button {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 9px 13px;
+}
+
+.primary-button {
+  background: #2563eb;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
+}
+
+.action-row {
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .activation-page {
+    padding-top: 12px;
+  }
+
+  .activation-header {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .brand-mark h1 {
+    font-size: 24px;
+  }
+
+  .activation-layout {
+    gap: 10px;
+  }
+
+  .activation-form,
+  .workflow-panel {
+    padding: 12px;
+  }
+}

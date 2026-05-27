@@ -1,3 +1,7 @@
+if (!window.CATSOFT_ADMIN_AUTHORIZED) {
+  throw new Error('Catsoft admin authorization required.');
+}
+
 (function () {
   const productionApiEndpoint = "https://catsoft.store/api/office-confirmation";
   const apiEndpoint = window.CATSOFT_OFFICE_ACTIVATION_API || getDefaultApiEndpoint();

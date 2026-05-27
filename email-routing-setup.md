@@ -89,7 +89,7 @@ Jika health check sudah `ok:true` tetapi `total` tetap 0 setelah mengirim email 
    - D1 database: `admin_accounts`
 9. Buka Triggers atau Workers Routes.
 10. Pastikan semua route HTTP `/api/email-messages*`, `/api/customer-records*`, `/api/office-confirmation*`, `/api/admin-accounts*`, dan `/api/supplier-accounts*` mengarah ke Worker `catsoft`.
-11. Jika route-route itu masih assigned ke Worker `mail-base-all-catch`, unassign dari `mail-base-all-catch` dulu, lalu deploy ulang `catsoft`.
+11. Jika route-route itu masih assigned ke Worker `mail-base-all-catch`, unassign dari `mail-base-all-catch` dulu, lalu assign ke `catsoft`.
 12. Buka `https://catsoft.store/api/email-messages/health`, `https://catsoft.store/api/customer-records/health`, dan `https://catsoft.store/api/admin-accounts`.
 
 ## Checklist Cloudflare untuk Worker email `mail-base-all-catch`
@@ -133,45 +133,12 @@ Jika log menampilkan `Failed to save incoming email to D1`, buka detail log dan 
 
 ## Contoh `wrangler.toml`
 
+Contoh ini sengaja tidak memakai blok `routes`. Selama route API masih assigned ke Worker email `mail-base-all-catch`, deploy `catsoft` akan gagal jika `wrangler.toml` mencoba mengambil route yang sama. Pindahkan route API lewat dashboard Cloudflare setelah deploy berhasil.
+
 ```toml
 name = "catsoft"
 main = "cloudflare-email-worker.example.js"
 compatibility_date = "2026-05-25"
-
-routes = [
-  { pattern = "catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/supplier-accounts*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/supplier-accounts*", zone_name = "catsoft.store" },
-
-  { pattern = "catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/supplier-accounts*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/supplier-accounts*", zone_name = "catsoft.digital" },
-
-  { pattern = "catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/supplier-accounts*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/supplier-accounts*", zone_name = "catsoft.online" }
-]
 
 [[d1_databases]]
 binding = "EMAIL_DB"
@@ -199,7 +166,9 @@ FORWARD_TO = "cundigitora@gmail.com"
 3. Deploy Worker utama `catsoft` dengan binding `EMAIL_DB`, `CUSTOMER_DB`, dan `ADMIN_DB`.
 4. Lindungi route `/api/email-messages*` dengan Cloudflare Access, atau set secret `INBOX_API_TOKEN`.
 5. Lindungi route `/api/office-confirmation*` dengan Cloudflare Access yang sama, atau gunakan mode testing `ALLOW_UNAUTHENTICATED_API = "true"`.
-6. Di Cloudflare Email Routing, ubah catch-all atau custom address agar action-nya menuju Worker email `mail-base-all-catch`.
+6. Di Worker email `mail-base-all-catch`, hapus semua HTTP route API dari tab Triggers.
+7. Di Worker utama `catsoft`, tambahkan semua HTTP route API dari `cloudflare-worker-routes.txt`.
+8. Di Cloudflare Email Routing, biarkan catch-all atau custom address menuju Worker email `mail-base-all-catch`.
 
 ## Perintah menjalankan schema D1
 

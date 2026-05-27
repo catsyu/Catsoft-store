@@ -3,40 +3,8 @@ main = "cloudflare-email-worker.example.js"
 compatibility_date = "2026-05-25"
 account_id = "9b19f1b31d88513e013d1a522e583c08"
 
-routes = [
-  { pattern = "catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/email-messages*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/customer-records*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
-  { pattern = "catsoft.store/api/supplier-accounts*", zone_name = "catsoft.store" },
-  { pattern = "www.catsoft.store/api/supplier-accounts*", zone_name = "catsoft.store" },
-
-  { pattern = "catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/customer-records*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
-  { pattern = "catsoft.digital/api/supplier-accounts*", zone_name = "catsoft.digital" },
-  { pattern = "www.catsoft.digital/api/supplier-accounts*", zone_name = "catsoft.digital" },
-
-  { pattern = "catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/customer-records*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
-  { pattern = "catsoft.online/api/supplier-accounts*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/supplier-accounts*", zone_name = "catsoft.online" }
-]
+# HTTP routes are assigned from the Cloudflare dashboard after unassigning
+# them from the email-only Worker `mail-base-all-catch`.
 
 [[d1_databases]]
 binding = "ADMIN_DB"

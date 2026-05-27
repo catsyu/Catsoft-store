@@ -48,6 +48,39 @@ a {
   color: inherit;
 }
 
+main {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  order: 0;
+}
+
+#order {
+  order: 1;
+}
+
+#produk {
+  order: 2;
+}
+
+#keunggulan {
+  order: 3;
+}
+
+#testimoni {
+  order: 4;
+}
+
+#faq {
+  order: 5;
+}
+
+#kontak {
+  order: 6;
+}
+
 .container {
   width: min(1120px, 92%);
   margin: auto;
@@ -1506,8 +1539,217 @@ footer {
   color: #1d4ed8;
 }
 
+.package-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.66);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.25s ease;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.package-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.package-box {
+  width: min(960px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 24px;
+  padding: 34px;
+  box-shadow: 0 32px 90px rgba(15, 23, 42, 0.30);
+  position: relative;
+}
+
+.package-box::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: linear-gradient(90deg, #2563eb, #14b8a6, #f97316);
+}
+
+.package-box .section-kicker {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 54px;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.package-box h2 {
+  font-size: clamp(26px, 4vw, 36px);
+  margin: 14px 0 10px;
+  padding-right: 54px;
+  letter-spacing: 0;
+  line-height: 1.12;
+}
+
+.package-lead {
+  color: #334155;
+  font-size: 16px;
+  line-height: 1.75;
+  max-width: 760px;
+}
+
+.package-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.package-form-wrap {
+  margin-top: 24px;
+}
+
+.package-option {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.98);
+  border-radius: 18px;
+}
+
+.package-option.is-preferred {
+  border-color: rgba(37, 99, 235, 0.5);
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.12);
+}
+
+.package-option h3 {
+  font-size: 18px;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.package-price {
+  color: #2563eb;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.package-meta,
+.package-terms,
+.package-footer p {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.package-terms {
+  flex: 1;
+}
+
+.package-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.package-order-form {
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.98);
+  border-radius: 18px;
+}
+
+.package-selected-plan {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+}
+
+.package-selected-plan span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.package-selected-plan strong {
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.package-selected-plan em {
+  color: #2563eb;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.package-form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.package-order-form .form-note.is-error {
+  color: #9a3412;
+  font-weight: 800;
+}
+
+.package-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.package-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+}
+
+.package-close:hover {
+  background: #f8fafc;
+  color: #1d4ed8;
+}
+
 @media (max-width: 768px) {
   .product-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .package-options {
     grid-template-columns: 1fr;
   }
 }

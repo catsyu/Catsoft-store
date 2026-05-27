@@ -345,7 +345,7 @@ const productDetailContent = {
       'Garansi tidak berlaku jika key digunakan melebihi batas perangkat, sistem tidak kompatibel, atau terjadi penyalahgunaan key.'
     ],
     note: 'Mohon chat admin setelah pembelian untuk mendapatkan panduan instalasi dan aktivasi dengan benar.',
-    tutorialUrl: 'office-tutorial.html',
+    tutorialUrl: '/tutorial/office',
     tutorialLabel: 'Tutorial aktivasi',
     orderProduct: 'office',
     orderPlan: 'office-2024'
@@ -369,7 +369,7 @@ const productDetailContent = {
       'Membeli berarti setuju dengan ketentuan toko pada deskripsi maupun foto produk.'
     ],
     note: 'Klaim garansi di luar jam operasional akan dibalas saat jam operasional berikutnya.',
-    tutorialUrl: 'tutorial-after-effects-assets.html',
+    tutorialUrl: '/tutorial/aeassets',
     tutorialLabel: 'Tutorial penggunaan',
     orderProduct: 'aeassets',
     orderPlan: 'assets-pack-5000'
@@ -393,7 +393,7 @@ const productDetailContent = {
       'Produk digital, tidak ada pengiriman fisik, dan support diberikan sesuai jam operasional Catsoft.'
     ],
     note: 'Jika belum pernah merekam Apple Log, buka tutorial produk terlebih dahulu sebelum menggunakan LUT.',
-    tutorialUrl: 'tutorial-lut-apple-log.html',
+    tutorialUrl: '/tutorial/lutapplelog',
     tutorialLabel: 'Tutorial LUT',
     orderProduct: 'lutapplelog',
     orderPlan: 'lut-pack'
@@ -417,7 +417,7 @@ const productDetailContent = {
       'Produk digital, tidak ada pengiriman fisik, dan klaim garansi akan dibantu sesuai jam operasional.'
     ],
     note: 'Buka tutorial terlebih dahulu jika belum pernah memasang preset Lightroom di perangkat Anda.',
-    tutorialUrl: 'tutorial-lightroom-preset.html',
+    tutorialUrl: '/tutorial/lightroompreset',
     tutorialLabel: 'Tutorial preset',
     orderProduct: 'lightroompreset',
     orderPlan: 'street-140'
@@ -625,6 +625,16 @@ const productDetailTutorial = document.getElementById('productDetailTutorial');
 const productDetailOrder = document.getElementById('productDetailOrder');
 const closeProductDetail = document.getElementById('closeProductDetail');
 const closeProductDetailBtn = document.getElementById('closeProductDetailBtn');
+const packageModal = document.getElementById('packageModal');
+const packageLabel = document.getElementById('packageLabel');
+const packageTitle = document.getElementById('packageTitle');
+const packageLead = document.getElementById('packageLead');
+const packageOptions = document.getElementById('packageOptions');
+const packageFormWrap = document.getElementById('packageFormWrap');
+const packageFooterText = document.getElementById('packageFooterText');
+const packageAskBtn = document.getElementById('packageAskBtn');
+const packageCancelBtn = document.getElementById('packageCancelBtn');
+const closePackageModal = document.getElementById('closePackageModal');
 const trackingModal = document.getElementById('trackingModal');
 const closeTracking = document.getElementById('closeTracking');
 const trackingStats = document.getElementById('trackingStats');
@@ -635,6 +645,9 @@ const downloadTracking = document.getElementById('downloadTracking');
 const resetTracking = document.getElementById('resetTracking');
 
 let activeProductDetailKey = null;
+let activePackageProductKey = null;
+let activePackagePreferredPlan = null;
+let activePackageSelectedPlan = null;
 
 if (closeTerms && termsModal) {
   openTermsLinks.forEach((openTermsLink) => {
@@ -695,6 +708,438 @@ function closeProductDetailModal() {
   productDetailModal.classList.remove('active');
   productDetailModal.setAttribute('aria-hidden', 'true');
   activeProductDetailKey = null;
+}
+
+function closePackageModalDialog() {
+  if (!packageModal) {
+    return;
+  }
+
+  packageModal.classList.remove('active');
+  packageModal.setAttribute('aria-hidden', 'true');
+  activePackageProductKey = null;
+  activePackagePreferredPlan = null;
+  activePackageSelectedPlan = null;
+
+  if (packageFormWrap) {
+    packageFormWrap.innerHTML = '';
+    packageFormWrap.classList.add('is-hidden');
+  }
+
+  if (packageOptions) {
+    packageOptions.classList.remove('is-hidden');
+  }
+
+  const url = new URL(window.location.href);
+  const isProductPricelistPath = /^\/produk\/[^/]+\/?$/.test(url.pathname);
+
+  if (isProductPricelistPath || url.searchParams.has('pricelist')) {
+    url.searchParams.delete('pricelist');
+    url.searchParams.delete('paket');
+    url.pathname = '/';
+    history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+}
+
+function getProductPlan(productKey, planKey) {
+  const product = productPackages[productKey];
+
+  if (!product) {
+    return null;
+  }
+
+  const plan = product.plans.find((item) => item.value === planKey) || product.plans[0];
+  return { product, plan };
+}
+
+function buildPackagePricelistUrl(productKey) {
+  const url = new URL(window.location.href);
+  url.pathname = `/produk/${productKey}`;
+  url.hash = '';
+  url.search = '';
+
+  return url;
+}
+
+function updatePackagePricelistUrl(productKey, planKey = '', mode = 'push') {
+  const url = buildPackagePricelistUrl(productKey, planKey);
+  const nextUrl = `${url.pathname}${url.search}`;
+
+  if (mode === 'push') {
+    history.pushState(null, '', nextUrl);
+    return;
+  }
+
+  history.replaceState(null, '', nextUrl);
+}
+
+function getPackageFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const pathMatch = window.location.pathname.match(/^\/produk\/([^/]+)\/?$/);
+  const productKey = pathMatch ? decodeURIComponent(pathMatch[1]) : params.get('pricelist');
+  const planKey = params.get('paket') || params.get('plan') || '';
+
+  if (!productKey || !productPackages[productKey]) {
+    return null;
+  }
+
+  return { productKey, planKey };
+}
+
+function buildPackageQuestionMessage(productKey, planKey = '') {
+  const product = productPackages[productKey] || productPackages.chatgpt;
+  const plan = product.plans.find((item) => item.value === planKey);
+  const messageLines = [
+    'Halo Min Catsoft, saya ingin tanya dulu sebelum order.',
+    '',
+    `Produk: ${product.name}`
+  ];
+
+  if (plan) {
+    messageLines.push(
+      `Paket: ${plan.name}`,
+      `Harga: ${plan.price}`
+    );
+  }
+
+  messageLines.push(
+    '',
+    'Mohon dibantu info stok, ketentuan, dan rekomendasi paketnya.'
+  );
+
+  return messageLines.join('\n');
+}
+
+function openPackageQuestion(productKey, planKey = '') {
+  const product = productPackages[productKey] || productPackages.chatgpt;
+  const plan = product.plans.find((item) => item.value === planKey);
+  const message = buildPackageQuestionMessage(productKey, planKey);
+  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+  trackClick('whatsapp', 'Tanya Dulu Paket', {
+    product: product.name,
+    plan: plan ? plan.name : '',
+    source: 'package-modal',
+    target: 'package-question'
+  });
+
+  window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+}
+
+function buildPopupOrderMessage(productKey, planKey, formData) {
+  const selectedPackage = getProductPlan(productKey, planKey);
+
+  if (!selectedPackage) {
+    return '';
+  }
+
+  const { product, plan } = selectedPackage;
+  const messageLines = [
+    'Halo Min Catsoft, saya ingin order produk premium.',
+    '',
+    `Nama: ${formData.customerName}`,
+    `Email/WhatsApp: ${formData.customerContact}`,
+    `Produk: ${product.name}`
+  ];
+
+  if (productKey === 'canva') {
+    messageLines.push(`Email Canva untuk aktivasi: ${formData.canvaActivationEmail || '-'}`);
+  }
+
+  if (isSocialMediaProduct(productKey)) {
+    messageLines.push(
+      `Link target Instagram: ${formData.instagramPostLink || '-'}`,
+      `Status order: ${formData.likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`
+    );
+
+    if (formData.likeIgOrderStatus === 'sudah-order-shopee') {
+      messageLines.push(`Nomor pesanan Shopee: ${formData.shopeeOrderNumber || '-'}`);
+    }
+  }
+
+  messageLines.push(
+    `Paket: ${plan.name}`,
+    `Harga: ${plan.price}`,
+    `Masa aktif: ${plan.duration}`,
+    `Catatan: ${formData.orderNote || '-'}`,
+    '',
+    'Mohon dibantu konfirmasi stok, ketentuan, dan proses aktivasinya.'
+  );
+
+  return messageLines.join('\n');
+}
+
+function collectPopupOrderData(form) {
+  const formData = new FormData(form);
+
+  return {
+    customerName: String(formData.get('customerName') || '').trim(),
+    customerContact: String(formData.get('customerContact') || '').trim(),
+    canvaActivationEmail: String(formData.get('canvaActivationEmail') || '').trim(),
+    instagramPostLink: String(formData.get('instagramPostLink') || '').trim(),
+    likeIgOrderStatus: String(formData.get('likeIgOrderStatus') || 'mau-beli'),
+    shopeeOrderNumber: String(formData.get('shopeeOrderNumber') || '').trim(),
+    orderNote: String(formData.get('orderNote') || '').trim()
+  };
+}
+
+function showPopupFormStatus(form, message, isError = false) {
+  const status = form.querySelector('[data-package-form-status]');
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('is-error', isError);
+}
+
+function validatePopupOrderData(productKey, form, data) {
+  if (!data.customerName || !data.customerContact) {
+    showPopupFormStatus(form, 'Lengkapi nama dan kontak dulu.', true);
+    return false;
+  }
+
+  if (productKey === 'canva' && !data.canvaActivationEmail) {
+    showPopupFormStatus(form, 'Email Canva untuk aktivasi wajib diisi.', true);
+    return false;
+  }
+
+  if (isSocialMediaProduct(productKey) && !data.instagramPostLink) {
+    showPopupFormStatus(form, 'Link target Instagram wajib diisi.', true);
+    return false;
+  }
+
+  if (isSocialMediaProduct(productKey) && data.likeIgOrderStatus === 'sudah-order-shopee' && !data.shopeeOrderNumber) {
+    showPopupFormStatus(form, 'Nomor pesanan Shopee wajib diisi.', true);
+    return false;
+  }
+
+  return true;
+}
+
+function renderPackageOrderForm(productKey, planKey) {
+  if (!packageFormWrap) {
+    return;
+  }
+
+  const selectedPackage = getProductPlan(productKey, planKey);
+
+  if (!selectedPackage) {
+    return;
+  }
+
+  const { product, plan } = selectedPackage;
+  const isCanvaOrder = productKey === 'canva';
+  const isSocialMediaOrder = isSocialMediaProduct(productKey);
+
+  packageFormWrap.innerHTML = `
+    <form class="package-order-form" data-package-order-form>
+      <div class="package-selected-plan">
+        <span>Paket dipilih</span>
+        <strong>${product.name} - ${plan.name}</strong>
+        <em>${plan.price}</em>
+      </div>
+      <div class="form-grid">
+        <div class="field-group">
+          <label for="packageCustomerName">Nama customer</label>
+          <input id="packageCustomerName" name="customerName" type="text" placeholder="Contoh: Joe Doe" autocomplete="name" required />
+        </div>
+        <div class="field-group">
+          <label for="packageCustomerContact">Email atau nomor WhatsApp</label>
+          <input id="packageCustomerContact" name="customerContact" type="text" placeholder="Email/WhatsApp aktif" required />
+        </div>
+      </div>
+      ${isCanvaOrder ? `
+        <div class="field-group">
+          <label for="packageCanvaEmail">Email Canva untuk aktivasi</label>
+          <input id="packageCanvaEmail" name="canvaActivationEmail" type="email" inputmode="email" placeholder="Contoh: joedoe@email.com" autocomplete="email" required />
+        </div>
+      ` : ''}
+      ${isSocialMediaOrder ? `
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="packageInstagramLink">Link target Instagram</label>
+            <input id="packageInstagramLink" name="instagramPostLink" type="text" inputmode="url" placeholder="instagram.com/p/DLwpiBExUYq/" autocomplete="off" required />
+          </div>
+          <div class="field-group">
+            <label for="packageOrderStatus">Status order</label>
+            <select id="packageOrderStatus" name="likeIgOrderStatus" required>
+              <option value="mau-beli">Mau beli</option>
+              <option value="sudah-order-shopee">Sudah order di Shopee</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group is-hidden" data-popup-shopee-field>
+          <label for="packageShopeeOrderNumber">Nomor pesanan Shopee</label>
+          <input id="packageShopeeOrderNumber" name="shopeeOrderNumber" type="text" placeholder="Contoh: 250101ABC123" autocomplete="off" />
+        </div>
+      ` : ''}
+      <div class="field-group">
+        <label for="packageOrderNote">Catatan atau kebutuhan</label>
+        <textarea id="packageOrderNote" name="orderNote" rows="3" placeholder="Contoh: Butuh aktivasi hari ini, atau kosongkan jika tidak ada catatan."></textarea>
+      </div>
+      <div class="package-form-actions">
+        <button class="btn btn-secondary" type="button" data-package-back>Kembali ke paket</button>
+        <button class="btn btn-secondary" type="button" data-package-form-ask>Tanya dulu</button>
+        <button class="btn btn-primary" type="submit">Kirim Order ke WhatsApp</button>
+      </div>
+      <p class="form-note" data-package-form-status>Pesan WhatsApp akan dibuat otomatis sesuai paket yang dipilih.</p>
+    </form>
+  `;
+
+  const form = packageFormWrap.querySelector('[data-package-order-form]');
+  const statusSelect = form.querySelector('#packageOrderStatus');
+  const shopeeField = form.querySelector('[data-popup-shopee-field]');
+  const shopeeInput = form.querySelector('#packageShopeeOrderNumber');
+
+  if (statusSelect && shopeeField && shopeeInput) {
+    statusSelect.addEventListener('change', () => {
+      const isShopeeOrder = statusSelect.value === 'sudah-order-shopee';
+      shopeeField.classList.toggle('is-hidden', !isShopeeOrder);
+      shopeeInput.required = isShopeeOrder;
+    });
+  }
+
+  form.querySelector('[data-package-back]').addEventListener('click', () => {
+    activePackageSelectedPlan = null;
+    packageFormWrap.classList.add('is-hidden');
+    packageOptions.classList.remove('is-hidden');
+    packageLead.textContent = 'Pilih salah satu paket di bawah ini. Setelah memilih paket, form data diri akan muncul di popup yang sama.';
+    packageFooterText.textContent = 'Masih ragu? Bisa tanya admin dulu tanpa mengisi form.';
+    updatePackagePricelistUrl(productKey, '', 'replace');
+  });
+
+  form.querySelector('[data-package-form-ask]').addEventListener('click', () => {
+    openPackageQuestion(productKey, planKey);
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const data = collectPopupOrderData(form);
+
+    if (!validatePopupOrderData(productKey, form, data)) {
+      return;
+    }
+
+    const message = buildPopupOrderMessage(productKey, planKey, data);
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+    trackClick('whatsapp', 'Order Popup WhatsApp', {
+      product: product.name,
+      plan: plan.name,
+      source: 'package-modal',
+      target: 'package-order-form'
+    });
+
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    showPopupFormStatus(form, 'Pesan order sudah disiapkan. Lanjutkan kirim di WhatsApp agar admin bisa memproses.');
+  });
+}
+
+function choosePackageForOrder(productKey, planKey) {
+  const selectedPackage = getProductPlan(productKey, planKey);
+
+  if (!selectedPackage) {
+    return;
+  }
+
+  activePackageSelectedPlan = planKey;
+  packageOptions.classList.add('is-hidden');
+  packageFormWrap.classList.remove('is-hidden');
+  packageLead.textContent = 'Lengkapi data di bawah ini. Pesan order akan langsung disiapkan ke WhatsApp admin.';
+  packageFooterText.textContent = 'Customer tetap bisa kembali memilih paket tanpa keluar dari popup.';
+  renderPackageOrderForm(productKey, planKey);
+  updatePackagePricelistUrl(productKey, '', 'replace');
+
+  const firstField = packageFormWrap.querySelector('input, select, textarea');
+
+  if (firstField) {
+    window.setTimeout(() => firstField.focus(), 80);
+  }
+}
+
+function createPackageOption(productKey, plan) {
+  const option = document.createElement('article');
+  option.className = 'package-option';
+
+  if (plan.value === activePackagePreferredPlan) {
+    option.classList.add('is-preferred');
+  }
+
+  const title = document.createElement('h3');
+  title.textContent = plan.name;
+
+  const price = document.createElement('div');
+  price.className = 'package-price';
+  price.textContent = plan.price;
+
+  const meta = document.createElement('p');
+  meta.className = 'package-meta';
+  meta.textContent = plan.duration;
+
+  const terms = document.createElement('p');
+  terms.className = 'package-terms';
+  terms.textContent = plan.terms;
+
+  const actions = document.createElement('div');
+  actions.className = 'package-actions';
+
+  const chooseButton = document.createElement('button');
+  chooseButton.className = 'btn btn-primary';
+  chooseButton.type = 'button';
+  chooseButton.textContent = 'Pilih paket ini';
+  chooseButton.addEventListener('click', () => {
+    choosePackageForOrder(productKey, plan.value);
+  });
+
+  const askButton = document.createElement('button');
+  askButton.className = 'btn btn-secondary';
+  askButton.type = 'button';
+  askButton.textContent = 'Tanya dulu';
+  askButton.addEventListener('click', () => {
+    openPackageQuestion(productKey, plan.value);
+  });
+
+  actions.append(chooseButton, askButton);
+  option.append(title, price, meta, terms, actions);
+
+  return option;
+}
+
+function openPackageModal(productKey, preferredPlan = '', { shouldUpdateUrl = true, urlMode = 'push' } = {}) {
+  if (!packageModal || !packageOptions || !productPackages[productKey]) {
+    return;
+  }
+
+  const product = productPackages[productKey];
+
+  activePackageProductKey = productKey;
+  activePackagePreferredPlan = preferredPlan;
+  activePackageSelectedPlan = null;
+  packageLabel.textContent = 'Pilihan paket';
+  packageTitle.textContent = product.name;
+  packageLead.textContent = 'Pilih salah satu paket di bawah ini. Setelah memilih paket, form data diri akan muncul di popup yang sama.';
+  packageFooterText.textContent = 'Masih ragu? Bisa tanya admin dulu tanpa mengisi form.';
+  packageOptions.innerHTML = '';
+  packageOptions.classList.remove('is-hidden');
+
+  if (packageFormWrap) {
+    packageFormWrap.innerHTML = '';
+    packageFormWrap.classList.add('is-hidden');
+  }
+
+  product.plans.forEach((plan) => {
+    packageOptions.appendChild(createPackageOption(productKey, plan));
+  });
+
+  packageModal.classList.add('active');
+  packageModal.setAttribute('aria-hidden', 'false');
+
+  if (shouldUpdateUrl) {
+    updatePackagePricelistUrl(productKey, preferredPlan, urlMode);
+  }
 }
 
 function renderProductPolicy(productKey) {
@@ -784,14 +1229,33 @@ if (productDetailOrder) {
     const detail = productDetailContent[activeProductDetailKey];
 
     closeProductDetailModal();
-    selectOrderPackage(detail.orderProduct, detail.orderPlan, true);
-    revealOrderForm();
+    openPackageModal(detail.orderProduct, detail.orderPlan);
+  });
+}
 
-    const orderSection = document.getElementById('order');
-
-    if (orderSection) {
-      orderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+if (packageModal) {
+  packageModal.addEventListener('click', (event) => {
+    if (event.target === packageModal) {
+      closePackageModalDialog();
     }
+  });
+}
+
+if (closePackageModal) {
+  closePackageModal.addEventListener('click', closePackageModalDialog);
+}
+
+if (packageCancelBtn) {
+  packageCancelBtn.addEventListener('click', closePackageModalDialog);
+}
+
+if (packageAskBtn) {
+  packageAskBtn.addEventListener('click', () => {
+    if (!activePackageProductKey) {
+      return;
+    }
+
+    openPackageQuestion(activePackageProductKey, activePackageSelectedPlan || activePackagePreferredPlan || '');
   });
 }
 
@@ -804,6 +1268,10 @@ document.querySelectorAll('[data-product-detail]').forEach((button) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && productDetailModal?.classList.contains('active')) {
     closeProductDetailModal();
+  }
+
+  if (event.key === 'Escape' && packageModal?.classList.contains('active')) {
+    closePackageModalDialog();
   }
 });
 
@@ -1669,12 +2137,18 @@ function buildConsultationMessage() {
   const messageLines = [
     'Halo Min Catsoft, saya ingin konsultasi dulu sebelum order.',
     '',
-    `Nama: ${customerName}`,
-    `Email/WhatsApp: ${customerContact}`,
     `Produk yang ditanyakan: ${product.name}`,
     `Paket yang dipertanyakan: ${plan.name}`,
     `Harga paket: ${plan.price}`
   ];
+
+  if (customerName) {
+    messageLines.splice(2, 0, `Nama: ${customerName}`);
+  }
+
+  if (customerContact) {
+    messageLines.splice(customerName ? 3 : 2, 0, `Email/WhatsApp: ${customerContact}`);
+  }
 
   if (isSocialMediaProduct(orderProductSelect.value)) {
     messageLines.push(`Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`);
@@ -1760,19 +2234,6 @@ function initQuickOrderForm() {
     consultationBtn.addEventListener('click', (event) => {
       event.preventDefault();
 
-      const hasValidName = validateField(customerNameInput, true);
-      const hasValidContact = validateField(customerContactInput, true);
-
-      if (!hasValidName || !hasValidContact) {
-        (hasValidName ? customerContactInput : customerNameInput).focus();
-
-        if (orderFormStatus) {
-          orderFormStatus.textContent = 'Lengkapi nama dan kontak dulu.';
-        }
-
-        return;
-      }
-
       const message = buildConsultationMessage();
       const { product, plan } = getSelectedPackage();
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
@@ -1787,7 +2248,7 @@ function initQuickOrderForm() {
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
 
       if (orderFormStatus) {
-        orderFormStatus.textContent = 'Pesan konsultasi sudah disiapkan sesuai nama dan produk yang dipilih.';
+        orderFormStatus.textContent = 'Pesan konsultasi sudah disiapkan sesuai produk dan paket yang dipilih.';
       }
     });
   }
@@ -1795,15 +2256,20 @@ function initQuickOrderForm() {
   document.querySelectorAll('[data-order-product]').forEach((trigger) => {
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
-      selectOrderPackage(trigger.dataset.orderProduct, trigger.dataset.orderPlan, true);
-      revealOrderForm();
-
-      const orderSection = document.getElementById('order');
-
-      if (orderSection) {
-        orderSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      openPackageModal(trigger.dataset.orderProduct, trigger.dataset.orderPlan);
     });
+  });
+}
+
+function initPackagePricelistLinks() {
+  const packageFromUrl = getPackageFromUrl();
+
+  if (!packageFromUrl) {
+    return;
+  }
+
+  openPackageModal(packageFromUrl.productKey, packageFromUrl.planKey, {
+    shouldUpdateUrl: false
   });
 }
 
@@ -2112,6 +2578,7 @@ window.addEventListener('DOMContentLoaded', initCleanSectionLinks);
 window.addEventListener('DOMContentLoaded', initThemedFormValidation);
 window.addEventListener('DOMContentLoaded', initOrderRevealTriggers);
 window.addEventListener('DOMContentLoaded', initQuickOrderForm);
+window.addEventListener('DOMContentLoaded', initPackagePricelistLinks);
 window.addEventListener('DOMContentLoaded', initOrderNotification);
 window.addEventListener('DOMContentLoaded', () => {
   updateAdminStatus();

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi DNG Lightroom mobile</title>
+  <desc id="desc">Urutan import file DNG dan buat preset dari foto contoh</desc>
+  <rect width="720" height="405" rx="28" fill="#f5f3ff"/>
+  <rect x="64" y="58" width="184" height="264" rx="24" fill="#fff" stroke="#ddd6fe" stroke-width="3"/>
+  <rect x="96" y="96" width="120" height="86" rx="14" fill="#8b5cf6"/>
+  <rect x="96" y="206" width="120" height="38" rx="12" fill="#c4b5fd"/>
+  <text x="118" y="149" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="900" fill="#fff">DNG</text>
+  <path d="M270 190h76" stroke="#7c3aed" stroke-width="7" stroke-linecap="round"/>
+  <rect x="374" y="74" width="268" height="258" rx="24" fill="#fff" stroke="#ddd6fe" stroke-width="3"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800" fill="#0f172a">
+    <text x="412" y="134" font-size="24">Add Photos</text>
+    <text x="412" y="204" font-size="24">Open DNG</text>
+    <text x="412" y="274" font-size="24">Create Preset</text>
+  </g>
+</svg>

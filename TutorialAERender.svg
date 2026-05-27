@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi render After Effects</title>
+  <desc id="desc">Urutan pilih composition, add to render queue, pilih output, dan render</desc>
+  <rect width="720" height="405" rx="28" fill="#ecfeff"/>
+  <rect x="64" y="62" width="592" height="272" rx="24" fill="#0f172a"/>
+  <rect x="96" y="94" width="260" height="160" rx="16" fill="#1e293b"/>
+  <rect x="388" y="94" width="228" height="42" rx="12" fill="#14b8a6"/>
+  <rect x="388" y="158" width="228" height="42" rx="12" fill="#2563eb"/>
+  <rect x="388" y="222" width="228" height="42" rx="12" fill="#64748b"/>
+  <rect x="96" y="284" width="520" height="20" rx="10" fill="#334155"/>
+  <rect x="96" y="284" width="244" height="20" rx="10" fill="#22c55e"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="900" fill="#fff">
+    <text x="138" y="184" font-size="26">Composition</text>
+    <text x="414" y="121" font-size="18">Render Queue</text>
+    <text x="414" y="185" font-size="18">Output MP4</text>
+    <text x="414" y="249" font-size="18">Cek hasil</text>
+  </g>
+</svg>

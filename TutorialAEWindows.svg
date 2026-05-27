@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi After Effects Windows</title>
+  <desc id="desc">Urutan ekstrak folder, buka AEP, edit placeholder, dan render</desc>
+  <rect width="720" height="405" rx="28" fill="#f5f3ff"/>
+  <rect x="52" y="58" width="616" height="280" rx="22" fill="#111827"/>
+  <rect x="82" y="92" width="166" height="210" rx="16" fill="#312e81"/>
+  <rect x="286" y="92" width="332" height="52" rx="14" fill="#8b5cf6"/>
+  <rect x="286" y="172" width="332" height="52" rx="14" fill="#6366f1"/>
+  <rect x="286" y="252" width="332" height="52" rx="14" fill="#14b8a6"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="900" fill="#fff">
+    <text x="126" y="206" font-size="36">Ae</text>
+    <text x="316" y="126" font-size="20">Extract folder</text>
+    <text x="316" y="206" font-size="20">Open .aep</text>
+    <text x="316" y="286" font-size="20">Edit and render</text>
+  </g>
+</svg>

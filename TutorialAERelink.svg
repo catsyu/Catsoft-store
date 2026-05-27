@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi relink missing After Effects</title>
+  <desc id="desc">Urutan cari item missing, replace footage, pilih file sumber, dan save as</desc>
+  <rect width="720" height="405" rx="28" fill="#fff7ed"/>
+  <rect x="70" y="62" width="580" height="282" rx="24" fill="#fff" stroke="#fed7aa" stroke-width="3"/>
+  <rect x="104" y="104" width="204" height="190" rx="18" fill="#ffedd5"/>
+  <path d="M160 154h92M160 206h92M160 258h92" stroke="#f97316" stroke-width="10" stroke-linecap="round"/>
+  <rect x="374" y="104" width="210" height="54" rx="14" fill="#f97316"/>
+  <rect x="374" y="184" width="210" height="54" rx="14" fill="#fb923c"/>
+  <rect x="374" y="264" width="210" height="54" rx="14" fill="#334155"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="900" fill="#fff">
+    <text x="402" y="138" font-size="18">Replace Footage</text>
+    <text x="402" y="218" font-size="18">Pilih file sumber</text>
+    <text x="402" y="298" font-size="18">Save As</text>
+  </g>
+</svg>

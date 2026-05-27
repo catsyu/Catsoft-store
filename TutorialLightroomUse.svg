@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi cara memakai preset Lightroom</title>
+  <desc id="desc">Urutan buka foto, pilih preset, atur amount, dan export</desc>
+  <rect width="720" height="405" rx="28" fill="#f8fafc"/>
+  <rect x="62" y="52" width="596" height="298" rx="24" fill="#fff" stroke="#cbd5e1" stroke-width="3"/>
+  <rect x="92" y="88" width="216" height="216" rx="18" fill="#dbeafe"/>
+  <circle cx="156" cy="150" r="32" fill="#facc15"/>
+  <path d="m100 304 86-98 52 54 30-34 54 78Z" fill="#2563eb"/>
+  <rect x="356" y="92" width="232" height="40" rx="12" fill="#2563eb"/>
+  <rect x="356" y="160" width="232" height="40" rx="12" fill="#14b8a6"/>
+  <rect x="356" y="228" width="232" height="40" rx="12" fill="#334155"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800" fill="#fff">
+    <text x="382" y="118" font-size="18">Pilih Preset</text>
+    <text x="382" y="186" font-size="18">Atur Amount</text>
+    <text x="382" y="254" font-size="18">Export Foto</text>
+  </g>
+</svg>

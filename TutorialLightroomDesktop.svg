@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi Lightroom Desktop</title>
+  <desc id="desc">Urutan File, Import Profiles and Presets, lalu sinkron ke mobile</desc>
+  <rect width="720" height="405" rx="28" fill="#ecfeff"/>
+  <rect x="58" y="54" width="604" height="280" rx="22" fill="#fff" stroke="#99f6e4" stroke-width="3"/>
+  <rect x="58" y="54" width="604" height="48" rx="22" fill="#0f172a"/>
+  <rect x="92" y="132" width="196" height="150" rx="16" fill="#e0f2fe"/>
+  <rect x="326" y="132" width="268" height="44" rx="12" fill="#2563eb"/>
+  <rect x="326" y="196" width="268" height="44" rx="12" fill="#14b8a6"/>
+  <rect x="326" y="260" width="268" height="44" rx="12" fill="#334155"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800">
+    <text x="126" y="212" font-size="28" fill="#0369a1">Lr</text>
+    <text x="356" y="161" font-size="18" fill="#fff">File</text>
+    <text x="356" y="225" font-size="18" fill="#fff">Import Profiles</text>
+    <text x="356" y="289" font-size="18" fill="#fff">Sync Mobile</text>
+  </g>
+</svg>

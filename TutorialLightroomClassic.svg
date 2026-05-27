@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi Lightroom Classic</title>
+  <desc id="desc">Urutan Develop, Presets, tambah, dan import presets</desc>
+  <rect width="720" height="405" rx="28" fill="#eff6ff"/>
+  <rect x="54" y="58" width="612" height="276" rx="22" fill="#0f172a"/>
+  <rect x="78" y="86" width="160" height="220" rx="14" fill="#1e293b"/>
+  <rect x="264" y="86" width="376" height="220" rx="14" fill="#f8fafc"/>
+  <rect x="100" y="118" width="116" height="34" rx="10" fill="#2563eb"/>
+  <rect x="100" y="174" width="116" height="34" rx="10" fill="#38bdf8"/>
+  <rect x="100" y="230" width="116" height="34" rx="10" fill="#14b8a6"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800">
+    <text x="288" y="156" font-size="28" fill="#0f172a">Develop</text>
+    <text x="288" y="216" font-size="24" fill="#334155">Presets +</text>
+    <text x="288" y="276" font-size="24" fill="#334155">Import XMP</text>
+  </g>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi After Effects Mac</title>
+  <desc id="desc">Urutan ekstrak di Finder, izinkan akses, buka AEP, dan export</desc>
+  <rect width="720" height="405" rx="28" fill="#eef2ff"/>
+  <rect x="70" y="70" width="580" height="250" rx="24" fill="#fff" stroke="#c7d2fe" stroke-width="3"/>
+  <rect x="70" y="70" width="580" height="48" rx="24" fill="#312e81"/>
+  <circle cx="104" cy="94" r="7" fill="#fca5a5"/>
+  <circle cx="130" cy="94" r="7" fill="#fde68a"/>
+  <circle cx="156" cy="94" r="7" fill="#86efac"/>
+  <rect x="108" y="154" width="150" height="110" rx="16" fill="#ddd6fe"/>
+  <rect x="306" y="154" width="272" height="34" rx="10" fill="#8b5cf6"/>
+  <rect x="306" y="212" width="272" height="34" rx="10" fill="#6366f1"/>
+  <text x="334" y="178" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="900" fill="#fff">Finder folder</text>
+  <text x="334" y="236" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="900" fill="#fff">Allow access</text>
+</svg>

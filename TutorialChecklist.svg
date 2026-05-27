@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi checklist tutorial</title>
+  <desc id="desc">Checklist sederhana untuk mengecek persiapan dan kendala</desc>
+  <rect width="720" height="405" rx="28" fill="#f0fdf4"/>
+  <rect x="88" y="56" width="544" height="292" rx="24" fill="#fff" stroke="#bbf7d0" stroke-width="3"/>
+  <g fill="none" stroke="#16a34a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m126 130 22 22 42-48"/>
+    <path d="m126 206 22 22 42-48"/>
+    <path d="m126 282 22 22 42-48"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800" fill="#0f172a">
+    <text x="226" y="139" font-size="24">Gunakan file yang benar</text>
+    <text x="226" y="215" font-size="24">Ikuti urutan langkah</text>
+    <text x="226" y="291" font-size="24">Kirim screenshot kendala</text>
+  </g>
+</svg>

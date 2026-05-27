@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi LUT Blackmagic Camera</title>
+  <desc id="desc">Urutan import LUT cube dan aktifkan Display 3D LUT di Blackmagic Camera</desc>
+  <rect width="720" height="405" rx="28" fill="#ecfeff"/>
+  <rect x="66" y="42" width="250" height="322" rx="30" fill="#0f172a"/>
+  <rect x="84" y="74" width="214" height="258" rx="18" fill="#111827"/>
+  <rect x="108" y="103" width="166" height="44" rx="12" fill="#2563eb"/>
+  <rect x="108" y="166" width="166" height="44" rx="12" fill="#14b8a6"/>
+  <rect x="108" y="229" width="166" height="44" rx="12" fill="#334155"/>
+  <text x="126" y="132" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff">Import LUT</text>
+  <text x="126" y="195" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff">Display LUT</text>
+  <text x="126" y="258" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#fff">Apple Log</text>
+  <rect x="380" y="78" width="254" height="76" rx="18" fill="#fff" stroke="#99f6e4" stroke-width="3"/>
+  <rect x="380" y="184" width="254" height="76" rx="18" fill="#fff" stroke="#bfdbfe" stroke-width="3"/>
+  <rect x="380" y="290" width="254" height="76" rx="18" fill="#fff" stroke="#bfdbfe" stroke-width="3"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800" fill="#0f172a">
+    <text x="406" y="123" font-size="22">File .cube</text>
+    <text x="406" y="229" font-size="22">Preview warna</text>
+    <text x="406" y="335" font-size="22">Rekam original</text>
+  </g>
+  <path d="M316 201h50" stroke="#2563eb" stroke-width="6" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi sinkron Lightroom antar device</title>
+  <desc id="desc">Urutan login akun Adobe yang sama, sync desktop, lalu buka mobile</desc>
+  <rect width="720" height="405" rx="28" fill="#f0f9ff"/>
+  <rect x="78" y="94" width="250" height="170" rx="22" fill="#fff" stroke="#bae6fd" stroke-width="3"/>
+  <rect x="428" y="72" width="164" height="254" rx="28" fill="#0f172a"/>
+  <rect x="450" y="108" width="120" height="176" rx="16" fill="#e0f2fe"/>
+  <path d="M338 174c38-38 72-38 110 0" fill="none" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+  <path d="m430 142 18 32-36-7" fill="none" stroke="#2563eb" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="128" y="188" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="900" fill="#0369a1">Desktop</text>
+  <text x="472" y="206" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="900" fill="#0369a1">Mobile</text>
+  <text x="198" y="318" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="800" fill="#0f172a">Akun Adobe yang sama</text>
+</svg>

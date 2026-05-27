@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 405" role="img" aria-labelledby="title desc">
+  <title id="title">Ilustrasi aktivasi Office Windows</title>
+  <desc id="desc">Urutan download installer, jalankan setup, masukkan key, dan kirim Installation ID</desc>
+  <rect width="720" height="405" rx="28" fill="#eff6ff"/>
+  <rect x="42" y="52" width="636" height="292" rx="24" fill="#fff" stroke="#bfdbfe" stroke-width="3"/>
+  <rect x="42" y="52" width="636" height="52" rx="24" fill="#1d4ed8"/>
+  <circle cx="78" cy="78" r="8" fill="#93c5fd"/>
+  <circle cx="106" cy="78" r="8" fill="#93c5fd"/>
+  <circle cx="134" cy="78" r="8" fill="#93c5fd"/>
+  <g font-family="Inter, Arial, sans-serif" font-weight="800">
+    <text x="78" y="144" font-size="22" fill="#0f172a">1. Download installer</text>
+    <text x="78" y="198" font-size="22" fill="#0f172a">2. Jalankan setup</text>
+    <text x="78" y="252" font-size="22" fill="#0f172a">3. Masukkan license key</text>
+    <text x="78" y="306" font-size="22" fill="#0f172a">4. Kirim Installation ID</text>
+  </g>
+  <g fill="none" stroke="#2563eb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M500 145h86"/>
+    <path d="m557 116 29 29-29 29"/>
+    <path d="M504 250h82"/>
+    <path d="M545 214v72"/>
+  </g>
+</svg>

@@ -7,7 +7,7 @@ Cloudflare Email Routing biasa hanya meneruskan email ke mailbox tujuan. Agar em
 - `email-inbox.html`, `email-inbox.css`, `email-inbox.js`: halaman admin inbox.
 - `customer-database.html`, `customer-database.css`, `customer-database.js`: halaman admin customer yang sync ke D1 dan tetap punya backup lokal browser.
 - `office-activation.html`, `office-activation.css`, `office-activation.js`: halaman admin aktivasi Office dari screenshot Installation ID.
-- `cloudflare-email-worker.example.js`: contoh Worker untuk menerima email, menyimpan email/customer, API list/detail, dan forward ulang ke Gmail.
+- `cloudflare-email-worker.example.js`: Worker utama `catsoft` untuk API inbox/customer/admin/supplier/Office. Kode yang sama juga bisa dipakai di Worker email `mail-base-all-catch` untuk menerima email dan forward ulang ke Gmail.
 - `cloudflare-email-schema.sql`: schema D1 untuk tabel email dan customer.
 
 ## Alur data
@@ -32,24 +32,25 @@ Untuk `catsoft.digital` dan `catsoft.online`, pakai Worker dan D1 yang sama:
 8. Kirim email test ke alamat seperti `test@catsoft.digital` dan `test@catsoft.online`.
 9. Buka `https://catsoft.store/api/email-messages/health`; angka `total` harus naik.
 
-Tidak perlu membuat D1 baru. Selama semua domain diarahkan ke Worker `mail-base-all-catch`, semua email akan masuk ke tabel `email_messages` yang sama. Page inbox sudah bisa difilter per domain: `catsoft.store`, `catsoft.digital`, dan `catsoft.online`.
+Tidak perlu membuat D1 baru. Selama Email Routing semua domain diarahkan ke Worker email `mail-base-all-catch`, semua email akan masuk ke tabel `email_messages` yang sama. API untuk membaca data dilayani Worker utama `catsoft`, memakai binding D1 yang sama.
 
 ## Agar data up-to-date
 
-- Worker harus menjadi tujuan catch-all atau custom address di Cloudflare Email Routing.
-- API `/api/email-messages*` harus dilayani Worker, bukan file static.
+- Worker email `mail-base-all-catch` harus menjadi tujuan catch-all atau custom address di Cloudflare Email Routing.
+- API `/api/email-messages*` harus dilayani Worker utama `catsoft`, bukan file static.
 - Response API sudah memakai `Cache-Control: no-store` di contoh Worker.
 - `email-inbox.js` auto-refresh setiap 15 detik saat tab aktif, refresh lagi saat tab dibuka, dan menambahkan cache-buster pada request.
 - Jika route API berada di belakang Cloudflare Cache Rules, pastikan path `/api/email-messages*` di-bypass dari cache.
-- Untuk Customer Database, route `/api/customer-records*` juga harus diarahkan ke Worker dan di-bypass dari cache.
-- Untuk Office Activation, route `/api/office-confirmation*` juga harus diarahkan ke Worker dan di-bypass dari cache.
+- Untuk Customer Database, route `/api/customer-records*` juga harus diarahkan ke Worker utama `catsoft` dan di-bypass dari cache.
+- Untuk Office Activation, route `/api/office-confirmation*` juga harus diarahkan ke Worker utama `catsoft` dan di-bypass dari cache.
+- Untuk Supplier Accounts, route `/api/supplier-accounts*` juga harus diarahkan ke Worker utama `catsoft`.
 
 ## Jika email test tidak muncul di inbox
 
 Cek urut dari belakang:
 
 1. Buka `https://catsoft.store/api/email-messages`.
-2. Jika hasilnya 404, route HTTP `/api/email-messages*` belum diarahkan ke Worker.
+2. Jika hasilnya 404, route HTTP `/api/email-messages*` belum diarahkan ke Worker utama `catsoft`.
    Untuk sinkron akses admin lintas device, route `/api/admin-accounts*` juga harus menuju Worker yang sama.
 3. Jika hasilnya 401, API terkunci. Aktifkan Cloudflare Access untuk route itu, atau sementara set variable `ALLOW_UNAUTHENTICATED_API = "true"` hanya untuk testing.
 4. Jika hasilnya 500, buka Worker Logs dan cek D1 binding `EMAIL_DB` serta apakah schema sudah dijalankan.
@@ -70,50 +71,51 @@ Jika health check sudah `ok:true` tetapi `total` tetap 0 setelah mengirim email 
 7. Jika ada `Incoming email received` tapi tidak ada `Incoming email saved`, lihat error D1 di log.
 8. Jika ada `Incoming email saved` tapi tidak ada `Incoming email forwarded`, cek variable `FORWARD_TO`.
 
-## Checklist Cloudflare untuk `mail-base-all-catch`
+## Checklist Cloudflare untuk Worker utama `catsoft`
 
-1. Buka Worker `mail-base-all-catch`.
+1. Buka Worker `catsoft`.
 2. Deploy isi `cloudflare-email-worker.example.js` ke Worker itu.
 3. Buka Settings > Variables.
-4. Tambahkan variable `FORWARD_TO` dengan isi email Gmail tujuan, contoh `cundigitora@gmail.com`.
-5. Untuk testing sementara, tambahkan variable `ALLOW_UNAUTHENTICATED_API` dengan isi `true`.
-6. Buka Settings > Bindings.
-7. Tambahkan D1 database binding:
+4. Untuk testing sementara, tambahkan variable `ALLOW_UNAUTHENTICATED_API` dengan isi `true`.
+5. Buka Settings > Bindings.
+6. Tambahkan D1 database binding:
    - Variable name: `EMAIL_DB`
    - D1 database: pilih database inbox yang sudah dibuat.
-8. Jika Customer Database memakai D1 terpisah seperti `catsoft-customer-db`, tambahkan binding kedua:
+7. Jika Customer Database memakai D1 terpisah seperti `catsoft-customer-db`, tambahkan binding kedua:
    - Variable name: `CUSTOMER_DB`
    - D1 database: `catsoft-customer-db`
-   Jika tidak memakai D1 terpisah, cukup jalankan tabel `customer_records` di database yang terikat ke `EMAIL_DB`.
+8. Jika Admin/Supplier memakai D1 terpisah seperti `admin_accounts`, tambahkan binding ketiga:
+   - Variable name: `ADMIN_DB`
+   - D1 database: `admin_accounts`
 9. Buka Triggers atau Workers Routes.
-10. Tambahkan route HTTP:
-   - Route: `catsoft.store/api/email-messages*`
-   - Route: `www.catsoft.store/api/email-messages*`
-   - Worker: `mail-base-all-catch`
-11. Tambahkan route HTTP kedua untuk Customer Database:
-   - Route: `catsoft.store/api/customer-records*`
-   - Route: `www.catsoft.store/api/customer-records*`
-   - Worker: `mail-base-all-catch`
-12. Tambahkan route HTTP ketiga untuk aktivasi Office:
-   - Route: `catsoft.store/api/office-confirmation*`
-   - Route: `www.catsoft.store/api/office-confirmation*`
-   - Worker: `mail-base-all-catch`
-13. Tambahkan route HTTP keempat untuk sinkron akun admin:
-   - Route: `catsoft.store/api/admin-accounts*`
-   - Route: `www.catsoft.store/api/admin-accounts*`
-   - Worker: `mail-base-all-catch`
-14. Buka Email Routing > Routing rules.
-15. Pastikan Catch-All action menuju Worker `mail-base-all-catch`.
-16. Buka `https://catsoft.store/api/email-messages/health`, `https://catsoft.store/api/customer-records/health`, dan `https://catsoft.store/api/admin-accounts`.
+10. Pastikan semua route HTTP `/api/email-messages*`, `/api/customer-records*`, `/api/office-confirmation*`, `/api/admin-accounts*`, dan `/api/supplier-accounts*` mengarah ke Worker `catsoft`.
+11. Jika route-route itu masih assigned ke Worker `mail-base-all-catch`, unassign dari `mail-base-all-catch` dulu, lalu deploy ulang `catsoft`.
+12. Buka `https://catsoft.store/api/email-messages/health`, `https://catsoft.store/api/customer-records/health`, dan `https://catsoft.store/api/admin-accounts`.
 
-Jika ingin domain lain seperti `catsoft.digital`, `catsoft.online`, atau subdomain `www`-nya memakai D1 yang sama, arahkan route API domain tersebut ke Worker yang sama dan jangan buat binding D1 baru. Contoh:
+## Checklist Cloudflare untuk Worker email `mail-base-all-catch`
+
+1. Buka Worker `mail-base-all-catch`.
+2. Deploy isi `cloudflare-email-worker.example.js` ke Worker itu, atau pakai versi email-only yang minimal.
+3. Buka Settings > Variables.
+4. Tambahkan variable `FORWARD_TO` dengan isi email Gmail tujuan, contoh `cundigitora@gmail.com`.
+5. Buka Settings > Bindings.
+6. Tambahkan D1 database binding:
+   - Variable name: `EMAIL_DB`
+   - D1 database: pilih database inbox yang sudah dibuat.
+7. Jangan pasang HTTP route API ke Worker ini. Worker ini cukup menjadi tujuan Email Routing.
+8. Buka Email Routing > Routing rules.
+9. Pastikan Catch-All action menuju Worker `mail-base-all-catch`.
+
+Jika ingin domain lain seperti `catsoft.digital`, `catsoft.online`, atau subdomain `www`-nya memakai D1 yang sama, arahkan route API domain tersebut ke Worker utama `catsoft` dan jangan buat binding D1 baru. Contoh:
 
 - `catsoft.digital/api/email-messages*`
 - `catsoft.digital/api/customer-records*`
 - `catsoft.digital/api/admin-accounts*`
+- `catsoft.digital/api/supplier-accounts*`
 - `catsoft.online/api/email-messages*`
 - `catsoft.online/api/customer-records*`
 - `catsoft.online/api/admin-accounts*`
+- `catsoft.online/api/supplier-accounts*`
 
 Hasil health check:
 
@@ -132,7 +134,7 @@ Jika log menampilkan `Failed to save incoming email to D1`, buka detail log dan 
 ## Contoh `wrangler.toml`
 
 ```toml
-name = "mail-base-all-catch"
+name = "catsoft"
 main = "cloudflare-email-worker.example.js"
 compatibility_date = "2026-05-25"
 
@@ -145,6 +147,8 @@ routes = [
   { pattern = "www.catsoft.store/api/office-confirmation*", zone_name = "catsoft.store" },
   { pattern = "catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
   { pattern = "www.catsoft.store/api/admin-accounts*", zone_name = "catsoft.store" },
+  { pattern = "catsoft.store/api/supplier-accounts*", zone_name = "catsoft.store" },
+  { pattern = "www.catsoft.store/api/supplier-accounts*", zone_name = "catsoft.store" },
 
   { pattern = "catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
   { pattern = "www.catsoft.digital/api/email-messages*", zone_name = "catsoft.digital" },
@@ -154,6 +158,8 @@ routes = [
   { pattern = "www.catsoft.digital/api/office-confirmation*", zone_name = "catsoft.digital" },
   { pattern = "catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
   { pattern = "www.catsoft.digital/api/admin-accounts*", zone_name = "catsoft.digital" },
+  { pattern = "catsoft.digital/api/supplier-accounts*", zone_name = "catsoft.digital" },
+  { pattern = "www.catsoft.digital/api/supplier-accounts*", zone_name = "catsoft.digital" },
 
   { pattern = "catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
   { pattern = "www.catsoft.online/api/email-messages*", zone_name = "catsoft.online" },
@@ -162,7 +168,9 @@ routes = [
   { pattern = "catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
   { pattern = "www.catsoft.online/api/office-confirmation*", zone_name = "catsoft.online" },
   { pattern = "catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
-  { pattern = "www.catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" }
+  { pattern = "www.catsoft.online/api/admin-accounts*", zone_name = "catsoft.online" },
+  { pattern = "catsoft.online/api/supplier-accounts*", zone_name = "catsoft.online" },
+  { pattern = "www.catsoft.online/api/supplier-accounts*", zone_name = "catsoft.online" }
 ]
 
 [[d1_databases]]
@@ -188,10 +196,10 @@ FORWARD_TO = "cundigitora@gmail.com"
 
 1. Buat D1 database di Cloudflare untuk email, customer, dan admin.
 2. Jalankan schema `cloudflare-email-schema.sql` ke D1. Jika memakai database terpisah seperti `EMAIL_DB`, `CUSTOMER_DB`, dan `ADMIN_DB`, pastikan tabel yang sesuai ada di masing-masing database.
-3. Deploy Worker dengan binding `EMAIL_DB`, `CUSTOMER_DB`, `ADMIN_DB`, dan variable `FORWARD_TO`.
+3. Deploy Worker utama `catsoft` dengan binding `EMAIL_DB`, `CUSTOMER_DB`, dan `ADMIN_DB`.
 4. Lindungi route `/api/email-messages*` dengan Cloudflare Access, atau set secret `INBOX_API_TOKEN`.
 5. Lindungi route `/api/office-confirmation*` dengan Cloudflare Access yang sama, atau gunakan mode testing `ALLOW_UNAUTHENTICATED_API = "true"`.
-6. Di Cloudflare Email Routing, ubah catch-all atau custom address agar action-nya menuju Email Worker `mail-base-all-catch`.
+6. Di Cloudflare Email Routing, ubah catch-all atau custom address agar action-nya menuju Worker email `mail-base-all-catch`.
 
 ## Perintah menjalankan schema D1
 

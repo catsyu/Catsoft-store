@@ -1,5 +1,5 @@
-if (!window.CATSOFT_ADMIN_AUTHORIZED) {
-  throw new Error('Catsoft admin authorization required.');
+if (!window.CATSOFT_ADMIN_AUTHORIZED && !window.CATSOFT_SUPPLIER_AUTHORIZED) {
+  throw new Error('Catsoft inbox authorization required.');
 }
 
 const productionApiEndpoint = 'https://catsoft.store/api/email-messages';
@@ -74,9 +74,12 @@ const state = {
 };
 
 const currentAdminAccess = window.CatsoftAdminAuth ? window.CatsoftAdminAuth.getCurrentAdmin() : null;
-const inboxAccess = currentAdminAccess && currentAdminAccess.role !== 'owner' && window.CatsoftAdminAuth
-  ? window.CatsoftAdminAuth.getInboxAccess()
-  : { all: true, rules: [] };
+const currentSupplierAccess = window.CatsoftSupplierAuth ? window.CatsoftSupplierAuth.getCurrentSupplier() : null;
+const inboxAccess = currentSupplierAccess && window.CatsoftSupplierAuth
+  ? window.CatsoftSupplierAuth.getInboxAccess()
+  : currentAdminAccess && currentAdminAccess.role !== 'owner' && window.CatsoftAdminAuth
+    ? window.CatsoftAdminAuth.getInboxAccess()
+    : { all: true, rules: [] };
 
 let isLoadingEmails = false;
 let autoRefreshTimer;
@@ -634,6 +637,10 @@ function renderStats() {
 }
 
 function renderCategoryTabs() {
+  if (!categoryTabs) {
+    return;
+  }
+
   categoryTabs.querySelectorAll('.category-tab').forEach((button) => {
     button.classList.toggle('active', button.dataset.categoryTab === categoryFilter.value);
   });
@@ -982,15 +989,17 @@ filterForm.addEventListener('submit', (event) => {
   element.addEventListener('change', applyFilters);
 });
 
-categoryTabs.addEventListener('click', (event) => {
-  const tab = event.target.closest('[data-category-tab]');
+if (categoryTabs) {
+  categoryTabs.addEventListener('click', (event) => {
+    const tab = event.target.closest('[data-category-tab]');
 
-  if (!tab) {
-    return;
-  }
+    if (!tab) {
+      return;
+    }
 
-  setCategoryFilter(tab.dataset.categoryTab);
-});
+    setCategoryFilter(tab.dataset.categoryTab);
+  });
+}
 
 emailList.addEventListener('click', (event) => {
   const checkbox = event.target.closest('[data-email-select]');

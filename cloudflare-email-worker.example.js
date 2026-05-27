@@ -88,6 +88,14 @@ export default {
       return saveAdminAccountsApi(request, env);
     }
 
+    if (url.pathname === '/api/supplier-accounts' && request.method === 'GET') {
+      return listSupplierAccounts(request, env);
+    }
+
+    if (url.pathname === '/api/supplier-accounts' && request.method === 'POST') {
+      return saveSupplierAccountsApi(request, env);
+    }
+
     if (url.pathname === '/api/customer-records' && request.method === 'GET') {
       return listCustomerRecords(request, env);
     }
@@ -506,6 +514,65 @@ function mapAdminAccountRow(row) {
   };
 }
 
+async function addColumnIfMissing(db, tableName, columnName, definition) {
+  const columns = await db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const columnNames = new Set((columns.results || []).map((column) => column.name));
+
+  if (columnNames.has(columnName)) {
+    return;
+  }
+
+  try {
+    await db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`).run();
+  } catch (error) {
+    if (!/duplicate column|already exists/i.test(error.message || '')) {
+      throw error;
+    }
+  }
+}
+
+async function ensureSupplierAccountsTable(adminDb) {
+  await adminDb.prepare(`
+    CREATE TABLE IF NOT EXISTS supplier_accounts (
+      username TEXT PRIMARY KEY,
+      password TEXT NOT NULL,
+      tools TEXT NOT NULL DEFAULT '[]',
+      allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
+      inbox_access_all INTEGER NOT NULL DEFAULT 0,
+      inbox_rules TEXT NOT NULL DEFAULT '[]',
+      created_by TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await adminDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_supplier_accounts_updated_at
+    ON supplier_accounts (updated_at DESC)
+  `).run();
+
+  await addColumnIfMissing(
+    adminDb,
+    'supplier_accounts',
+    'allowed_domains',
+    'TEXT NOT NULL DEFAULT \'["catsoft.store","catsoft.digital","catsoft.online"]\''
+  );
+}
+
+function mapSupplierAccountRow(row) {
+  return {
+    username: row.username,
+    password: row.password,
+    tools: parseJsonArray(row.tools),
+    allowedDomains: parseJsonArray(row.allowed_domains),
+    inboxAccessAll: Boolean(row.inbox_access_all),
+    inboxRules: parseJsonArray(row.inbox_rules),
+    createdBy: row.created_by || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 async function listAdminAccounts(request, env) {
   const adminDb = getAdminDb(env);
 
@@ -576,6 +643,90 @@ async function saveAdminAccountsApi(request, env) {
   (existing.results || []).forEach((row) => {
     if (!incomingNames.has(normalizeSearch(row.username))) {
       statements.push(adminDb.prepare('DELETE FROM admin_accounts WHERE username = ?').bind(row.username));
+    }
+  });
+
+  if (statements.length) {
+    await adminDb.batch(statements);
+  }
+
+  return json({ ok: true, accounts: accounts.length }, 200, request);
+}
+
+async function listSupplierAccounts(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureSupplierAccountsTable(adminDb);
+
+  const result = await adminDb.prepare(`
+    SELECT username, password, tools, allowed_domains, inbox_access_all, inbox_rules, created_by, created_at, updated_at
+    FROM supplier_accounts
+    ORDER BY updated_at DESC
+  `).all();
+
+  return json({
+    accounts: (result.results || []).map(mapSupplierAccountRow)
+  }, 200, request);
+}
+
+async function saveSupplierAccountsApi(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureSupplierAccountsTable(adminDb);
+
+  const payload = await readJson(request);
+  const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+  const now = new Date().toISOString();
+
+  const existing = await adminDb.prepare('SELECT username FROM supplier_accounts').all();
+  const incomingNames = new Set(accounts.map((account) => normalizeSearch(account.username)).filter(Boolean));
+  const statements = [];
+
+  accounts.forEach((account) => {
+    const username = String(account.username || '').trim();
+    const password = String(account.password || '');
+
+    if (!username || !password) {
+      return;
+    }
+
+    statements.push(adminDb.prepare(`
+      INSERT INTO supplier_accounts (
+        username, password, tools, allowed_domains, inbox_access_all, inbox_rules, created_by, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(username) DO UPDATE SET
+        password = excluded.password,
+        tools = excluded.tools,
+        allowed_domains = excluded.allowed_domains,
+        inbox_access_all = excluded.inbox_access_all,
+        inbox_rules = excluded.inbox_rules,
+        created_by = excluded.created_by,
+        updated_at = excluded.updated_at
+    `).bind(
+      username,
+      password,
+      JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
+      JSON.stringify(Array.isArray(account.allowedDomains) ? account.allowedDomains : ['catsoft.store', 'catsoft.digital', 'catsoft.online']),
+      account.inboxAccessAll ? 1 : 0,
+      JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
+      String(account.createdBy || ''),
+      account.createdAt || now,
+      account.updatedAt || now
+    ));
+  });
+
+  (existing.results || []).forEach((row) => {
+    if (!incomingNames.has(normalizeSearch(row.username))) {
+      statements.push(adminDb.prepare('DELETE FROM supplier_accounts WHERE username = ?').bind(row.username));
     }
   });
 

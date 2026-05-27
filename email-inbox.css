@@ -167,6 +167,47 @@ a {
   margin-bottom: 16px;
 }
 
+.temp-mail-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(150px, 0.8fr);
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.temp-mail-output {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.temp-mail-output span {
+  display: block;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #fff;
+  color: #1e40af;
+  font-weight: 950;
+  overflow-wrap: anywhere;
+}
+
+.temp-mail-status {
+  grid-column: 1 / -1;
+  min-height: 18px;
+  color: #047857;
+  font-size: 12px;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
 .stat-card {
   min-width: 0;
   min-height: 76px;
@@ -929,6 +970,15 @@ a {
 
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .temp-mail-panel,
+  .temp-mail-output {
+    grid-template-columns: 1fr;
+  }
+
+  .temp-mail-output .secondary-button {
+    width: 100%;
   }
 
   .filter-panel {

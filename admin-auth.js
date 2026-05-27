@@ -5,6 +5,8 @@ const CATSOFT_ADMIN_ACCOUNTS_KEY = 'catsoftAdminAccounts';
 const CATSOFT_ADMIN_ACCOUNTS_SYNC_KEY = 'catsoftAdminAccountsLastSync';
 const CATSOFT_ADMIN_ACCOUNTS_API = window.CATSOFT_ADMIN_ACCOUNTS_API || getDefaultAdminAccountsApiEndpoint();
 const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 10000;
+const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
+const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
 let catsoftAdminAccountsRefreshTimer = null;
 
 const CATSOFT_ADMIN_TOOLS = [
@@ -12,7 +14,18 @@ const CATSOFT_ADMIN_TOOLS = [
   { id: 'customer-database', label: 'Customer Database', path: 'customer-database.html' },
   { id: 'email-inbox', label: 'Email Inbox', path: 'email-inbox.html' },
   { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html' },
+  { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html' },
   { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', ownerOnly: true }
+];
+
+const CATSOFT_SUPPLIER_TOOLS = [
+  { id: 'supplier-email', label: 'Email', path: 'supplier-email.html' }
+];
+
+const CATSOFT_SUPPLIER_DOMAINS = [
+  'catsoft.store',
+  'catsoft.digital',
+  'catsoft.online'
 ];
 
 const CATSOFT_DEFAULT_INBOX_RULES = [
@@ -77,6 +90,17 @@ function getDefaultAdminAccountsApiEndpoint() {
   return '/api/admin-accounts';
 }
 
+function getDefaultSupplierAccountsApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/supplier-accounts';
+  }
+
+  return '/api/supplier-accounts';
+}
+
 function getCurrentAdminToolId() {
   const pageName = getCurrentPageName();
   const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.path === pageName);
@@ -120,6 +144,91 @@ function normalizeAdminAccount(account) {
 function parseAdminAccountsResponse(data) {
   const accounts = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : [];
   return accounts.map(normalizeAdminAccount).filter((account) => account.username && account.password);
+}
+
+function normalizeSupplierAccount(account) {
+  const allowedDomains = Array.isArray(account.allowedDomains)
+    ? account.allowedDomains
+    : Array.isArray(account.domains)
+      ? account.domains
+      : CATSOFT_SUPPLIER_DOMAINS;
+
+  return {
+    username: String(account.username || '').trim(),
+    password: String(account.password || ''),
+    tools: Array.isArray(account.tools) ? account.tools : [],
+    inboxAccessAll: Boolean(account.inboxAccessAll),
+    inboxRules: normalizeInboxRules(account),
+    allowedDomains: allowedDomains
+      .map(normalizeAdminValue)
+      .filter((domain) => CATSOFT_SUPPLIER_DOMAINS.includes(domain)),
+    createdBy: String(account.createdBy || ''),
+    createdAt: account.createdAt || new Date().toISOString(),
+    updatedAt: account.updatedAt || new Date().toISOString()
+  };
+}
+
+function parseSupplierAccountsResponse(data) {
+  const accounts = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : [];
+  return accounts.map(normalizeSupplierAccount).filter((account) => account.username && account.password);
+}
+
+function loadSupplierAccounts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CATSOFT_SUPPLIER_ACCOUNTS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((account) => account && account.username).map(normalizeSupplierAccount) : [];
+  } catch (error) {
+    saveSupplierAccounts([]);
+    return [];
+  }
+}
+
+function saveSupplierAccounts(accounts) {
+  localStorage.setItem(CATSOFT_SUPPLIER_ACCOUNTS_KEY, JSON.stringify(accounts.map(normalizeSupplierAccount)));
+}
+
+function getSupplierAccountByUsername(username) {
+  return loadSupplierAccounts().find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(username));
+}
+
+async function syncSupplierAccountsFromApi(options = {}) {
+  try {
+    const response = await fetch(`${CATSOFT_SUPPLIER_ACCOUNTS_API}?_=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API supplier ${response.status}`);
+    }
+
+    const accounts = parseSupplierAccountsResponse(await response.json());
+    saveSupplierAccounts(accounts);
+
+    if (!options.silent) {
+      setSupplierAccessStatus('Akses supplier tersinkron.', 'success');
+    }
+
+    return accounts;
+  } catch (error) {
+    if (!options.silent) {
+      setSupplierAccessStatus(`Gagal sinkron supplier: ${error.message}`);
+    }
+
+    return loadSupplierAccounts();
+  }
+}
+
+async function pushSupplierAccountsToApi(accounts) {
+  const response = await fetch(CATSOFT_SUPPLIER_ACCOUNTS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accounts: accounts.map(normalizeSupplierAccount) })
+  });
+
+  if (!response.ok) {
+    throw new Error(`API supplier ${response.status}`);
+  }
 }
 
 async function syncAdminAccountsFromApi(options = {}) {
@@ -1309,6 +1418,338 @@ function renderAdminAccountList() {
   });
 }
 
+function renderSupplierAccessPanel() {
+  const admin = getCurrentAdmin();
+  const accessRoot = document.getElementById('supplierAccessRoot');
+
+  if (!accessRoot || !admin || !adminHasToolAccess('supplier-access') || document.getElementById('supplierAccessPanel')) {
+    return;
+  }
+
+  const panel = document.createElement('section');
+  panel.className = 'admin-access-panel admin-access-page-panel';
+  panel.id = 'supplierAccessPanel';
+  panel.innerHTML = `
+    <div class="admin-access-header">
+      <div>
+        <span class="admin-access-kicker">${escapeAdminHtml(admin.role === 'owner' ? 'OwnerCatsoft' : 'AdminCatsoft')}</span>
+        <h2>Kelola Supplier</h2>
+      </div>
+      <p class="admin-access-status" id="supplierAccessStatus" aria-live="polite"></p>
+    </div>
+    <div class="admin-access-grid">
+      <form class="admin-access-card admin-access-form" id="supplierAccessForm">
+        <input id="supplierAccessOriginalUsername" type="hidden" />
+        <label>
+          Username supplier
+          <input id="supplierAccessUsername" type="text" autocomplete="off" required />
+        </label>
+        <label>
+          Password supplier
+          <input id="supplierAccessPassword" type="text" autocomplete="off" required />
+        </label>
+        <div class="admin-access-field-block">
+          <span class="admin-access-label">Akses tool Supplier Center</span>
+          <div class="admin-access-checks" aria-label="Akses tool supplier">
+            ${CATSOFT_SUPPLIER_TOOLS.map((tool) => `
+              <label>
+                <input type="checkbox" name="supplierTools" value="${escapeAdminHtml(tool.id)}" checked />
+                <span class="admin-check-icon" aria-hidden="true">✓</span>
+                <span class="admin-check-text">${escapeAdminHtml(tool.label)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <div class="admin-access-field-block" id="supplierInboxAccessBlock">
+          <span class="admin-access-label">Akses Email Temp Mail</span>
+          <div class="admin-access-checks admin-inbox-presets" aria-label="Preset akses email supplier">
+            ${CATSOFT_INBOX_PRESETS.map((preset) => `
+              <label>
+                <input type="checkbox" name="supplierInboxPresets" value="${escapeAdminHtml(preset.value)}" />
+                <span class="admin-check-icon" aria-hidden="true">✓</span>
+                <span class="admin-check-text">${escapeAdminHtml(preset.label)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <label id="supplierInboxRulesField">
+          Rule custom
+          <textarea id="supplierAccessRules" placeholder="Contoh:&#10;supplier@catsoft.store&#10;openai&#10;catsoft.digital&#10;kode verifikasi"></textarea>
+        </label>
+        <div class="admin-access-field-block">
+          <span class="admin-access-label">Domain yang bisa dibuat supplier</span>
+          <div class="admin-access-checks admin-inbox-presets" aria-label="Domain temp mail supplier">
+            ${CATSOFT_SUPPLIER_DOMAINS.map((domain) => `
+              <label>
+                <input type="checkbox" name="supplierDomains" value="${escapeAdminHtml(domain)}" checked />
+                <span class="admin-check-icon" aria-hidden="true">✓</span>
+                <span class="admin-check-text">${escapeAdminHtml(domain)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <div class="admin-form-actions">
+          <button type="submit">Simpan Supplier</button>
+          <button type="button" id="supplierAccessCancelEdit">Bersihkan</button>
+        </div>
+      </form>
+      <div class="admin-account-list" id="supplierAccountList"></div>
+    </div>
+  `;
+
+  accessRoot.appendChild(panel);
+  wireSupplierAccessPanel();
+  renderSupplierAccountList();
+  syncSupplierAccountsFromApi({ silent: true }).then(renderSupplierAccountList);
+}
+
+function getSupplierAccessFormValues() {
+  const tools = [...document.querySelectorAll('#supplierAccessForm input[name="supplierTools"]:checked')].map((input) => input.value);
+  const allowedDomains = [...document.querySelectorAll('#supplierAccessForm input[name="supplierDomains"]:checked')]
+    .map((input) => normalizeAdminValue(input.value))
+    .filter((domain) => CATSOFT_SUPPLIER_DOMAINS.includes(domain));
+  const presetRules = [...document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]:checked')].map((input) => input.value);
+  const customRules = document.getElementById('supplierAccessRules').value
+    .split(/\n|,/)
+    .map(normalizeAdminValue)
+    .filter(Boolean);
+  const inboxRules = tools.includes('supplier-email') ? [...presetRules, ...customRules]
+    .map(normalizeAdminValue)
+    .filter(Boolean)
+    .filter((value, index, list) => list.indexOf(value) === index) : [];
+
+  return {
+    originalUsername: document.getElementById('supplierAccessOriginalUsername').value,
+    username: document.getElementById('supplierAccessUsername').value.trim(),
+    password: document.getElementById('supplierAccessPassword').value,
+    tools,
+    allowedDomains,
+    inboxAccessAll: inboxRules.includes('all'),
+    inboxRules: inboxRules.filter((rule) => rule !== 'all')
+  };
+}
+
+function setSupplierAccessStatus(message, type = '') {
+  const status = document.getElementById('supplierAccessStatus');
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('success', type === 'success');
+}
+
+function resetSupplierAccessForm() {
+  const form = document.getElementById('supplierAccessForm');
+  if (!form) {
+    return;
+  }
+
+  form.reset();
+  document.getElementById('supplierAccessOriginalUsername').value = '';
+  document.querySelectorAll('#supplierAccessForm input[name="supplierTools"]').forEach((input) => {
+    input.checked = input.value === 'supplier-email';
+  });
+  document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]').forEach((input) => {
+    input.checked = false;
+  });
+  document.querySelectorAll('#supplierAccessForm input[name="supplierDomains"]').forEach((input) => {
+    input.checked = true;
+  });
+  document.getElementById('supplierAccessRules').value = '';
+}
+
+function wireSupplierAccessPanel() {
+  resetSupplierAccessForm();
+
+  document.getElementById('supplierAccessCancelEdit').addEventListener('click', () => {
+    resetSupplierAccessForm();
+    setSupplierAccessStatus('Form siap untuk supplier baru.', 'success');
+  });
+
+  document.getElementById('supplierAccessForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const values = getSupplierAccessFormValues();
+
+    if (!values.username || !values.password) {
+      setSupplierAccessStatus('Username dan password supplier wajib diisi.');
+      return;
+    }
+
+    const accounts = loadSupplierAccounts();
+    const usernameTaken = accounts.some((account) => (
+      normalizeAdminValue(account.username) === normalizeAdminValue(values.username)
+      && normalizeAdminValue(account.username) !== normalizeAdminValue(values.originalUsername)
+    ));
+
+    if (usernameTaken) {
+      setSupplierAccessStatus('Username supplier sudah terdaftar.');
+      return;
+    }
+
+    const admin = getCurrentAdmin();
+    const nextAccount = {
+      username: values.username,
+      password: values.password,
+      tools: values.tools,
+      allowedDomains: values.allowedDomains.length ? values.allowedDomains : [CATSOFT_SUPPLIER_DOMAINS[0]],
+      inboxAccessAll: values.inboxAccessAll,
+      inboxRules: values.inboxRules,
+      createdBy: admin ? admin.username : '',
+      createdAt: values.originalUsername
+        ? (accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername)) || {}).createdAt
+        : new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    const nextAccounts = values.originalUsername
+      ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
+      : [...accounts, nextAccount];
+
+    saveSupplierAccounts(nextAccounts);
+    resetSupplierAccessForm();
+    renderSupplierAccountList();
+    setSupplierAccessStatus('Akses supplier tersimpan lokal, mengirim sync...', 'success');
+
+    try {
+      await pushSupplierAccountsToApi(nextAccounts);
+      setSupplierAccessStatus('Akses supplier tersimpan dan tersinkron.', 'success');
+    } catch (error) {
+      setSupplierAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+    }
+  });
+}
+
+function renderSupplierAccountList() {
+  const list = document.getElementById('supplierAccountList');
+
+  if (!list) {
+    return;
+  }
+
+  const accounts = loadSupplierAccounts();
+  const fullInboxCount = accounts.filter((account) => account.inboxAccessAll).length;
+  const emailToolCount = accounts.filter((account) => (account.tools || []).includes('supplier-email')).length;
+
+  if (!accounts.length) {
+    list.innerHTML = `
+      <div class="admin-account-toolbar">
+        <div class="admin-account-stat"><span>Total supplier</span><strong>0</strong></div>
+        <div class="admin-account-stat"><span>Email tool</span><strong>0</strong></div>
+        <div class="admin-account-stat"><span>Full inbox</span><strong>0</strong></div>
+      </div>
+      <div class="admin-account-card">
+        <div class="admin-account-main">
+          <h3>Belum ada supplier</h3>
+          <span>Tambahkan akun supplier dari form di sebelah kiri.</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = accounts.map((account) => {
+    const inboxRules = normalizeInboxRules(account);
+    const inboxSummary = account.inboxAccessAll
+      ? 'Semua email masuk'
+      : (inboxRules.length ? `${inboxRules.length} rule email` : 'Tidak ada akses email');
+    const domainSummary = (account.allowedDomains || []).length
+      ? (account.allowedDomains || []).join(', ')
+      : 'Tidak ada domain';
+    const toolLabels = CATSOFT_SUPPLIER_TOOLS
+      .filter((tool) => (account.tools || []).includes(tool.id))
+      .map((tool) => tool.label);
+    const updatedDate = account.updatedAt ? new Date(account.updatedAt) : null;
+    const updatedText = updatedDate && !Number.isNaN(updatedDate.getTime())
+      ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(updatedDate)
+      : 'Belum ada update';
+
+    return `
+      <div class="admin-account-row">
+        <div class="admin-account-main">
+          <h3>${escapeAdminHtml(account.username)}</h3>
+          <span>Update: ${escapeAdminHtml(updatedText)}</span>
+        </div>
+        <div class="admin-account-meta">
+          ${toolLabels.map((label) => `<span class="admin-pill">${escapeAdminHtml(label)}</span>`).join('')}
+          ${!toolLabels.length ? '<span class="admin-pill neutral">Tidak ada tool</span>' : ''}
+        </div>
+        <span class="admin-pill neutral" title="${escapeAdminHtml(domainSummary)}">${escapeAdminHtml(inboxSummary)} - ${escapeAdminHtml((account.allowedDomains || []).length)} domain</span>
+        <div class="admin-account-actions">
+          <button type="button" data-edit-supplier="${escapeAdminHtml(account.username)}">Edit</button>
+          <button type="button" data-delete-supplier="${escapeAdminHtml(account.username)}">Hapus</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.innerHTML = `
+    <div class="admin-account-toolbar">
+      <div class="admin-account-stat"><span>Total supplier</span><strong>${accounts.length}</strong></div>
+      <div class="admin-account-stat"><span>Email tool</span><strong>${emailToolCount}</strong></div>
+      <div class="admin-account-stat"><span>Full inbox</span><strong>${fullInboxCount}</strong></div>
+    </div>
+    <div class="admin-account-table">
+      <div class="admin-account-row is-heading">
+        <span>Akun</span>
+        <span>Akses tool</span>
+        <span>Email temp mail</span>
+        <span>Aksi</span>
+      </div>
+      ${rows}
+    </div>
+  `;
+
+  list.querySelectorAll('[data-edit-supplier]').forEach((button) => {
+    button.addEventListener('click', () => editSupplierAccount(button.dataset.editSupplier));
+  });
+  list.querySelectorAll('[data-delete-supplier]').forEach((button) => {
+    button.addEventListener('click', () => deleteSupplierAccount(button.dataset.deleteSupplier));
+  });
+}
+
+function editSupplierAccount(username) {
+  const account = getSupplierAccountByUsername(username);
+
+  if (!account) {
+    return;
+  }
+
+  document.getElementById('supplierAccessOriginalUsername').value = account.username;
+  document.getElementById('supplierAccessUsername').value = account.username;
+  document.getElementById('supplierAccessPassword').value = account.password || '';
+  document.querySelectorAll('#supplierAccessForm input[name="supplierTools"]').forEach((input) => {
+    input.checked = (account.tools || []).includes(input.value);
+  });
+  const inboxRules = normalizeInboxRules(account);
+  document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]').forEach((input) => {
+    input.checked = input.value === 'all' ? Boolean(account.inboxAccessAll) : inboxRules.includes(input.value);
+  });
+  document.querySelectorAll('#supplierAccessForm input[name="supplierDomains"]').forEach((input) => {
+    const allowedDomains = account.allowedDomains || CATSOFT_SUPPLIER_DOMAINS;
+    input.checked = allowedDomains.includes(input.value);
+  });
+  const presetValues = CATSOFT_INBOX_PRESETS.map((preset) => preset.value);
+  document.getElementById('supplierAccessRules').value = inboxRules
+    .filter((rule) => !presetValues.includes(rule))
+    .join('\n');
+  setSupplierAccessStatus('Mode edit supplier.');
+}
+
+async function deleteSupplierAccount(username) {
+  const nextAccounts = loadSupplierAccounts().filter((account) => normalizeAdminValue(account.username) !== normalizeAdminValue(username));
+  saveSupplierAccounts(nextAccounts);
+  renderSupplierAccountList();
+  setSupplierAccessStatus('Supplier dihapus lokal, mengirim sync...', 'success');
+
+  try {
+    await pushSupplierAccountsToApi(nextAccounts);
+    setSupplierAccessStatus('Supplier dihapus dan tersinkron.', 'success');
+  } catch (error) {
+    setSupplierAccessStatus(`Hapus belum tersinkron ke device lain. Sync web gagal: ${error.message}`);
+  }
+}
+
 function editAdminAccount(username) {
   const account = getAccountByUsername(username);
 
@@ -1397,6 +1838,7 @@ function initAdminAuth() {
   addSessionControls();
   filterAdminToolCards();
   renderOwnerAccessPanel();
+  renderSupplierAccessPanel();
   startAdminAccountsAutoRefresh();
 }
 

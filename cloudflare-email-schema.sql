@@ -43,6 +43,21 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
 CREATE INDEX IF NOT EXISTS idx_admin_accounts_updated_at
   ON admin_accounts (updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS supplier_accounts (
+  username TEXT PRIMARY KEY,
+  password TEXT NOT NULL,
+  tools TEXT NOT NULL DEFAULT '[]',
+  allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
+  inbox_access_all INTEGER NOT NULL DEFAULT 0,
+  inbox_rules TEXT NOT NULL DEFAULT '[]',
+  created_by TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_supplier_accounts_updated_at
+  ON supplier_accounts (updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS customer_records (
   id TEXT PRIMARY KEY,
   customer_name TEXT,
@@ -104,8 +119,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
 --   username TEXT PRIMARY KEY,
 --   password TEXT NOT NULL,
 --   tools TEXT NOT NULL DEFAULT '[]',
+--   allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
 --   inbox_access_all INTEGER NOT NULL DEFAULT 0,
 --   inbox_rules TEXT NOT NULL DEFAULT '[]',
 --   created_at TEXT NOT NULL,
 --   updated_at TEXT NOT NULL
 -- );
+-- CREATE TABLE IF NOT EXISTS supplier_accounts (
+--   username TEXT PRIMARY KEY,
+--   password TEXT NOT NULL,
+--   tools TEXT NOT NULL DEFAULT '[]',
+--   inbox_access_all INTEGER NOT NULL DEFAULT 0,
+--   inbox_rules TEXT NOT NULL DEFAULT '[]',
+--   created_by TEXT,
+--   created_at TEXT NOT NULL,
+--   updated_at TEXT NOT NULL
+-- );
+-- ALTER TABLE supplier_accounts ADD COLUMN allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]';

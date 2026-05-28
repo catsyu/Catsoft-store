@@ -11,7 +11,7 @@ ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "9b19f1b31d88513e013d1a522e
 API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN") or os.environ.get("CF_API_TOKEN")
 ZONE_NAME = os.environ.get("CLOUDFLARE_ZONE_NAME", "catsoft.store")
 TARGET_WORKER = os.environ.get("TARGET_WORKER", "catsoft")
-DNS_TARGET = os.environ.get("CATSOFT_SUBDOMAIN_TARGET", "catsoft.store")
+DNS_TARGET = os.environ.get("CATSOFT_SUBDOMAIN_TARGET", "192.0.2.1")
 
 SUBDOMAINS = ("admin", "supplier")
 
@@ -64,25 +64,26 @@ def get_zone_id():
 
 
 def upsert_dns_record(zone_id, hostname):
-    query = urllib.parse.urlencode({"type": "CNAME", "name": hostname})
+    query = urllib.parse.urlencode({"name": hostname})
     records = request("GET", f"/zones/{zone_id}/dns_records?{query}").get("result") or []
     payload = {
-        "type": "CNAME",
+        "type": "A",
         "name": hostname,
         "content": DNS_TARGET,
         "ttl": 1,
         "proxied": True,
-        "comment": "Catsoft admin/supplier tools hostname",
+        "comment": "Catsoft tools Worker hostname",
     }
 
     if records:
-        record_id = records[0]["id"]
-        request("PUT", f"/zones/{zone_id}/dns_records/{record_id}", payload)
-        print(f"DNS OK  {hostname} -> {DNS_TARGET} (proxied)")
+        for record in records[1:]:
+            request("DELETE", f"/zones/{zone_id}/dns_records/{record['id']}")
+        request("PUT", f"/zones/{zone_id}/dns_records/{records[0]['id']}", payload)
+        print(f"DNS OK  {hostname} A {DNS_TARGET} (proxied)")
         return
 
     request("POST", f"/zones/{zone_id}/dns_records", payload)
-    print(f"DNS ADD {hostname} -> {DNS_TARGET} (proxied)")
+    print(f"DNS ADD {hostname} A {DNS_TARGET} (proxied)")
 
 
 def upsert_worker_route(zone_id, pattern):
@@ -106,6 +107,8 @@ def main():
     for subdomain in SUBDOMAINS:
         hostname = f"{subdomain}.{ZONE_NAME}"
         upsert_dns_record(zone_id, hostname)
+        upsert_worker_route(zone_id, hostname)
+        upsert_worker_route(zone_id, f"{hostname}/")
         upsert_worker_route(zone_id, f"{hostname}/*")
 
     print("Done. Tunggu propagasi DNS Cloudflare beberapa menit, lalu buka admin/supplier subdomain.")

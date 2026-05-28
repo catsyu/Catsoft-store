@@ -25,6 +25,25 @@
   <meta name="twitter:image" content="https://catsoft.store/logo.png" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/form-standard.css" />
+  <script>
+    (function () {
+      var host = window.location.hostname.toLowerCase();
+      var path = window.location.pathname.replace(/\/+$/, "") || "/";
+      var target = "";
+
+      if (host === "admin.catsoft.store" && path === "/") {
+        target = "/admin-tools.html";
+      }
+
+      if (host === "supplier.catsoft.store" && path === "/") {
+        target = "/supplier-center.html";
+      }
+
+      if (target) {
+        window.location.replace(target + window.location.search + window.location.hash);
+      }
+    }());
+  </script>
 </head>
 <body>
   <header>

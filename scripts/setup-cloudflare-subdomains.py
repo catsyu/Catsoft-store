@@ -11,11 +11,7 @@ ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "9b19f1b31d88513e013d1a522e
 API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN") or os.environ.get("CF_API_TOKEN")
 ZONE_NAME = os.environ.get("CLOUDFLARE_ZONE_NAME", "catsoft.store")
 TARGET_WORKER = os.environ.get("TARGET_WORKER", "catsoft")
-<<<<<<< HEAD
-=======
 DNS_TARGET = os.environ.get("CATSOFT_SUBDOMAIN_TARGET", "192.0.2.1")
-
->>>>>>> 29b22b3217ec1f43ed370f30f2c912c1e2f0fd59
 SUBDOMAINS = ("admin", "supplier")
 
 
@@ -24,7 +20,7 @@ def die(message):
     sys.exit(1)
 
 
-def request(method, path, payload=None):
+def request(method, path, payload=None, ignore_error_codes=None):
     if not API_TOKEN:
         die("Missing CLOUDFLARE_API_TOKEN or CF_API_TOKEN.")
 
@@ -52,6 +48,9 @@ def request(method, path, payload=None):
         text = error.read().decode("utf-8", errors="replace")
         try:
             parsed = json.loads(text)
+            errors = parsed.get("errors") or []
+            if any(item.get("code") in (ignore_error_codes or []) for item in errors):
+                return parsed
             details = json.dumps(parsed.get("errors") or parsed, indent=2)
         except Exception:
             details = text
@@ -61,55 +60,55 @@ def request(method, path, payload=None):
 def get_zone_id():
     query = urllib.parse.urlencode({"name": ZONE_NAME, "account.id": ACCOUNT_ID})
     result = request("GET", f"/zones?{query}").get("result") or []
+
     if not result:
         die(f"Zone not found: {ZONE_NAME}")
+
     return result[0]["id"]
 
 
-<<<<<<< HEAD
-def delete_manual_dns_records(zone_id, hostname):
+def remove_worker_custom_domain(hostname):
+    response = request("GET", f"/accounts/{ACCOUNT_ID}/workers/domains")
+    domains = response.get("result") or []
+    domain = next((item for item in domains if item.get("hostname") == hostname), None)
+
+    if not domain:
+        return
+
+    request("DELETE", f"/accounts/{ACCOUNT_ID}/workers/domains/{domain['id']}", ignore_error_codes={10016})
+    print(f"DOMAIN DEL {hostname}")
+
+
+def delete_dns_records(zone_id, hostname):
     query = urllib.parse.urlencode({"name": hostname})
     records = request("GET", f"/zones/{zone_id}/dns_records?{query}").get("result") or []
+
     for record in records:
-        request("DELETE", f"/zones/{zone_id}/dns_records/{record['id']}")
+        response = request(
+            "DELETE",
+            f"/zones/{zone_id}/dns_records/{record['id']}",
+            ignore_error_codes={1043},
+        )
+        if response.get("success") is False:
+            print(f"DNS SKIP {hostname} {record.get('type', '')} read-only")
+            continue
         print(f"DNS DEL {hostname} {record.get('type', '')}")
 
 
-def upsert_worker_custom_domain(hostname):
-    response = request(
-        "PUT",
-        f"/accounts/{ACCOUNT_ID}/workers/domains",
+def create_dns_record(zone_id, hostname):
+    request(
+        "POST",
+        f"/zones/{zone_id}/dns_records",
         {
-            "hostname": hostname,
-            "service": TARGET_WORKER,
-            "environment": "production",
+            "type": "A",
+            "name": hostname,
+            "content": DNS_TARGET,
+            "ttl": 1,
+            "proxied": True,
+            "comment": "Catsoft tools Worker hostname",
         },
     )
-    result = response.get("result") or {}
-    print(f"DOMAIN OK {hostname} -> {result.get('service', TARGET_WORKER)}")
-=======
-def upsert_dns_record(zone_id, hostname):
-    query = urllib.parse.urlencode({"name": hostname})
-    records = request("GET", f"/zones/{zone_id}/dns_records?{query}").get("result") or []
-    payload = {
-        "type": "A",
-        "name": hostname,
-        "content": DNS_TARGET,
-        "ttl": 1,
-        "proxied": True,
-        "comment": "Catsoft tools Worker hostname",
-    }
-
-    if records:
-        for record in records[1:]:
-            request("DELETE", f"/zones/{zone_id}/dns_records/{record['id']}")
-        request("PUT", f"/zones/{zone_id}/dns_records/{records[0]['id']}", payload)
-        print(f"DNS OK  {hostname} A {DNS_TARGET} (proxied)")
-        return
-
-    request("POST", f"/zones/{zone_id}/dns_records", payload)
     print(f"DNS ADD {hostname} A {DNS_TARGET} (proxied)")
->>>>>>> 29b22b3217ec1f43ed370f30f2c912c1e2f0fd59
 
 
 def upsert_worker_route(zone_id, pattern):
@@ -132,12 +131,9 @@ def main():
 
     for subdomain in SUBDOMAINS:
         hostname = f"{subdomain}.{ZONE_NAME}"
-<<<<<<< HEAD
-        delete_manual_dns_records(zone_id, hostname)
-        upsert_worker_custom_domain(hostname)
-=======
-        upsert_dns_record(zone_id, hostname)
->>>>>>> 29b22b3217ec1f43ed370f30f2c912c1e2f0fd59
+        remove_worker_custom_domain(hostname)
+        delete_dns_records(zone_id, hostname)
+        create_dns_record(zone_id, hostname)
         upsert_worker_route(zone_id, hostname)
         upsert_worker_route(zone_id, f"{hostname}/")
         upsert_worker_route(zone_id, f"{hostname}/*")

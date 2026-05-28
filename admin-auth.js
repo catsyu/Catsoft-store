@@ -12,18 +12,18 @@ let catsoftAdminAccountsRefreshTimer = null;
 let catsoftAdminHeartbeatTimer = null;
 
 const CATSOFT_ADMIN_TOOLS = [
-  { id: 'refund-calculator', label: 'Refund Calculator', path: 'refund-calculator.html' },
-  { id: 'customer-database', label: 'Customer Database', path: 'customer-database.html' },
-  { id: 'email-inbox', label: 'Email Inbox', path: 'email-inbox.html' },
-  { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html' },
-  { id: 'marketing-calculator', label: 'Marketing Calculator', path: 'marketing-calculator.html' },
-  { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html' },
-  { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html' },
-  { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', ownerOnly: true }
+  { id: 'refund-calculator', label: 'Refund Calculator', path: 'refund-calculator.html', route: '/refund' },
+  { id: 'customer-database', label: 'Customer Database', path: 'customer-database.html', route: '/customers' },
+  { id: 'email-inbox', label: 'Email Inbox', path: 'email-inbox.html', route: '/mail' },
+  { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html', route: '/office' },
+  { id: 'marketing-calculator', label: 'Marketing Calculator', path: 'marketing-calculator.html', route: '/marketing' },
+  { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html', route: '/content' },
+  { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html', route: '/supplier-access' },
+  { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', route: '/access', ownerOnly: true }
 ];
 
 const CATSOFT_SUPPLIER_TOOLS = [
-  { id: 'supplier-email', label: 'Email', path: 'supplier-email.html' }
+  { id: 'supplier-email', label: 'Email', path: 'supplier-email.html', route: '/mail' }
 ];
 
 const CATSOFT_SUPPLIER_DOMAINS = [
@@ -83,6 +83,11 @@ function getCurrentPageName() {
   return page || 'index.html';
 }
 
+function normalizeRoutePath(value) {
+  const clean = `/${String(value || '').replace(/^\/+|\/+$/g, '')}`;
+  return clean === '/' ? '/' : clean.toLowerCase();
+}
+
 function getDefaultAdminAccountsApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
@@ -118,7 +123,8 @@ function getDefaultSessionActivityApiEndpoint() {
 
 function getCurrentAdminToolId() {
   const pageName = getCurrentPageName();
-  const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.path === pageName);
+  const routePath = normalizeRoutePath(window.location.pathname);
+  const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.path === pageName || normalizeRoutePath(item.route) === routePath);
   return tool ? tool.id : '';
 }
 
@@ -1363,7 +1369,7 @@ function renderAccessDenied() {
       </div>
       <p>Akun ${escapeAdminHtml(admin ? admin.username : 'admin')} belum diberi akses ke halaman ini.</p>
       <div class="admin-denied-actions">
-        <a class="admin-login-submit" href="admin-tools.html">Kembali</a>
+        <a class="admin-login-submit" href="https://admin.catsoft.store/">Kembali</a>
         <button class="admin-login-submit" id="adminLogoutDenied" type="button">Logout</button>
       </div>
       </div>
@@ -1372,7 +1378,7 @@ function renderAccessDenied() {
 
   document.getElementById('adminLogoutDenied').addEventListener('click', () => {
     clearAdminSession();
-    window.location.href = 'admin-tools.html';
+    window.location.href = 'https://admin.catsoft.store/';
   });
 }
 
@@ -1523,7 +1529,7 @@ function addSessionControls() {
   sessionBar.querySelector('[data-admin-password]').addEventListener('click', showAdminPasswordDialog);
   sessionBar.querySelector('[data-admin-logout]').addEventListener('click', () => {
     clearAdminSession();
-    window.location.href = 'admin-tools.html';
+    window.location.href = 'https://admin.catsoft.store/';
   });
 }
 
@@ -1540,7 +1546,47 @@ function filterAdminToolCards() {
       visibleCount += 1;
     }
   });
+
+  document.querySelectorAll('[data-tools-category]').forEach((category) => {
+    category.hidden = !category.querySelector('[data-admin-tool-card]:not([hidden])');
+  });
+
   updateAdminToolsSummary(admin, visibleCount);
+}
+
+function enableAdminToolAccordions() {
+  document.querySelectorAll('[data-tools-category]').forEach((category) => {
+    if (category.dataset.accordionReady === 'true') {
+      return;
+    }
+
+    category.dataset.accordionReady = 'true';
+    category.addEventListener('toggle', () => {
+      if (!category.open) {
+        return;
+      }
+
+      document.querySelectorAll('[data-tools-category][open]').forEach((otherCategory) => {
+        if (otherCategory !== category) {
+          otherCategory.open = false;
+        }
+      });
+    });
+  });
+
+  document.querySelectorAll('.tools-console-nav a[href^="#"]').forEach((link) => {
+    if (link.dataset.navReady === 'true') {
+      return;
+    }
+
+    link.dataset.navReady = 'true';
+    link.addEventListener('click', () => {
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target && target.matches('[data-tools-category]')) {
+        target.open = true;
+      }
+    });
+  });
 }
 
 function updateAdminToolsSummary(admin, visibleCount) {
@@ -2335,6 +2381,7 @@ function initAdminAuth() {
   window.CATSOFT_ADMIN_AUTHORIZED = true;
   addSessionControls();
   filterAdminToolCards();
+  enableAdminToolAccordions();
   renderOwnerAccessPanel();
   renderSupplierAccessPanel();
   startAdminAccountsAutoRefresh();

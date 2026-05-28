@@ -21,7 +21,7 @@
         </div>
       </div>
       <nav class="admin-nav" aria-label="Navigasi admin">
-        <a class="ghost-button" href="index.html">Website</a>
+        <a class="ghost-button" href="https://catsoft.store/">Website</a>
       </nav>
     </header>
 
@@ -47,162 +47,175 @@
       <div class="section-title-row">
         <div>
           <span class="section-kicker">Tools aktif</span>
-          <h2 id="activeToolsTitle">Pilih Tool</h2>
+          <h2 id="activeToolsTitle">Pilih berdasarkan kebutuhan</h2>
         </div>
       </div>
 
-      <div class="tools-grid">
-        <article class="tool-card owner-tool-card" data-admin-tool-card="admin-access">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Owner</span>
-              <span class="tool-category">Access</span>
-            </div>
-            <h3>Admin Access</h3>
-            <p>Kelola akun admin, tentukan tool yang bisa dibuka, dan atur akses Email Inbox berdasarkan layanan seperti OpenAI, Adobe, Canva, domain, alamat email, atau keyword custom.</p>
-            <ul class="tool-features">
-              <li>Tambah, edit, dan hapus akun admin.</li>
-              <li>Permission per tool untuk setiap admin.</li>
-              <li>Rule inbox fleksibel untuk semua email masuk.</li>
-            </ul>
-          </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="admin-access.html">Kelola Akses</a>
-          </div>
-        </article>
+      <div class="tools-console-shell">
+        <aside class="tools-console-nav" aria-label="Kategori admin tools">
+          <a href="#category-access">Pengaturan Akun</a>
+          <a href="#category-operasional">Order & Customer</a>
+          <a href="#category-support">Email & Aktivasi</a>
+          <a href="#category-growth">Marketing & Website</a>
+        </aside>
 
-        <article class="tool-card owner-tool-card" data-admin-tool-card="supplier-access">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Access</span>
-              <span class="tool-category">Supplier</span>
+        <div class="tools-category-list">
+        <details class="tools-category" id="category-access" data-tools-category>
+          <summary class="tools-category-head">
+            <div>
+              <span class="section-kicker">Access</span>
+              <h3>Pengaturan Akun</h3>
             </div>
-            <h3>Supplier Center Access</h3>
-            <p>Kelola akun supplier, tentukan tool Supplier Center yang bisa dibuka, dan batasi Email Temp Mail berdasarkan layanan, domain, alamat email, atau keyword custom.</p>
-            <ul class="tool-features">
-              <li>OwnerCatsoft dan AdminCatsoft yang diberi akses bisa membuat supplier.</li>
-              <li>Permission Email Supplier Center per akun.</li>
-              <li>Rule temp mail memakai pola yang sama seperti Admin Access.</li>
-            </ul>
-          </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="supplier-access.html">Kelola Supplier</a>
-          </div>
-        </article>
+            <span class="category-count">Owner</span>
+          </summary>
+          <div class="tools-grid compact-tools-grid">
+            <article class="tool-card owner-tool-card" data-admin-tool-card="admin-access">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Owner</span>
+                  <span class="tool-category">Admin</span>
+                </div>
+                <h3>Admin Access</h3>
+                <p>Kelola admin, password, akses tool, dan rule inbox.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/access">Kelola</a>
+              </div>
+            </article>
 
-        <article class="tool-card" data-admin-tool-card="refund-calculator">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Aktif</span>
-              <span class="tool-category">Refund</span>
-            </div>
-            <h3>Refund Calculator</h3>
-            <p>Menghitung nominal refund berdasarkan penghasilan akhir, durasi langganan, masa terpakai, sisa aktif, potongan operasional, serta MDR QRIS untuk bukti bayar bank.</p>
-            <ul class="tool-features">
-              <li>Upload screenshot pesanan atau bukti pembayaran.</li>
-              <li>Deteksi QRIS dan MDR 0,3% otomatis di belakang layar.</li>
-              <li>Output siap copy sesuai template refund Catsoft.</li>
-            </ul>
+            <article class="tool-card owner-tool-card" data-admin-tool-card="supplier-access">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Owner</span>
+                  <span class="tool-category">Supplier</span>
+                </div>
+                <h3>Supplier Access</h3>
+                <p>Kelola akun supplier dan akses Email Supplier Center.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/supplier-access">Kelola</a>
+              </div>
+            </article>
           </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="refund-calculator.html">Buka Tool</a>
-          </div>
-        </article>
+        </details>
 
-        <article class="tool-card" data-admin-tool-card="customer-database">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Aktif</span>
-              <span class="tool-category">Customer</span>
+        <details class="tools-category" id="category-operasional" data-tools-category>
+          <summary class="tools-category-head">
+            <div>
+              <span class="section-kicker">Operasional</span>
+              <h3>Order & Customer</h3>
             </div>
-            <h3>Customer Database</h3>
-            <p>Mencatat customer langganan dari screenshot pesanan, lengkap dengan produk, durasi, tanggal mulai, tanggal expire, status, email aktivasi/link target, nomor pesanan, dan WhatsApp.</p>
-            <ul class="tool-features">
-              <li>OCR screenshot rincian pesanan untuk isi data awal.</li>
-              <li>Filter customer yang expire hari ini, besok, atau 7 hari.</li>
-              <li>Export dan import database untuk backup antar admin.</li>
-            </ul>
-          </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="customer-database.html">Buka Tool</a>
-          </div>
-        </article>
+            <span class="category-count">Harian</span>
+          </summary>
+          <div class="tools-grid compact-tools-grid">
+            <article class="tool-card" data-admin-tool-card="customer-database">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Aktif</span>
+                  <span class="tool-category">Customer</span>
+                </div>
+                <h3>Customer Database</h3>
+                <p>Catat customer, produk, tanggal expire, status, dan data pesanan.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/customers">Buka</a>
+              </div>
+            </article>
 
-        <article class="tool-card" data-admin-tool-card="email-inbox">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Baru</span>
-              <span class="tool-category">Email</span>
-            </div>
-            <h3>Email Inbox</h3>
-            <p>Memantau email routing Catsoft berdasarkan penerima, kategori layanan, status baca, dan keyword isi email untuk kebutuhan OTP serta support admin.</p>
-            <ul class="tool-features">
-              <li>Filter email penerima seperti Chatgpt@catsoft.store.</li>
-              <li>Kategori cepat untuk ChatGPT, Adobe, Canva, dan support.</li>
-              <li>Detail email dengan tombol copy penerima, isi email, dan OTP.</li>
-            </ul>
+            <article class="tool-card" data-admin-tool-card="refund-calculator">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Aktif</span>
+                  <span class="tool-category">Refund</span>
+                </div>
+                <h3>Refund Calculator</h3>
+                <p>Hitung refund, sisa masa aktif, potongan, dan output siap copy.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/refund">Buka</a>
+              </div>
+            </article>
           </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="email-inbox.html">Buka Tool</a>
-          </div>
-        </article>
+        </details>
 
-        <article class="tool-card" data-admin-tool-card="office-activation">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Baru</span>
-              <span class="tool-category">Office</span>
+        <details class="tools-category" id="category-support" data-tools-category>
+          <summary class="tools-category-head">
+            <div>
+              <span class="section-kicker">Support</span>
+              <h3>Email & Aktivasi</h3>
             </div>
-            <h3>Office Activation</h3>
-            <p>Membaca screenshot Installation ID customer, mengirim kode ke seller lewat endpoint Catsoft, lalu menampilkan Confirmation ID langsung di halaman admin.</p>
-            <ul class="tool-features">
-              <li>Upload screenshot dan OCR Installation ID otomatis.</li>
-              <li>Proxy Cloudflare Worker ke Lastoria License.</li>
-              <li>Output Confirmation ID dengan link aktivasi manual.</li>
-            </ul>
-          </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="office-activation.html">Buka Tool</a>
-          </div>
-        </article>
+            <span class="category-count">Support</span>
+          </summary>
+          <div class="tools-grid compact-tools-grid">
+            <article class="tool-card" data-admin-tool-card="email-inbox">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Baru</span>
+                  <span class="tool-category">Email</span>
+                </div>
+                <h3>Email Inbox</h3>
+                <p>Pantau email, OTP, penerima, status baca, dan temp mail admin.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/mail">Buka</a>
+              </div>
+            </article>
 
-        <article class="tool-card" data-admin-tool-card="marketing-calculator">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Baru</span>
-              <span class="tool-category">Marketing</span>
-            </div>
-            <h3>Marketing Calculator</h3>
-            <p>Menghitung HPP, fee Shopee, biaya iklan, ROAS, margin bersih, dan harga minimal agar campaign tetap profit.</p>
-            <ul class="tool-features">
-              <li>Default fee Shopee: admin 6,75%, program 4,5%, pemrosesan Rp1.250, iklan 10%.</li>
-              <li>Setting biaya bisa diubah dan disimpan ke database.</li>
-              <li>Output budget iklan aman, break even ROAS, dan target harga jual.</li>
-            </ul>
+            <article class="tool-card" data-admin-tool-card="office-activation">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Baru</span>
+                  <span class="tool-category">Office</span>
+                </div>
+                <h3>Office Activation</h3>
+                <p>Baca Installation ID dan tampilkan Confirmation ID untuk customer.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/office">Buka</a>
+              </div>
+            </article>
           </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="marketing-calculator.html">Buka Tool</a>
-          </div>
-        </article>
+        </details>
 
-        <article class="tool-card" data-admin-tool-card="content-editor">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Baru</span>
-              <span class="tool-category">Konten</span>
+        <details class="tools-category" id="category-growth" data-tools-category>
+          <summary class="tools-category-head">
+            <div>
+              <span class="section-kicker">Growth</span>
+              <h3>Marketing & Website</h3>
             </div>
-            <h3>Content Editor</h3>
-            <p>Edit pricelist, paket, deskripsi produk, ketentuan, catatan order, dan tombol tutorial yang muncul di popup produk Catsoft.</p>
-            <ul class="tool-features">
-              <li>Editor paket dan harga per produk.</li>
-              <li>Editor ringkasan, ketentuan, dan catatan.</li>
-              <li>Import, export, reset, dan preview website.</li>
-            </ul>
+            <span class="category-count">Strategi</span>
+          </summary>
+          <div class="tools-grid compact-tools-grid">
+            <article class="tool-card" data-admin-tool-card="marketing-calculator">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Baru</span>
+                  <span class="tool-category">Marketing</span>
+                </div>
+                <h3>Marketing Simulator</h3>
+                <p>Simulasi harga jual, HPP, fee Shopee, iklan, ROAS, dan profit.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/marketing">Buka</a>
+              </div>
+            </article>
+
+            <article class="tool-card" data-admin-tool-card="content-editor">
+              <div class="tool-card-content">
+                <div class="tool-card-top">
+                  <span class="tool-status">Baru</span>
+                  <span class="tool-category">Konten</span>
+                </div>
+                <h3>Content Editor</h3>
+                <p>Edit pricelist, paket, deskripsi produk, catatan, dan tutorial.</p>
+              </div>
+              <div class="tool-card-actions">
+                <a class="primary-button" href="https://admin.catsoft.store/content">Buka</a>
+              </div>
+            </article>
           </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="content-editor.html">Buka Tool</a>
-          </div>
-        </article>
+        </details>
+        </div>
       </div>
     </section>
   </main>

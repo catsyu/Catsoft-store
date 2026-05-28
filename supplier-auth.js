@@ -5,7 +5,7 @@ const CATSOFT_SUPPLIER_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_AP
 let catsoftSupplierHeartbeatTimer = null;
 
 const CATSOFT_SUPPLIER_TOOLS = [
-  { id: 'supplier-email', label: 'Email', path: 'supplier-email.html' }
+  { id: 'supplier-email', label: 'Email', path: 'supplier-email.html', route: '/mail' }
 ];
 
 const CATSOFT_SUPPLIER_DOMAINS = [
@@ -55,9 +55,15 @@ function getSupplierPageName() {
   return page || 'supplier-center.html';
 }
 
+function normalizeSupplierRoutePath(value) {
+  const clean = `/${String(value || '').replace(/^\/+|\/+$/g, '')}`;
+  return clean === '/' ? '/' : clean.toLowerCase();
+}
+
 function getCurrentSupplierToolId() {
   const pageName = getSupplierPageName();
-  const tool = CATSOFT_SUPPLIER_TOOLS.find((item) => item.path === pageName);
+  const routePath = normalizeSupplierRoutePath(window.location.pathname);
+  const tool = CATSOFT_SUPPLIER_TOOLS.find((item) => item.path === pageName || normalizeSupplierRoutePath(item.route) === routePath);
   return tool ? tool.id : '';
 }
 
@@ -847,7 +853,7 @@ function renderSupplierDenied() {
         </div>
         <p>Akun ${escapeSupplierHtml(supplier ? supplier.username : 'supplier')} belum diberi akses ke halaman ini.</p>
         <div class="admin-denied-actions">
-          <a class="admin-login-submit" href="supplier-center.html">Kembali</a>
+          <a class="admin-login-submit" href="https://supplier.catsoft.store/">Kembali</a>
           <button class="admin-login-submit" id="supplierLogoutDenied" type="button">Logout</button>
         </div>
       </div>
@@ -856,7 +862,7 @@ function renderSupplierDenied() {
 
   document.getElementById('supplierLogoutDenied').addEventListener('click', () => {
     clearSupplierSession();
-    window.location.href = 'supplier-center.html';
+    window.location.href = 'https://supplier.catsoft.store/';
   });
 }
 
@@ -887,7 +893,7 @@ function addSupplierSessionControls() {
   sessionBar.querySelector('[data-supplier-password]').addEventListener('click', showSupplierPasswordDialog);
   sessionBar.querySelector('[data-supplier-logout]').addEventListener('click', () => {
     clearSupplierSession();
-    window.location.href = 'supplier-center.html';
+    window.location.href = 'https://supplier.catsoft.store/';
   });
 }
 

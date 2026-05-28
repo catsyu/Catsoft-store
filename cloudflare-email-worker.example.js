@@ -189,32 +189,90 @@ const staticRouteFallbacks = new Map([
   ['/kontak', '/index.html']
 ]);
 
+const adminHostRouteFallbacks = new Map([
+  ['/', '/admin-tools.html'],
+  ['/access', '/admin-access.html'],
+  ['/supplier-access', '/supplier-access.html'],
+  ['/customers', '/customer-database.html'],
+  ['/refund', '/refund-calculator.html'],
+  ['/mail', '/email-inbox.html'],
+  ['/office', '/office-activation.html'],
+  ['/marketing', '/marketing-calculator.html'],
+  ['/content', '/content-editor.html']
+]);
+
+const supplierHostRouteFallbacks = new Map([
+  ['/', '/supplier-center.html'],
+  ['/mail', '/supplier-email.html']
+]);
+
 async function serveStaticAsset(request, env) {
   const url = new URL(request.url);
+  const routedRequest = getHostRoutedStaticRequest(request, url);
+  const routedUrl = new URL(routedRequest.url);
+  const fallbackPath = getStaticFallbackPath(routedUrl.pathname, routedUrl.hostname) || routedUrl.pathname;
+
+  if (isToolsHostname(routedUrl.hostname)) {
+    const githubResponse = await fetchGitHubStaticAsset(fallbackPath, routedUrl.search);
+
+    if (githubResponse.status !== 404) {
+      return githubResponse;
+    }
+  }
 
   if (env.ASSETS) {
-    const response = await env.ASSETS.fetch(request);
+    const response = await env.ASSETS.fetch(routedRequest);
 
     if (response.status !== 404) {
       return response;
     }
   }
 
-  const fallbackPath = getStaticFallbackPath(url.pathname) || url.pathname;
-
-  if (env.ASSETS && fallbackPath !== url.pathname) {
-    const fallbackUrl = new URL(request.url);
+  if (env.ASSETS && fallbackPath !== routedUrl.pathname) {
+    const fallbackUrl = new URL(routedRequest.url);
     fallbackUrl.pathname = fallbackPath;
-    fallbackUrl.search = url.search;
+    fallbackUrl.search = routedUrl.search;
 
-    const response = await env.ASSETS.fetch(new Request(fallbackUrl.toString(), request));
+    const response = await env.ASSETS.fetch(new Request(fallbackUrl.toString(), routedRequest));
 
     if (response.status !== 404) {
       return response;
     }
   }
 
-  return fetchGitHubStaticAsset(fallbackPath, url.search);
+  return fetchGitHubStaticAsset(fallbackPath, routedUrl.search);
+}
+
+function isToolsHostname(hostname) {
+  const normalizedHost = String(hostname || '').toLowerCase();
+  return normalizedHost === 'admin.catsoft.store' || normalizedHost === 'supplier.catsoft.store';
+}
+
+function getHostRoutedStaticRequest(request, url) {
+  const routedPath = getHostRoutedStaticPath(url.pathname, url.hostname);
+
+  if (!routedPath || routedPath === url.pathname) {
+    return request;
+  }
+
+  const routedUrl = new URL(url.toString());
+  routedUrl.pathname = routedPath;
+  return new Request(routedUrl.toString(), request);
+}
+
+function getHostRoutedStaticPath(pathname, hostname) {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const normalizedHost = String(hostname || '').toLowerCase();
+
+  if (normalizedHost === 'admin.catsoft.store' && adminHostRouteFallbacks.has(normalizedPath)) {
+    return adminHostRouteFallbacks.get(normalizedPath);
+  }
+
+  if (normalizedHost === 'supplier.catsoft.store' && supplierHostRouteFallbacks.has(normalizedPath)) {
+    return supplierHostRouteFallbacks.get(normalizedPath);
+  }
+
+  return '';
 }
 
 async function fetchGitHubStaticAsset(pathname, search = '') {
@@ -244,8 +302,13 @@ async function fetchGitHubStaticAsset(pathname, search = '') {
   });
 }
 
-function getStaticFallbackPath(pathname) {
+function getStaticFallbackPath(pathname, hostname = '') {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const hostRoute = getHostRoutedStaticPath(normalizedPath, hostname);
+
+  if (hostRoute) {
+    return hostRoute;
+  }
 
   if (normalizedPath === '/') {
     return '/index.html';

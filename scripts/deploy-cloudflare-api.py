@@ -118,13 +118,12 @@ def upload_worker():
         disposition = f'form-data; name="{name}"'
         if filename:
             disposition += f'; filename="{filename}"'
-        headers = [
-            f"--{boundary}",
-            f"Content-Disposition: {disposition}",
-            f"Content-Type: {content_type}",
-            "",
-        ]
-        parts.append("\r\n".join(headers).encode("utf-8") + value + b"\r\n")
+        headers = (
+            f"--{boundary}\r\n"
+            f"Content-Disposition: {disposition}\r\n"
+            f"Content-Type: {content_type}\r\n\r\n"
+        )
+        parts.append(headers.encode("utf-8") + value + b"\r\n")
 
     add_part("metadata", json.dumps(metadata).encode("utf-8"))
     add_part(

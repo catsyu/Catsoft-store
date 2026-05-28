@@ -13,3 +13,14 @@
 /testimoni /index.html 200
 /faq /index.html 200
 /kontak /index.html 200
+/admin /admin-tools.html 200
+/admin/access /admin-access.html 200
+/admin/supplier-access /supplier-access.html 200
+/admin/customers /customer-database.html 200
+/admin/refund /refund-calculator.html 200
+/admin/mail /email-inbox.html 200
+/admin/office /office-activation.html 200
+/admin/marketing /marketing-calculator.html 200
+/admin/content /content-editor.html 200
+/supplier /supplier-center.html 200
+/supplier/mail /supplier-email.html 200

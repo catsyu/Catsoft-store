@@ -8,6 +8,12 @@ catsoft.store/api/admin-accounts*
 www.catsoft.store/api/admin-accounts*
 catsoft.store/api/supplier-accounts*
 www.catsoft.store/api/supplier-accounts*
+catsoft.store/api/session-activity*
+www.catsoft.store/api/session-activity*
+catsoft.store/api/tool-settings*
+www.catsoft.store/api/tool-settings*
+catsoft.store/api/audit-logs*
+www.catsoft.store/api/audit-logs*
 catsoft.digital/api/email-messages*
 www.catsoft.digital/api/email-messages*
 catsoft.digital/api/customer-records*
@@ -18,6 +24,12 @@ catsoft.digital/api/admin-accounts*
 www.catsoft.digital/api/admin-accounts*
 catsoft.digital/api/supplier-accounts*
 www.catsoft.digital/api/supplier-accounts*
+catsoft.digital/api/session-activity*
+www.catsoft.digital/api/session-activity*
+catsoft.digital/api/tool-settings*
+www.catsoft.digital/api/tool-settings*
+catsoft.digital/api/audit-logs*
+www.catsoft.digital/api/audit-logs*
 catsoft.online/api/email-messages*
 www.catsoft.online/api/email-messages*
 catsoft.online/api/customer-records*
@@ -28,3 +40,9 @@ catsoft.online/api/admin-accounts*
 www.catsoft.online/api/admin-accounts*
 catsoft.online/api/supplier-accounts*
 www.catsoft.online/api/supplier-accounts*
+catsoft.online/api/session-activity*
+www.catsoft.online/api/session-activity*
+catsoft.online/api/tool-settings*
+www.catsoft.online/api/tool-settings*
+catsoft.online/api/audit-logs*
+www.catsoft.online/api/audit-logs*

@@ -16,8 +16,9 @@ function normalizeTempMailAlias(value) {
 
 function getSupplierDefaultAlias() {
   const supplier = window.CatsoftSupplierAuth ? window.CatsoftSupplierAuth.getCurrentSupplier() : null;
-  const username = supplier ? supplier.username : 'supplier-openai';
-  return normalizeTempMailAlias(username) || 'supplier-openai';
+  const admin = window.CatsoftAdminAuth ? window.CatsoftAdminAuth.getCurrentAdmin() : null;
+  const username = supplier ? supplier.username : admin ? admin.username : 'chatgpt';
+  return normalizeTempMailAlias(username) || 'chatgpt';
 }
 
 function buildTempMailAddress() {
@@ -30,6 +31,10 @@ function getAllowedTempMailDomains() {
   if (window.CatsoftSupplierAuth && typeof window.CatsoftSupplierAuth.getAllowedDomains === 'function') {
     const domains = window.CatsoftSupplierAuth.getAllowedDomains();
     return Array.isArray(domains) && domains.length ? domains : fallbackTempMailDomains;
+  }
+
+  if (window.CatsoftAdminAuth && window.CatsoftAdminAuth.getCurrentAdmin()) {
+    return ['catsoft.store', 'catsoft.digital', 'catsoft.online'];
   }
 
   return fallbackTempMailDomains;

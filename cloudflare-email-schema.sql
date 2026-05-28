@@ -33,9 +33,14 @@ CREATE INDEX IF NOT EXISTS idx_email_messages_deleted_at
 CREATE TABLE IF NOT EXISTS admin_accounts (
   username TEXT PRIMARY KEY,
   password TEXT NOT NULL,
+  password_hash TEXT,
   tools TEXT NOT NULL DEFAULT '[]',
   inbox_access_all INTEGER NOT NULL DEFAULT 0,
   inbox_rules TEXT NOT NULL DEFAULT '[]',
+  last_login_at TEXT,
+  active_at TEXT,
+  login_count_today INTEGER NOT NULL DEFAULT 0,
+  login_count_date TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -46,11 +51,16 @@ CREATE INDEX IF NOT EXISTS idx_admin_accounts_updated_at
 CREATE TABLE IF NOT EXISTS supplier_accounts (
   username TEXT PRIMARY KEY,
   password TEXT NOT NULL,
+  password_hash TEXT,
   tools TEXT NOT NULL DEFAULT '[]',
   allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
   inbox_access_all INTEGER NOT NULL DEFAULT 0,
   inbox_rules TEXT NOT NULL DEFAULT '[]',
   created_by TEXT,
+  last_login_at TEXT,
+  active_at TEXT,
+  login_count_today INTEGER NOT NULL DEFAULT 0,
+  login_count_date TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -98,6 +108,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
   ON customer_records (LOWER(order_number))
   WHERE order_number IS NOT NULL AND order_number != '';
 
+CREATE TABLE IF NOT EXISTS tool_settings (
+  tool_id TEXT PRIMARY KEY,
+  settings TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id TEXT PRIMARY KEY,
+  actor_role TEXT,
+  actor_username TEXT,
+  action TEXT NOT NULL,
+  target_type TEXT,
+  target_id TEXT,
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+  ON audit_logs (created_at DESC);
+
 -- Run these if the table already existed before the full schema was added.
 -- D1 will error if a column already exists, so use the dashboard Console and
 -- run only the ALTER statements for columns that are missing.
@@ -136,3 +166,30 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
 --   updated_at TEXT NOT NULL
 -- );
 -- ALTER TABLE supplier_accounts ADD COLUMN allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]';
+-- ALTER TABLE admin_accounts ADD COLUMN password_hash TEXT;
+-- ALTER TABLE supplier_accounts ADD COLUMN password_hash TEXT;
+-- ALTER TABLE admin_accounts ADD COLUMN last_login_at TEXT;
+-- ALTER TABLE admin_accounts ADD COLUMN active_at TEXT;
+-- ALTER TABLE admin_accounts ADD COLUMN login_count_today INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE admin_accounts ADD COLUMN login_count_date TEXT;
+-- ALTER TABLE supplier_accounts ADD COLUMN last_login_at TEXT;
+-- ALTER TABLE supplier_accounts ADD COLUMN active_at TEXT;
+-- ALTER TABLE supplier_accounts ADD COLUMN login_count_today INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE supplier_accounts ADD COLUMN login_count_date TEXT;
+-- CREATE TABLE IF NOT EXISTS tool_settings (
+--   tool_id TEXT PRIMARY KEY,
+--   settings TEXT NOT NULL DEFAULT '{}',
+--   updated_at TEXT NOT NULL
+-- );
+-- CREATE TABLE IF NOT EXISTS audit_logs (
+--   id TEXT PRIMARY KEY,
+--   actor_role TEXT,
+--   actor_username TEXT,
+--   action TEXT NOT NULL,
+--   target_type TEXT,
+--   target_id TEXT,
+--   metadata TEXT NOT NULL DEFAULT '{}',
+--   created_at TEXT NOT NULL
+-- );
+-- CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+--   ON audit_logs (created_at DESC);

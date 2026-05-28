@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="email-inbox.css" />
+  <link rel="stylesheet" href="form-standard.css" />
 </head>
 <body>
   <main class="email-page">
@@ -36,15 +37,34 @@
         </div>
 
         <div class="stats-grid" aria-label="Ringkasan email">
-          <button class="stat-card" type="button" data-stat-filter="all">
+          <button class="stat-card compact-stat" type="button" data-stat-filter="all">
             <span>Total</span>
-            <strong id="totalCount">0</strong>
           </button>
           <button class="stat-card urgent" type="button" data-stat-filter="unread">
             <span>Belum dibaca</span>
             <strong id="unreadCount">0</strong>
           </button>
         </div>
+
+        <section class="temp-mail-panel" aria-label="Buat alamat email admin">
+          <label class="field-group">
+            <span>Alias</span>
+            <input id="tempMailAlias" type="text" inputmode="email" placeholder="chatgpt" autocomplete="off" />
+          </label>
+          <label class="field-group">
+            <span>Domain</span>
+            <select id="tempMailDomain">
+              <option value="catsoft.store">catsoft.store</option>
+              <option value="catsoft.digital">catsoft.digital</option>
+              <option value="catsoft.online">catsoft.online</option>
+            </select>
+          </label>
+          <div class="temp-mail-output">
+            <span id="tempMailAddress">chatgpt@catsoft.store</span>
+            <button class="secondary-button" id="copyTempMailAddress" type="button">Copy Email</button>
+          </div>
+          <p class="temp-mail-status" id="tempMailStatus" aria-live="polite"></p>
+        </section>
 
         <button class="mobile-collapse-toggle" id="emailControlToggle" type="button" aria-expanded="false" aria-controls="emailControlPanel">
           <span>Filter &amp; bulk action</span>
@@ -127,6 +147,7 @@
   </main>
 
   <script src="admin-auth.js?v=20260527-1" defer></script>
+  <script src="supplier-email.js?v=20260528-1" defer></script>
   <script src="email-inbox.js?v=20260527-2" defer></script>
 </body>
 </html>

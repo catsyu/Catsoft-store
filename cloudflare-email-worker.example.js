@@ -97,6 +97,22 @@ export default {
       return saveSupplierAccountsApi(request, env);
     }
 
+    if (url.pathname === '/api/session-activity' && request.method === 'POST') {
+      return saveSessionActivity(request, env);
+    }
+
+    if (url.pathname === '/api/audit-logs' && request.method === 'GET') {
+      return listAuditLogs(request, env);
+    }
+
+    if (url.pathname === '/api/tool-settings/marketing-calculator' && request.method === 'GET') {
+      return getToolSetting(request, env, 'marketing-calculator');
+    }
+
+    if (url.pathname === '/api/tool-settings/marketing-calculator' && request.method === 'POST') {
+      return saveToolSetting(request, env, 'marketing-calculator');
+    }
+
     if (url.pathname === '/api/customer-records' && request.method === 'GET') {
       return listCustomerRecords(request, env);
     }
@@ -594,6 +610,7 @@ async function ensureAdminAccountsTable(adminDb) {
     CREATE TABLE IF NOT EXISTS admin_accounts (
       username TEXT PRIMARY KEY,
       password TEXT NOT NULL,
+      password_hash TEXT,
       tools TEXT NOT NULL DEFAULT '[]',
       inbox_access_all INTEGER NOT NULL DEFAULT 0,
       inbox_rules TEXT NOT NULL DEFAULT '[]',
@@ -606,6 +623,12 @@ async function ensureAdminAccountsTable(adminDb) {
     CREATE INDEX IF NOT EXISTS idx_admin_accounts_updated_at
     ON admin_accounts (updated_at DESC)
   `).run();
+
+  await addColumnIfMissing(adminDb, 'admin_accounts', 'last_login_at', 'TEXT');
+  await addColumnIfMissing(adminDb, 'admin_accounts', 'password_hash', 'TEXT');
+  await addColumnIfMissing(adminDb, 'admin_accounts', 'active_at', 'TEXT');
+  await addColumnIfMissing(adminDb, 'admin_accounts', 'login_count_today', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissing(adminDb, 'admin_accounts', 'login_count_date', 'TEXT');
 }
 
 function parseJsonArray(value) {
@@ -621,9 +644,14 @@ function mapAdminAccountRow(row) {
   return {
     username: row.username,
     password: row.password,
+    passwordHash: row.password_hash || '',
     tools: parseJsonArray(row.tools),
     inboxAccessAll: Boolean(row.inbox_access_all),
     inboxRules: parseJsonArray(row.inbox_rules),
+    lastLoginAt: row.last_login_at || '',
+    activeAt: row.active_at || '',
+    loginCountToday: Number(row.login_count_today || 0),
+    loginCountDate: row.login_count_date || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -651,6 +679,7 @@ async function ensureSupplierAccountsTable(adminDb) {
     CREATE TABLE IF NOT EXISTS supplier_accounts (
       username TEXT PRIMARY KEY,
       password TEXT NOT NULL,
+      password_hash TEXT,
       tools TEXT NOT NULL DEFAULT '[]',
       allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
       inbox_access_all INTEGER NOT NULL DEFAULT 0,
@@ -672,17 +701,27 @@ async function ensureSupplierAccountsTable(adminDb) {
     'allowed_domains',
     'TEXT NOT NULL DEFAULT \'["catsoft.store","catsoft.digital","catsoft.online"]\''
   );
+  await addColumnIfMissing(adminDb, 'supplier_accounts', 'password_hash', 'TEXT');
+  await addColumnIfMissing(adminDb, 'supplier_accounts', 'last_login_at', 'TEXT');
+  await addColumnIfMissing(adminDb, 'supplier_accounts', 'active_at', 'TEXT');
+  await addColumnIfMissing(adminDb, 'supplier_accounts', 'login_count_today', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissing(adminDb, 'supplier_accounts', 'login_count_date', 'TEXT');
 }
 
 function mapSupplierAccountRow(row) {
   return {
     username: row.username,
     password: row.password,
+    passwordHash: row.password_hash || '',
     tools: parseJsonArray(row.tools),
     allowedDomains: parseJsonArray(row.allowed_domains),
     inboxAccessAll: Boolean(row.inbox_access_all),
     inboxRules: parseJsonArray(row.inbox_rules),
     createdBy: row.created_by || '',
+    lastLoginAt: row.last_login_at || '',
+    activeAt: row.active_at || '',
+    loginCountToday: Number(row.login_count_today || 0),
+    loginCountDate: row.login_count_date || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -698,7 +737,8 @@ async function listAdminAccounts(request, env) {
   await ensureAdminAccountsTable(adminDb);
 
   const result = await adminDb.prepare(`
-    SELECT username, password, tools, inbox_access_all, inbox_rules, created_at, updated_at
+    SELECT username, password, password_hash, tools, inbox_access_all, inbox_rules,
+      last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
     FROM admin_accounts
     ORDER BY updated_at DESC
   `).all();
@@ -728,28 +768,40 @@ async function saveAdminAccountsApi(request, env) {
   accounts.forEach((account) => {
     const username = String(account.username || '').trim();
     const password = String(account.password || '');
+    const passwordHash = String(account.passwordHash || account.password_hash || '');
 
-    if (!username || !password) {
+    if (!username || (!password && !passwordHash)) {
       return;
     }
 
     statements.push(adminDb.prepare(`
       INSERT INTO admin_accounts (
-        username, password, tools, inbox_access_all, inbox_rules, created_at, updated_at
+        username, password, password_hash, tools, inbox_access_all, inbox_rules,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(username) DO UPDATE SET
         password = excluded.password,
+        password_hash = excluded.password_hash,
         tools = excluded.tools,
         inbox_access_all = excluded.inbox_access_all,
         inbox_rules = excluded.inbox_rules,
+        last_login_at = COALESCE(excluded.last_login_at, admin_accounts.last_login_at),
+        active_at = COALESCE(excluded.active_at, admin_accounts.active_at),
+        login_count_today = excluded.login_count_today,
+        login_count_date = COALESCE(excluded.login_count_date, admin_accounts.login_count_date),
         updated_at = excluded.updated_at
     `).bind(
       username,
       password,
+      passwordHash || null,
       JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
       account.inboxAccessAll ? 1 : 0,
       JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
+      account.lastLoginAt || null,
+      account.activeAt || null,
+      Number(account.loginCountToday || 0),
+      account.loginCountDate || null,
       account.createdAt || now,
       account.updatedAt || now
     ));
@@ -765,6 +817,13 @@ async function saveAdminAccountsApi(request, env) {
     await adminDb.batch(statements);
   }
 
+  await saveAuditLog(adminDb, {
+    action: 'admin_accounts_saved',
+    targetType: 'admin_accounts',
+    targetId: String(accounts.length),
+    metadata: { total: accounts.length }
+  });
+
   return json({ ok: true, accounts: accounts.length }, 200, request);
 }
 
@@ -778,7 +837,8 @@ async function listSupplierAccounts(request, env) {
   await ensureSupplierAccountsTable(adminDb);
 
   const result = await adminDb.prepare(`
-    SELECT username, password, tools, allowed_domains, inbox_access_all, inbox_rules, created_by, created_at, updated_at
+    SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+      last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
     FROM supplier_accounts
     ORDER BY updated_at DESC
   `).all();
@@ -808,32 +868,44 @@ async function saveSupplierAccountsApi(request, env) {
   accounts.forEach((account) => {
     const username = String(account.username || '').trim();
     const password = String(account.password || '');
+    const passwordHash = String(account.passwordHash || account.password_hash || '');
 
-    if (!username || !password) {
+    if (!username || (!password && !passwordHash)) {
       return;
     }
 
     statements.push(adminDb.prepare(`
       INSERT INTO supplier_accounts (
-        username, password, tools, allowed_domains, inbox_access_all, inbox_rules, created_by, created_at, updated_at
+        username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(username) DO UPDATE SET
         password = excluded.password,
+        password_hash = excluded.password_hash,
         tools = excluded.tools,
         allowed_domains = excluded.allowed_domains,
         inbox_access_all = excluded.inbox_access_all,
         inbox_rules = excluded.inbox_rules,
         created_by = excluded.created_by,
+        last_login_at = COALESCE(excluded.last_login_at, supplier_accounts.last_login_at),
+        active_at = COALESCE(excluded.active_at, supplier_accounts.active_at),
+        login_count_today = excluded.login_count_today,
+        login_count_date = COALESCE(excluded.login_count_date, supplier_accounts.login_count_date),
         updated_at = excluded.updated_at
     `).bind(
       username,
       password,
+      passwordHash || null,
       JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
       JSON.stringify(Array.isArray(account.allowedDomains) ? account.allowedDomains : ['catsoft.store', 'catsoft.digital', 'catsoft.online']),
       account.inboxAccessAll ? 1 : 0,
       JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
       String(account.createdBy || ''),
+      account.lastLoginAt || null,
+      account.activeAt || null,
+      Number(account.loginCountToday || 0),
+      account.loginCountDate || null,
       account.createdAt || now,
       account.updatedAt || now
     ));
@@ -849,7 +921,231 @@ async function saveSupplierAccountsApi(request, env) {
     await adminDb.batch(statements);
   }
 
+  await saveAuditLog(adminDb, {
+    action: 'supplier_accounts_saved',
+    targetType: 'supplier_accounts',
+    targetId: String(accounts.length),
+    metadata: { total: accounts.length }
+  });
+
   return json({ ok: true, accounts: accounts.length }, 200, request);
+}
+
+async function saveSessionActivity(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  const payload = await readJson(request);
+  const role = normalizeSearch(payload.role) === 'supplier' ? 'supplier' : 'admin';
+  const username = cleanValue(payload.username, 120);
+  const eventType = normalizeSearch(payload.eventType) === 'login' ? 'login' : 'active';
+  const activeAt = cleanValue(payload.activeAt || payload.active_at, 80) || new Date().toISOString();
+  const loginDate = cleanValue(payload.loginDate || payload.login_count_date, 32) || activeAt.slice(0, 10);
+
+  if (!username) {
+    return json({ ok: false, error: 'Username wajib diisi.' }, 400, request);
+  }
+
+  if (role === 'supplier') {
+    await ensureSupplierAccountsTable(adminDb);
+  } else {
+    await ensureAdminAccountsTable(adminDb);
+  }
+
+  const tableName = role === 'supplier' ? 'supplier_accounts' : 'admin_accounts';
+  const row = await adminDb.prepare(`
+    SELECT login_count_today, login_count_date
+    FROM ${tableName}
+    WHERE LOWER(username) = ?
+    LIMIT 1
+  `).bind(normalizeSearch(username)).first();
+
+  if (!row) {
+    return json({ ok: false, error: 'Akun tidak ditemukan.' }, 404, request);
+  }
+
+  const previousDate = row.login_count_date || '';
+  const previousCount = previousDate === loginDate ? Number(row.login_count_today || 0) : 0;
+  const loginCountToday = eventType === 'login' ? previousCount + 1 : previousCount;
+  const lastLoginAt = eventType === 'login' ? activeAt : null;
+
+  await adminDb.prepare(`
+    UPDATE ${tableName}
+    SET active_at = ?,
+      last_login_at = COALESCE(?, last_login_at),
+      login_count_today = ?,
+      login_count_date = ?,
+      updated_at = updated_at
+    WHERE LOWER(username) = ?
+  `).bind(activeAt, lastLoginAt, loginCountToday, loginDate, normalizeSearch(username)).run();
+
+  await saveAuditLog(adminDb, {
+    actorRole: role,
+    actorUsername: username,
+    action: eventType === 'login' ? 'account_login' : 'account_active',
+    targetType: role === 'supplier' ? 'supplier_account' : 'admin_account',
+    targetId: username,
+    metadata: { loginCountToday, loginCountDate: loginDate }
+  });
+
+  const responsePayload = { ok: true, role, username, activeAt, loginCountToday, loginCountDate: loginDate };
+
+  if (role === 'supplier') {
+    const result = await adminDb.prepare(`
+      SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM supplier_accounts
+      ORDER BY updated_at DESC
+    `).all();
+    responsePayload.supplierAccounts = (result.results || []).map(mapSupplierAccountRow);
+  } else {
+    const result = await adminDb.prepare(`
+      SELECT username, password, password_hash, tools, inbox_access_all, inbox_rules,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM admin_accounts
+      ORDER BY updated_at DESC
+    `).all();
+    responsePayload.adminAccounts = (result.results || []).map(mapAdminAccountRow);
+  }
+
+  return json(responsePayload, 200, request);
+}
+
+async function ensureToolSettingsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS tool_settings (
+      tool_id TEXT PRIMARY KEY,
+      settings TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+}
+
+async function ensureAuditLogsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_role TEXT,
+      actor_username TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+    ON audit_logs (created_at DESC)
+  `).run();
+}
+
+async function saveAuditLog(db, entry) {
+  await ensureAuditLogsTable(db);
+  await db.prepare(`
+    INSERT INTO audit_logs (
+      id, actor_role, actor_username, action, target_type, target_id, metadata, created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    crypto.randomUUID(),
+    cleanValue(entry.actorRole || entry.actor_role, 40),
+    cleanValue(entry.actorUsername || entry.actor_username, 120),
+    cleanValue(entry.action, 120),
+    cleanValue(entry.targetType || entry.target_type, 80),
+    cleanValue(entry.targetId || entry.target_id, 240),
+    JSON.stringify(entry.metadata || {}),
+    new Date().toISOString()
+  ).run();
+}
+
+async function listAuditLogs(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureAuditLogsTable(adminDb);
+
+  const url = new URL(request.url);
+  const limit = clampNumber(url.searchParams.get('limit'), 80, 1, 300);
+  const result = await adminDb.prepare(`
+    SELECT id, actor_role, actor_username, action, target_type, target_id, metadata, created_at
+    FROM audit_logs
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).bind(limit).all();
+
+  return json({
+    logs: (result.results || []).map((row) => ({
+      id: row.id,
+      actorRole: row.actor_role || '',
+      actorUsername: row.actor_username || '',
+      action: row.action,
+      targetType: row.target_type || '',
+      targetId: row.target_id || '',
+      metadata: parseJson(row.metadata) || {},
+      createdAt: row.created_at
+    }))
+  }, 200, request);
+}
+
+async function getToolSetting(request, env, toolId) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureToolSettingsTable(adminDb);
+
+  const row = await adminDb.prepare(`
+    SELECT tool_id, settings, updated_at
+    FROM tool_settings
+    WHERE tool_id = ?
+  `).bind(toolId).first();
+
+  return json({
+    toolId,
+    settings: row ? parseJson(row.settings) || {} : {},
+    updatedAt: row ? row.updated_at : ''
+  }, 200, request);
+}
+
+async function saveToolSetting(request, env, toolId) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureToolSettingsTable(adminDb);
+
+  const payload = await readJson(request);
+  const settings = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};
+  const updatedAt = new Date().toISOString();
+
+  await adminDb.prepare(`
+    INSERT INTO tool_settings (tool_id, settings, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(tool_id) DO UPDATE SET
+      settings = excluded.settings,
+      updated_at = excluded.updated_at
+  `).bind(toolId, JSON.stringify(settings), updatedAt).run();
+
+  await saveAuditLog(adminDb, {
+    action: 'tool_settings_saved',
+    targetType: 'tool_settings',
+    targetId: toolId,
+    metadata: { keys: Object.keys(settings) }
+  });
+
+  return json({ ok: true, toolId, settings, updatedAt }, 200, request);
 }
 
 async function listCustomerRecords(request, env) {

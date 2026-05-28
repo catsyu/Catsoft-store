@@ -1,6 +1,8 @@
 const CATSOFT_SUPPLIER_SESSION_KEY = 'catsoftSupplierSession';
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
+const CATSOFT_SUPPLIER_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_API || getDefaultSessionActivityApiEndpoint();
+let catsoftSupplierHeartbeatTimer = null;
 
 const CATSOFT_SUPPLIER_TOOLS = [
   { id: 'supplier-email', label: 'Email', path: 'supplier-email.html' }
@@ -37,6 +39,17 @@ function getDefaultSupplierAccountsApiEndpoint() {
   return '/api/supplier-accounts';
 }
 
+function getDefaultSessionActivityApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/session-activity';
+  }
+
+  return '/api/session-activity';
+}
+
 function getSupplierPageName() {
   const page = window.location.pathname.split('/').pop();
   return page || 'supplier-center.html';
@@ -58,12 +71,17 @@ function normalizeSupplierAccount(account) {
   return {
     username: String(account.username || '').trim(),
     password: String(account.password || ''),
+    passwordHash: String(account.passwordHash || account.password_hash || ''),
     tools: Array.isArray(account.tools) ? account.tools : [],
     inboxAccessAll: Boolean(account.inboxAccessAll),
     inboxRules: normalizeSupplierRules(account),
     allowedDomains: allowedDomains
       .map(normalizeSupplierValue)
       .filter((domain) => CATSOFT_SUPPLIER_DOMAINS.includes(domain)),
+    lastLoginAt: account.lastLoginAt || account.last_login_at || '',
+    activeAt: account.activeAt || account.active_at || '',
+    loginCountToday: Number(account.loginCountToday || account.login_count_today || 0),
+    loginCountDate: account.loginCountDate || account.login_count_date || '',
     createdAt: account.createdAt || new Date().toISOString(),
     updatedAt: account.updatedAt || new Date().toISOString()
   };
@@ -83,9 +101,21 @@ function saveSupplierAccounts(accounts) {
   localStorage.setItem(CATSOFT_SUPPLIER_ACCOUNTS_KEY, JSON.stringify(accounts.map(normalizeSupplierAccount)));
 }
 
+async function pushSupplierAccountsToApi(accounts) {
+  const response = await fetch(CATSOFT_SUPPLIER_ACCOUNTS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accounts: accounts.map(normalizeSupplierAccount) })
+  });
+
+  if (!response.ok) {
+    throw new Error(`API supplier ${response.status}`);
+  }
+}
+
 function parseSupplierAccountsResponse(data) {
   const accounts = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : [];
-  return accounts.map(normalizeSupplierAccount).filter((account) => account.username && account.password);
+  return accounts.map(normalizeSupplierAccount).filter((account) => account.username && (account.password || account.passwordHash));
 }
 
 async function syncSupplierAccountsFromApi() {
@@ -151,6 +181,60 @@ function getCurrentSupplier() {
   };
 }
 
+function supplierBytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function supplierSha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
+  return supplierBytesToHex(new Uint8Array(digest));
+}
+
+async function createSupplierPasswordHash(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltHex = supplierBytesToHex(salt);
+  const hashHex = await supplierSha256Hex(`${saltHex}:${password}`);
+  return `sha256$${saltHex}$${hashHex}`;
+}
+
+async function verifySupplierPasswordHash(password, passwordHash) {
+  const parts = String(passwordHash || '').split('$');
+
+  if (parts.length !== 3 || parts[0] !== 'sha256') {
+    return false;
+  }
+
+  return await supplierSha256Hex(`${parts[1]}:${password}`) === parts[2];
+}
+
+async function verifySupplierAccountPassword(account, password) {
+  if (!account) {
+    return false;
+  }
+
+  if (account.passwordHash) {
+    return verifySupplierPasswordHash(password, account.passwordHash);
+  }
+
+  return account.password === password;
+}
+
+async function migrateSupplierPasswordIfLegacy(account, password) {
+  if (!account || account.passwordHash || !account.password) {
+    return;
+  }
+
+  const passwordHash = await createSupplierPasswordHash(password);
+  const nextAccounts = loadSupplierAccounts().map((item) => normalizeSupplierValue(item.username) === normalizeSupplierValue(account.username)
+    ? { ...item, password: '', passwordHash, updatedAt: new Date().toISOString() }
+    : item);
+  saveSupplierAccounts(nextAccounts);
+
+  try {
+    await pushSupplierAccountsToApi(nextAccounts);
+  } catch (error) {}
+}
+
 function supplierHasToolAccess(toolId) {
   const supplier = getCurrentSupplier();
 
@@ -178,12 +262,55 @@ async function loginSupplier(username, password) {
   await syncSupplierAccountsFromApi();
   const account = getSupplierAccountByUsername(username);
 
-  if (!account || account.password !== password) {
+  if (!account || !(await verifySupplierAccountPassword(account, password))) {
     return { ok: false, message: 'Username atau password supplier salah.' };
   }
 
   saveSupplierSession({ username: account.username, role: 'supplier', loggedInAt: new Date().toISOString() });
+  await migrateSupplierPasswordIfLegacy(account, password);
+  recordSupplierSessionActivity(account.username, 'login');
   return { ok: true };
+}
+
+async function recordSupplierSessionActivity(username, eventType = 'active') {
+  const activeAt = new Date().toISOString();
+  const today = activeAt.slice(0, 10);
+  const accounts = loadSupplierAccounts();
+  const nextAccounts = accounts.map((account) => {
+    if (normalizeSupplierValue(account.username) !== normalizeSupplierValue(username)) {
+      return account;
+    }
+
+    const previousDate = account.loginCountDate || '';
+    const previousCount = previousDate === today ? Number(account.loginCountToday || 0) : 0;
+
+    return {
+      ...account,
+      activeAt,
+      lastLoginAt: eventType === 'login' ? activeAt : account.lastLoginAt,
+      loginCountDate: eventType === 'login' ? today : account.loginCountDate,
+      loginCountToday: eventType === 'login' ? previousCount + 1 : Number(account.loginCountToday || 0)
+    };
+  });
+
+  saveSupplierAccounts(nextAccounts);
+
+  try {
+    const response = await fetch(CATSOFT_SUPPLIER_SESSION_ACTIVITY_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'supplier', username, eventType, activeAt, loginDate: today })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API activity ${response.status}`);
+    }
+
+    const payload = await response.json();
+    if (Array.isArray(payload.supplierAccounts)) {
+      saveSupplierAccounts(payload.supplierAccounts);
+    }
+  } catch (error) {}
 }
 
 function escapeSupplierHtml(value) {
@@ -199,6 +326,104 @@ function getSupplierInitials(username) {
   const compact = String(username || 'SP').replace(/[^a-z0-9]/gi, '');
   const uppercase = compact.toUpperCase();
   return uppercase ? uppercase.slice(0, 2) : 'SP';
+}
+
+function closeSupplierPasswordDialog() {
+  const dialog = document.getElementById('supplierPasswordDialog');
+  if (dialog) {
+    dialog.remove();
+  }
+}
+
+function showSupplierPasswordDialog() {
+  const supplier = getCurrentSupplier();
+
+  if (!supplier || document.getElementById('supplierPasswordDialog')) {
+    return;
+  }
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="admin-auth-modal" id="supplierPasswordDialog" role="dialog" aria-modal="true" aria-labelledby="supplierPasswordTitle">
+      <div class="admin-auth-dialog">
+        <h2 id="supplierPasswordTitle">Atur Password</h2>
+        <form id="supplierPasswordForm">
+          <label>
+            Password saat ini
+            <input id="supplierCurrentPassword" type="password" autocomplete="current-password" required />
+          </label>
+          <label>
+            Password baru
+            <input id="supplierNewPassword" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+          <label>
+            Ulangi password baru
+            <input id="supplierConfirmPassword" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+          <p class="admin-login-error" id="supplierPasswordStatus" aria-live="polite"></p>
+          <div class="admin-auth-dialog-actions">
+            <button type="submit">Simpan Password</button>
+            <button type="button" id="supplierPasswordCancel">Tutup</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+
+  document.getElementById('supplierPasswordCancel').addEventListener('click', closeSupplierPasswordDialog);
+  document.getElementById('supplierPasswordDialog').addEventListener('click', (event) => {
+    if (event.target.id === 'supplierPasswordDialog') {
+      closeSupplierPasswordDialog();
+    }
+  });
+  document.getElementById('supplierPasswordForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await updateCurrentSupplierPassword(supplier);
+  });
+}
+
+async function updateCurrentSupplierPassword(supplier) {
+  const status = document.getElementById('supplierPasswordStatus');
+  const currentPassword = document.getElementById('supplierCurrentPassword').value;
+  const newPassword = document.getElementById('supplierNewPassword').value;
+  const confirmPassword = document.getElementById('supplierConfirmPassword').value;
+  const account = getSupplierAccountByUsername(supplier.username);
+
+  if (!account || !(await verifySupplierAccountPassword(account, currentPassword))) {
+    status.textContent = 'Password saat ini tidak sesuai.';
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    status.textContent = 'Password baru minimal 6 karakter.';
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    status.textContent = 'Konfirmasi password belum sama.';
+    return;
+  }
+
+  const nextAccounts = loadSupplierAccounts().map((item) => normalizeSupplierValue(item.username) === normalizeSupplierValue(supplier.username)
+    ? { ...item, password: '', passwordHash: '', updatedAt: new Date().toISOString() }
+    : item);
+  const passwordHash = await createSupplierPasswordHash(newPassword);
+  nextAccounts.forEach((item) => {
+    if (normalizeSupplierValue(item.username) === normalizeSupplierValue(supplier.username)) {
+      item.passwordHash = passwordHash;
+    }
+  });
+
+  saveSupplierAccounts(nextAccounts);
+  status.textContent = 'Password tersimpan lokal, sinkronisasi...';
+
+  try {
+    await pushSupplierAccountsToApi(nextAccounts);
+    status.classList.add('success');
+    status.textContent = 'Password berhasil diganti.';
+    setTimeout(closeSupplierPasswordDialog, 900);
+  } catch (error) {
+    status.textContent = `Password lokal berubah, sync web gagal: ${error.message}`;
+  }
 }
 
 function renderSupplierLogin(message = '') {
@@ -341,13 +566,14 @@ function injectSupplierAuthStyles() {
 
     .admin-login-form input {
       width: 100%;
-      min-height: 44px;
+      min-height: 38px;
       border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: 7px;
+      padding: 8px 10px;
       color: #0f172a;
       font: inherit;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 800;
       background: #fff;
     }
 
@@ -357,10 +583,10 @@ function injectSupplierAuthStyles() {
     }
 
     .admin-password-toggle {
-      min-height: 44px;
+      min-height: 38px;
       border: 1px solid #dbeafe;
-      border-radius: 8px;
-      padding: 9px 12px;
+      border-radius: 7px;
+      padding: 8px 10px;
       background: #eff6ff;
       color: #1e40af;
       font: inherit;
@@ -411,11 +637,13 @@ function injectSupplierAuthStyles() {
 
     .admin-profile {
       display: inline-grid;
-      grid-template-columns: 42px minmax(0, 1fr) auto;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
       align-items: center;
-      gap: 10px;
-      min-height: 52px;
-      padding: 6px 8px 6px 6px;
+      gap: 8px;
+      min-width: 0;
+      max-width: 100%;
+      min-height: 46px;
+      padding: 4px 6px 4px 4px;
       border: 1px solid rgba(148, 163, 184, 0.28);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.92);
@@ -426,8 +654,8 @@ function injectSupplierAuthStyles() {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 999px;
       background: linear-gradient(135deg, #1d4ed8, #0f766e);
       color: #fff;
@@ -444,14 +672,14 @@ function injectSupplierAuthStyles() {
 
     .admin-profile-role {
       color: #64748b;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
       text-transform: uppercase;
     }
 
     .admin-profile-name {
       color: #0f172a;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 950;
       white-space: nowrap;
       overflow: hidden;
@@ -460,16 +688,103 @@ function injectSupplierAuthStyles() {
     }
 
     .admin-profile button {
-      min-height: 34px;
+      min-height: 30px;
       border: 1px solid #dbeafe;
       border-radius: 999px;
-      padding: 7px 12px;
+      padding: 6px 10px;
       background: #eff6ff;
       color: #1e40af;
       font: inherit;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 950;
       cursor: pointer;
+    }
+
+    .admin-profile-actions {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .admin-profile button[data-supplier-password] {
+      background: #f8fafc;
+      color: #334155;
+      border-color: #e2e8f0;
+    }
+
+    .admin-auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.38);
+    }
+
+    .admin-auth-dialog {
+      width: min(430px, 100%);
+      padding: 18px;
+      border: 1px solid #dbeafe;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+    }
+
+    .admin-auth-dialog h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+
+    .admin-auth-dialog form,
+    .admin-auth-dialog label {
+      display: grid;
+      gap: 12px;
+    }
+
+    .admin-auth-dialog label {
+      gap: 6px;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .admin-auth-dialog input {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      padding: 8px 10px;
+      color: #0f172a;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .admin-auth-dialog-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .admin-auth-dialog-actions button {
+      min-height: 42px;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 9px 13px;
+      background: #2563eb;
+      color: #fff;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .admin-auth-dialog-actions button[type="button"] {
+      background: #f8fafc;
+      color: #334155;
+      border-color: #e2e8f0;
     }
 
     @media (max-width: 760px) {
@@ -478,8 +793,39 @@ function injectSupplierAuthStyles() {
         width: 100%;
       }
 
+      .header-actions .admin-session-bar {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .header-actions .admin-profile {
+        width: 100%;
+      }
+
       .admin-profile {
-        grid-template-columns: 42px minmax(0, 1fr) auto;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 7px;
+        min-height: 0;
+        padding: 7px;
+        border-radius: 18px;
+      }
+
+      .admin-profile-avatar {
+        width: 34px;
+        height: 34px;
+        font-size: 12px;
+      }
+
+      .admin-profile-actions {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+      }
+
+      .admin-profile-actions button {
+        width: 100%;
       }
     }
   `;
@@ -531,14 +877,35 @@ function addSupplierSessionControls() {
         <span class="admin-profile-role">Supplier</span>
         <span class="admin-profile-name">${escapeSupplierHtml(supplier.username)}</span>
       </span>
-      <button type="button" data-supplier-logout>Logout</button>
+      <span class="admin-profile-actions">
+        <button type="button" data-supplier-password>Password</button>
+        <button type="button" data-supplier-logout>Logout</button>
+      </span>
     </div>
   `;
   header.appendChild(sessionBar);
+  sessionBar.querySelector('[data-supplier-password]').addEventListener('click', showSupplierPasswordDialog);
   sessionBar.querySelector('[data-supplier-logout]').addEventListener('click', () => {
     clearSupplierSession();
     window.location.href = 'supplier-center.html';
   });
+}
+
+function startSupplierHeartbeat() {
+  window.clearInterval(catsoftSupplierHeartbeatTimer);
+  const supplier = getCurrentSupplier();
+
+  if (!supplier) {
+    return;
+  }
+
+  recordSupplierSessionActivity(supplier.username, 'active');
+  catsoftSupplierHeartbeatTimer = window.setInterval(() => {
+    const currentSupplier = getCurrentSupplier();
+    if (currentSupplier) {
+      recordSupplierSessionActivity(currentSupplier.username, 'active');
+    }
+  }, 60000);
 }
 
 function filterSupplierToolCards() {
@@ -585,6 +952,7 @@ function initSupplierAuth() {
   window.CATSOFT_SUPPLIER_AUTHORIZED = true;
   addSupplierSessionControls();
   filterSupplierToolCards();
+  startSupplierHeartbeat();
 }
 
 window.CatsoftSupplierAuth = {

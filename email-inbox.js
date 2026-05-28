@@ -624,7 +624,9 @@ function syncSelectedIds() {
 function renderStats() {
   const uniqueRecipients = new Set(state.emails.map((email) => normalizeSearch(email.to)).filter(Boolean));
 
-  totalCount.textContent = state.emails.length;
+  if (totalCount) {
+    totalCount.textContent = state.emails.length;
+  }
   unreadCount.textContent = state.emails.filter((email) => !isRead(email)).length;
 
   if (otpCount) {

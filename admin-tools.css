@@ -870,7 +870,7 @@ a {
   color: #b91c1c;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .admin-page {
     width: min(100%, calc(100vw - 24px));
     padding: 12px 0 calc(22px + env(safe-area-inset-bottom));

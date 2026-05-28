@@ -504,6 +504,18 @@ a {
   background: #eff6ff;
 }
 
+@media (max-width: 1100px) {
+  .bulk-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .bulk-select-all,
+  .bulk-toolbar select,
+  .bulk-toolbar strong {
+    grid-column: auto;
+  }
+}
+
 .bulk-select-all {
   display: inline-flex;
   align-items: center;

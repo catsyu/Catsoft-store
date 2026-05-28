@@ -7,13 +7,16 @@ const CATSOFT_ADMIN_ACCOUNTS_API = window.CATSOFT_ADMIN_ACCOUNTS_API || getDefau
 const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 10000;
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
+const CATSOFT_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_API || getDefaultSessionActivityApiEndpoint();
 let catsoftAdminAccountsRefreshTimer = null;
+let catsoftAdminHeartbeatTimer = null;
 
 const CATSOFT_ADMIN_TOOLS = [
   { id: 'refund-calculator', label: 'Refund Calculator', path: 'refund-calculator.html' },
   { id: 'customer-database', label: 'Customer Database', path: 'customer-database.html' },
   { id: 'email-inbox', label: 'Email Inbox', path: 'email-inbox.html' },
   { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html' },
+  { id: 'marketing-calculator', label: 'Marketing Calculator', path: 'marketing-calculator.html' },
   { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html' },
   { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html' },
   { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', ownerOnly: true }
@@ -102,6 +105,17 @@ function getDefaultSupplierAccountsApiEndpoint() {
   return '/api/supplier-accounts';
 }
 
+function getDefaultSessionActivityApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/session-activity';
+  }
+
+  return '/api/session-activity';
+}
+
 function getCurrentAdminToolId() {
   const pageName = getCurrentPageName();
   const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.path === pageName);
@@ -134,9 +148,14 @@ function normalizeAdminAccount(account) {
   return {
     username: String(account.username || '').trim(),
     password: String(account.password || ''),
+    passwordHash: String(account.passwordHash || account.password_hash || ''),
     tools: Array.isArray(account.tools) ? account.tools : [],
     inboxAccessAll: Boolean(account.inboxAccessAll),
     inboxRules: normalizeInboxRules(account),
+    lastLoginAt: account.lastLoginAt || account.last_login_at || '',
+    activeAt: account.activeAt || account.active_at || '',
+    loginCountToday: Number(account.loginCountToday || account.login_count_today || 0),
+    loginCountDate: account.loginCountDate || account.login_count_date || '',
     createdAt: account.createdAt || new Date().toISOString(),
     updatedAt: account.updatedAt || new Date().toISOString()
   };
@@ -144,7 +163,7 @@ function normalizeAdminAccount(account) {
 
 function parseAdminAccountsResponse(data) {
   const accounts = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : [];
-  return accounts.map(normalizeAdminAccount).filter((account) => account.username && account.password);
+  return accounts.map(normalizeAdminAccount).filter((account) => account.username && (account.password || account.passwordHash));
 }
 
 function normalizeSupplierAccount(account) {
@@ -157,6 +176,7 @@ function normalizeSupplierAccount(account) {
   return {
     username: String(account.username || '').trim(),
     password: String(account.password || ''),
+    passwordHash: String(account.passwordHash || account.password_hash || ''),
     tools: Array.isArray(account.tools) ? account.tools : [],
     inboxAccessAll: Boolean(account.inboxAccessAll),
     inboxRules: normalizeInboxRules(account),
@@ -164,6 +184,10 @@ function normalizeSupplierAccount(account) {
       .map(normalizeAdminValue)
       .filter((domain) => CATSOFT_SUPPLIER_DOMAINS.includes(domain)),
     createdBy: String(account.createdBy || ''),
+    lastLoginAt: account.lastLoginAt || account.last_login_at || '',
+    activeAt: account.activeAt || account.active_at || '',
+    loginCountToday: Number(account.loginCountToday || account.login_count_today || 0),
+    loginCountDate: account.loginCountDate || account.login_count_date || '',
     createdAt: account.createdAt || new Date().toISOString(),
     updatedAt: account.updatedAt || new Date().toISOString()
   };
@@ -171,7 +195,7 @@ function normalizeSupplierAccount(account) {
 
 function parseSupplierAccountsResponse(data) {
   const accounts = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : [];
-  return accounts.map(normalizeSupplierAccount).filter((account) => account.username && account.password);
+  return accounts.map(normalizeSupplierAccount).filter((account) => account.username && (account.password || account.passwordHash));
 }
 
 function loadSupplierAccounts() {
@@ -275,6 +299,72 @@ async function pushAdminAccountsToApi(accounts) {
   }
 }
 
+async function recordSessionActivity(role, username, eventType = 'active') {
+  const normalizedRole = role === 'supplier' ? 'supplier' : 'admin';
+  const normalizedUsername = String(username || '').trim();
+
+  if (!normalizedUsername) {
+    return null;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const activeAt = new Date().toISOString();
+
+  updateLocalSessionActivity(normalizedRole, normalizedUsername, eventType, activeAt, today);
+
+  try {
+    const response = await fetch(CATSOFT_SESSION_ACTIVITY_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: normalizedRole, username: normalizedUsername, eventType, activeAt, loginDate: today })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API activity ${response.status}`);
+    }
+
+    const payload = await response.json();
+    if (Array.isArray(payload.adminAccounts)) {
+      saveAdminAccounts(payload.adminAccounts);
+    }
+    if (Array.isArray(payload.supplierAccounts)) {
+      saveSupplierAccounts(payload.supplierAccounts);
+    }
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
+
+function updateLocalSessionActivity(role, username, eventType, activeAt, today) {
+  const key = role === 'supplier' ? CATSOFT_SUPPLIER_ACCOUNTS_KEY : CATSOFT_ADMIN_ACCOUNTS_KEY;
+  const loader = role === 'supplier' ? loadSupplierAccounts : loadAdminAccounts;
+  const saver = role === 'supplier' ? saveSupplierAccounts : saveAdminAccounts;
+  const accounts = loader();
+  const nextAccounts = accounts.map((account) => {
+    if (normalizeAdminValue(account.username) !== normalizeAdminValue(username)) {
+      return account;
+    }
+
+    const previousDate = account.loginCountDate || '';
+    const previousCount = previousDate === today ? Number(account.loginCountToday || 0) : 0;
+
+    return {
+      ...account,
+      activeAt,
+      lastLoginAt: eventType === 'login' ? activeAt : account.lastLoginAt,
+      loginCountDate: eventType === 'login' ? today : account.loginCountDate,
+      loginCountToday: eventType === 'login' ? previousCount + 1 : Number(account.loginCountToday || 0)
+    };
+  });
+
+  if (nextAccounts.some((account, index) => account !== accounts[index])) {
+    saver(nextAccounts);
+  } else if (key) {
+    localStorage.setItem(key, JSON.stringify(accounts));
+  }
+}
+
 function loadAdminSession() {
   try {
     return JSON.parse(sessionStorage.getItem(CATSOFT_ADMIN_SESSION_KEY) || 'null');
@@ -332,6 +422,84 @@ function getCurrentAdmin() {
   };
 }
 
+function bytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(value) {
+  const clean = String(value || '').replace(/[^a-f0-9]/gi, '');
+  const bytes = new Uint8Array(clean.length / 2);
+
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = parseInt(clean.slice(index * 2, index * 2 + 2), 16);
+  }
+
+  return bytes;
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function createPasswordHash(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltHex = bytesToHex(salt);
+  const hashHex = await sha256Hex(`${saltHex}:${password}`);
+  return `sha256$${saltHex}$${hashHex}`;
+}
+
+async function verifyPasswordHash(password, passwordHash) {
+  const parts = String(passwordHash || '').split('$');
+
+  if (parts.length !== 3 || parts[0] !== 'sha256') {
+    return false;
+  }
+
+  const expectedHash = await sha256Hex(`${parts[1]}:${password}`);
+  return expectedHash === parts[2];
+}
+
+async function verifyAccountPassword(account, password) {
+  if (!account) {
+    return false;
+  }
+
+  if (account.passwordHash) {
+    return verifyPasswordHash(password, account.passwordHash);
+  }
+
+  return account.password === password;
+}
+
+function getPasswordStorageLabel(account) {
+  if (account.passwordHash) {
+    return 'Hash tersimpan';
+  }
+
+  if (account.password) {
+    return `Legacy: ${account.password}`;
+  }
+
+  return 'Belum ada password';
+}
+
+async function migrateAdminPasswordIfLegacy(account, password) {
+  if (!account || account.passwordHash || !account.password) {
+    return;
+  }
+
+  const passwordHash = await createPasswordHash(password);
+  const nextAccounts = loadAdminAccounts().map((item) => normalizeAdminValue(item.username) === normalizeAdminValue(account.username)
+    ? { ...item, password: '', passwordHash, updatedAt: new Date().toISOString() }
+    : item);
+  saveAdminAccounts(nextAccounts);
+
+  try {
+    await pushAdminAccountsToApi(nextAccounts);
+  } catch (error) {}
+}
+
 function adminHasToolAccess(toolId) {
   const admin = getCurrentAdmin();
 
@@ -372,17 +540,20 @@ function getAllowedInboxRecipients() {
 async function loginAdmin(username, password) {
   if (isOwnerCredential(username, password)) {
     saveAdminSession({ username: CATSOFT_OWNER_USERNAME, role: 'owner', loggedInAt: new Date().toISOString() });
+    recordSessionActivity('admin', CATSOFT_OWNER_USERNAME, 'login');
     return { ok: true };
   }
 
   await syncAdminAccountsFromApi({ silent: true });
   const account = getAccountByUsername(username);
 
-  if (!account || account.password !== password) {
+  if (!account || !(await verifyAccountPassword(account, password))) {
     return { ok: false, message: 'Username atau password salah.' };
   }
 
   saveAdminSession({ username: account.username, role: 'admin', loggedInAt: new Date().toISOString() });
+  await migrateAdminPasswordIfLegacy(account, password);
+  recordSessionActivity('admin', account.username, 'login');
   return { ok: true };
 }
 
@@ -473,13 +644,14 @@ function injectAuthStyles() {
     .admin-access-form input,
     .admin-access-form textarea {
       width: 100%;
-      min-height: 44px;
+      min-height: 38px;
       border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: 7px;
+      padding: 8px 10px;
       color: #0f172a;
       font: inherit;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 800;
       background: #fff;
     }
 
@@ -494,10 +666,10 @@ function injectAuthStyles() {
     }
 
     .admin-password-toggle {
-      min-height: 44px;
+      min-height: 38px;
       border: 1px solid #dbeafe;
-      border-radius: 8px;
-      padding: 9px 12px;
+      border-radius: 7px;
+      padding: 8px 10px;
       background: #eff6ff;
       color: #1e40af;
       font: inherit;
@@ -594,11 +766,13 @@ function injectAuthStyles() {
 
     .admin-profile {
       display: inline-grid;
-      grid-template-columns: 42px minmax(0, 1fr) auto;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
       align-items: center;
-      gap: 10px;
-      min-height: 52px;
-      padding: 6px 8px 6px 6px;
+      gap: 8px;
+      min-width: 0;
+      max-width: 100%;
+      min-height: 46px;
+      padding: 4px 6px 4px 4px;
       border: 1px solid rgba(148, 163, 184, 0.28);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.92);
@@ -609,8 +783,8 @@ function injectAuthStyles() {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 999px;
       background: linear-gradient(135deg, #1d4ed8, #0f766e);
       color: #fff;
@@ -627,14 +801,14 @@ function injectAuthStyles() {
 
     .admin-profile-role {
       color: #64748b;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
       text-transform: uppercase;
     }
 
     .admin-profile-name {
       color: #0f172a;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 950;
       white-space: nowrap;
       overflow: hidden;
@@ -643,16 +817,121 @@ function injectAuthStyles() {
     }
 
     .admin-profile button {
-      min-height: 34px;
+      min-height: 30px;
       border: 1px solid #dbeafe;
       border-radius: 999px;
-      padding: 7px 12px;
+      padding: 6px 10px;
       background: #eff6ff;
       color: #1e40af;
       font: inherit;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 950;
       cursor: pointer;
+    }
+
+    .admin-profile-actions {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .admin-profile button[data-admin-password] {
+      background: #f8fafc;
+      color: #334155;
+      border-color: #e2e8f0;
+    }
+
+    .admin-account-secret {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #fff7ed;
+      color: #9a3412;
+      border: 1px solid #fed7aa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      font-weight: 850;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .admin-auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.38);
+    }
+
+    .admin-auth-dialog {
+      width: min(430px, 100%);
+      padding: 18px;
+      border: 1px solid #dbeafe;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+    }
+
+    .admin-auth-dialog h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+
+    .admin-auth-dialog form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .admin-auth-dialog label {
+      display: grid;
+      gap: 6px;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .admin-auth-dialog input {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      padding: 8px 10px;
+      color: #0f172a;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .admin-auth-dialog-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .admin-auth-dialog-actions button {
+      min-height: 42px;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 9px 13px;
+      background: #2563eb;
+      color: #fff;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .admin-auth-dialog-actions button[type="button"] {
+      background: #f8fafc;
+      color: #334155;
+      border-color: #e2e8f0;
     }
 
     .admin-access-grid {
@@ -913,7 +1192,7 @@ function injectAuthStyles() {
       box-shadow: none;
     }
 
-    @media (max-width: 820px) {
+    @media (max-width: 1100px) {
       .admin-access-header,
       .admin-access-grid {
         grid-template-columns: 1fr;
@@ -931,8 +1210,26 @@ function injectAuthStyles() {
         width: 100%;
       }
 
+      .admin-profile-actions {
+        grid-column: 1 / -1;
+        justify-content: stretch;
+      }
+
+      .admin-profile-actions button {
+        flex: 1 1 120px;
+      }
+
       .admin-profile-name {
         max-width: none;
+      }
+
+      .header-actions .admin-session-bar {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .header-actions .admin-profile {
+        width: 100%;
       }
 
       .admin-account-toolbar {
@@ -949,6 +1246,44 @@ function injectAuthStyles() {
 
       .admin-account-actions {
         justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .admin-profile {
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 7px;
+        min-height: 0;
+        padding: 7px;
+        border-radius: 18px;
+      }
+
+      .admin-profile-avatar {
+        width: 34px;
+        height: 34px;
+        font-size: 12px;
+      }
+
+      .admin-profile-actions {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+      }
+
+      .admin-profile-actions button {
+        width: 100%;
+      }
+
+      .admin-account-actions,
+      .admin-form-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-account-actions button,
+      .admin-form-actions button {
+        width: 100%;
       }
     }
   `;
@@ -1061,6 +1396,106 @@ function getAdminInitials(username) {
   return uppercase.length === 1 ? uppercase : `${uppercase[0]}${uppercase[Math.min(uppercase.length - 1, 1)]}`;
 }
 
+function closeAdminPasswordDialog() {
+  const dialog = document.getElementById('adminPasswordDialog');
+  if (dialog) {
+    dialog.remove();
+  }
+}
+
+function showAdminPasswordDialog() {
+  const admin = getCurrentAdmin();
+
+  if (!admin || document.getElementById('adminPasswordDialog')) {
+    return;
+  }
+
+  const isOwner = admin.role === 'owner';
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="admin-auth-modal" id="adminPasswordDialog" role="dialog" aria-modal="true" aria-labelledby="adminPasswordTitle">
+      <div class="admin-auth-dialog">
+        <h2 id="adminPasswordTitle">Atur Password</h2>
+        <form id="adminPasswordForm">
+          <label>
+            Password saat ini
+            <input id="adminCurrentPassword" type="password" autocomplete="current-password" ${isOwner ? 'disabled' : 'required'} />
+          </label>
+          <label>
+            Password baru
+            <input id="adminNewPassword" type="password" autocomplete="new-password" minlength="6" ${isOwner ? 'disabled' : 'required'} />
+          </label>
+          <label>
+            Ulangi password baru
+            <input id="adminConfirmPassword" type="password" autocomplete="new-password" minlength="6" ${isOwner ? 'disabled' : 'required'} />
+          </label>
+          <p class="admin-login-error" id="adminPasswordStatus" aria-live="polite">${isOwner ? 'Password OwnerCatsoft masih memakai kredensial utama di konfigurasi.' : ''}</p>
+          <div class="admin-auth-dialog-actions">
+            <button type="submit" ${isOwner ? 'disabled' : ''}>Simpan Password</button>
+            <button type="button" id="adminPasswordCancel">Tutup</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+
+  document.getElementById('adminPasswordCancel').addEventListener('click', closeAdminPasswordDialog);
+  document.getElementById('adminPasswordDialog').addEventListener('click', (event) => {
+    if (event.target.id === 'adminPasswordDialog') {
+      closeAdminPasswordDialog();
+    }
+  });
+
+  document.getElementById('adminPasswordForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await updateCurrentAdminPassword(admin);
+  });
+}
+
+async function updateCurrentAdminPassword(admin) {
+  const status = document.getElementById('adminPasswordStatus');
+  const currentPassword = document.getElementById('adminCurrentPassword').value;
+  const newPassword = document.getElementById('adminNewPassword').value;
+  const confirmPassword = document.getElementById('adminConfirmPassword').value;
+  const account = getAccountByUsername(admin.username);
+
+  if (!account || !(await verifyAccountPassword(account, currentPassword))) {
+    status.textContent = 'Password saat ini tidak sesuai.';
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    status.textContent = 'Password baru minimal 6 karakter.';
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    status.textContent = 'Konfirmasi password belum sama.';
+    return;
+  }
+
+  const nextAccounts = loadAdminAccounts().map((item) => normalizeAdminValue(item.username) === normalizeAdminValue(admin.username)
+    ? { ...item, password: '', passwordHash: '', updatedAt: new Date().toISOString() }
+    : item);
+  const passwordHash = await createPasswordHash(newPassword);
+  nextAccounts.forEach((item) => {
+    if (normalizeAdminValue(item.username) === normalizeAdminValue(admin.username)) {
+      item.passwordHash = passwordHash;
+    }
+  });
+
+  saveAdminAccounts(nextAccounts);
+  status.textContent = 'Password tersimpan lokal, sinkronisasi...';
+
+  try {
+    await pushAdminAccountsToApi(nextAccounts);
+    status.classList.add('success');
+    status.textContent = 'Password berhasil diganti.';
+    setTimeout(closeAdminPasswordDialog, 900);
+  } catch (error) {
+    status.textContent = `Password lokal berubah, sync web gagal: ${error.message}`;
+  }
+}
+
 function addSessionControls() {
   const admin = getCurrentAdmin();
   const header = document.querySelector('.admin-nav, .header-actions');
@@ -1078,10 +1513,14 @@ function addSessionControls() {
         <span class="admin-profile-role">${escapeAdminHtml(admin.role === 'owner' ? 'Owner' : 'Admin')}</span>
         <span class="admin-profile-name">${escapeAdminHtml(admin.username)}</span>
       </span>
-      <button type="button" data-admin-logout>Logout</button>
+      <span class="admin-profile-actions">
+        <button type="button" data-admin-password>Password</button>
+        <button type="button" data-admin-logout>Logout</button>
+      </span>
     </div>
   `;
   header.appendChild(sessionBar);
+  sessionBar.querySelector('[data-admin-password]').addEventListener('click', showAdminPasswordDialog);
   sessionBar.querySelector('[data-admin-logout]').addEventListener('click', () => {
     clearAdminSession();
     window.location.href = 'admin-tools.html';
@@ -1115,6 +1554,31 @@ function updateAdminToolsSummary(admin, visibleCount) {
   if (accessSummary && admin) {
     accessSummary.textContent = admin.role === 'owner' ? 'Owner Full' : 'Terbatas';
   }
+}
+
+function formatAdminDateTime(value) {
+  const date = value ? new Date(value) : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return 'Belum ada';
+  }
+
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+}
+
+function getOnlineLabel(activeAt) {
+  const date = activeAt ? new Date(activeAt) : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return 'Offline';
+  }
+
+  return Date.now() - date.getTime() <= 2 * 60 * 1000 ? 'Online' : `Aktif ${formatAdminDateTime(activeAt)}`;
 }
 
 function renderOwnerAccessPanel() {
@@ -1250,11 +1714,6 @@ function wireOwnerAccessPanel() {
     event.preventDefault();
     const values = getAccessFormValues();
 
-    if (!values.username || !values.password) {
-      setAccessStatus('Username dan password wajib diisi.');
-      return;
-    }
-
     if (normalizeAdminValue(values.username) === normalizeAdminValue(CATSOFT_OWNER_USERNAME)) {
       setAccessStatus('Username OwnerCatsoft tidak bisa dipakai untuk admin lain.');
       return;
@@ -1271,15 +1730,28 @@ function wireOwnerAccessPanel() {
       return;
     }
 
+    const existingAccount = values.originalUsername
+      ? accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername))
+      : null;
+
+    if (!values.username || (!values.password && !existingAccount)) {
+      setAccessStatus('Username dan password wajib diisi untuk admin baru.');
+      return;
+    }
+
+    const passwordHash = values.password ? await createPasswordHash(values.password) : (existingAccount ? existingAccount.passwordHash : '');
     const nextAccount = {
       username: values.username,
-      password: values.password,
+      password: values.password ? '' : (existingAccount ? existingAccount.password : ''),
+      passwordHash,
       tools: values.tools,
       inboxAccessAll: values.inboxAccessAll,
       inboxRules: values.inboxRules,
-      createdAt: values.originalUsername
-        ? (accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername)) || {}).createdAt
-        : new Date().toISOString(),
+      lastLoginAt: existingAccount ? existingAccount.lastLoginAt : '',
+      activeAt: existingAccount ? existingAccount.activeAt : '',
+      loginCountToday: existingAccount ? existingAccount.loginCountToday : 0,
+      loginCountDate: existingAccount ? existingAccount.loginCountDate : '',
+      createdAt: values.originalUsername ? (existingAccount || {}).createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -1368,23 +1840,23 @@ function renderAdminAccountList() {
     const inboxSummary = account.inboxAccessAll
       ? 'Semua email masuk'
       : (inboxRules.length ? `${inboxRules.length} rule inbox` : 'Tidak ada email inbox');
-    const updatedDate = account.updatedAt ? new Date(account.updatedAt) : null;
-    const updatedText = updatedDate && !Number.isNaN(updatedDate.getTime())
-      ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(updatedDate)
-      : 'Belum ada update';
+    const updatedText = formatAdminDateTime(account.updatedAt);
+    const loginToday = account.loginCountDate === new Date().toISOString().slice(0, 10) ? Number(account.loginCountToday || 0) : 0;
 
     return `
       <div class="admin-account-row">
         <div class="admin-account-main">
           <h3>${escapeAdminHtml(account.username)}</h3>
-          <span>Update: ${escapeAdminHtml(updatedText)}</span>
+          <span>Update: ${escapeAdminHtml(updatedText)} - ${escapeAdminHtml(getOnlineLabel(account.activeAt))}</span>
         </div>
         <div class="admin-account-meta">
           ${toolLabels.slice(0, 3).map((label) => `<span class="admin-pill">${escapeAdminHtml(label)}</span>`).join('')}
           ${toolLabels.length > 3 ? `<span class="admin-pill neutral">+${toolLabels.length - 3} tool</span>` : ''}
           ${!toolLabels.length ? '<span class="admin-pill neutral">Tidak ada tool</span>' : ''}
+          <span class="admin-account-secret" title="Status password">${escapeAdminHtml(getPasswordStorageLabel(account))}</span>
+          <span class="admin-pill neutral">Login hari ini: ${escapeAdminHtml(loginToday)}</span>
         </div>
-        <span class="admin-pill neutral">${escapeAdminHtml(inboxSummary)}</span>
+        <span class="admin-pill neutral" title="Last login: ${escapeAdminHtml(formatAdminDateTime(account.lastLoginAt))}">${escapeAdminHtml(inboxSummary)}</span>
         <div class="admin-account-actions">
           <button type="button" data-edit-admin="${escapeAdminHtml(account.username)}">Edit</button>
           <button type="button" data-delete-admin="${escapeAdminHtml(account.username)}">Hapus</button>
@@ -1573,11 +2045,6 @@ function wireSupplierAccessPanel() {
     event.preventDefault();
     const values = getSupplierAccessFormValues();
 
-    if (!values.username || !values.password) {
-      setSupplierAccessStatus('Username dan password supplier wajib diisi.');
-      return;
-    }
-
     const accounts = loadSupplierAccounts();
     const usernameTaken = accounts.some((account) => (
       normalizeAdminValue(account.username) === normalizeAdminValue(values.username)
@@ -1590,17 +2057,30 @@ function wireSupplierAccessPanel() {
     }
 
     const admin = getCurrentAdmin();
+    const existingAccount = values.originalUsername
+      ? accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername))
+      : null;
+
+    if (!values.username || (!values.password && !existingAccount)) {
+      setSupplierAccessStatus('Username dan password wajib diisi untuk supplier baru.');
+      return;
+    }
+
+    const passwordHash = values.password ? await createPasswordHash(values.password) : (existingAccount ? existingAccount.passwordHash : '');
     const nextAccount = {
       username: values.username,
-      password: values.password,
+      password: values.password ? '' : (existingAccount ? existingAccount.password : ''),
+      passwordHash,
       tools: values.tools,
       allowedDomains: values.allowedDomains.length ? values.allowedDomains : [CATSOFT_SUPPLIER_DOMAINS[0]],
       inboxAccessAll: values.inboxAccessAll,
       inboxRules: values.inboxRules,
       createdBy: admin ? admin.username : '',
-      createdAt: values.originalUsername
-        ? (accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername)) || {}).createdAt
-        : new Date().toISOString(),
+      lastLoginAt: existingAccount ? existingAccount.lastLoginAt : '',
+      activeAt: existingAccount ? existingAccount.activeAt : '',
+      loginCountToday: existingAccount ? existingAccount.loginCountToday : 0,
+      loginCountDate: existingAccount ? existingAccount.loginCountDate : '',
+      createdAt: values.originalUsername ? (existingAccount || {}).createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     const nextAccounts = values.originalUsername
@@ -1660,22 +2140,22 @@ function renderSupplierAccountList() {
     const toolLabels = CATSOFT_SUPPLIER_TOOLS
       .filter((tool) => (account.tools || []).includes(tool.id))
       .map((tool) => tool.label);
-    const updatedDate = account.updatedAt ? new Date(account.updatedAt) : null;
-    const updatedText = updatedDate && !Number.isNaN(updatedDate.getTime())
-      ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(updatedDate)
-      : 'Belum ada update';
+    const updatedText = formatAdminDateTime(account.updatedAt);
+    const loginToday = account.loginCountDate === new Date().toISOString().slice(0, 10) ? Number(account.loginCountToday || 0) : 0;
 
     return `
       <div class="admin-account-row">
         <div class="admin-account-main">
           <h3>${escapeAdminHtml(account.username)}</h3>
-          <span>Update: ${escapeAdminHtml(updatedText)}</span>
+          <span>Update: ${escapeAdminHtml(updatedText)} - ${escapeAdminHtml(getOnlineLabel(account.activeAt))}</span>
         </div>
         <div class="admin-account-meta">
           ${toolLabels.map((label) => `<span class="admin-pill">${escapeAdminHtml(label)}</span>`).join('')}
           ${!toolLabels.length ? '<span class="admin-pill neutral">Tidak ada tool</span>' : ''}
+          <span class="admin-account-secret" title="Status password">${escapeAdminHtml(getPasswordStorageLabel(account))}</span>
+          <span class="admin-pill neutral">Login hari ini: ${escapeAdminHtml(loginToday)}</span>
         </div>
-        <span class="admin-pill neutral" title="${escapeAdminHtml(domainSummary)}">${escapeAdminHtml(inboxSummary)} - ${escapeAdminHtml((account.allowedDomains || []).length)} domain</span>
+        <span class="admin-pill neutral" title="${escapeAdminHtml(domainSummary)} | Last login: ${escapeAdminHtml(formatAdminDateTime(account.lastLoginAt))}">${escapeAdminHtml(inboxSummary)} - ${escapeAdminHtml((account.allowedDomains || []).length)} domain</span>
         <div class="admin-account-actions">
           <button type="button" data-edit-supplier="${escapeAdminHtml(account.username)}">Edit</button>
           <button type="button" data-delete-supplier="${escapeAdminHtml(account.username)}">Hapus</button>
@@ -1819,6 +2299,23 @@ function startAdminAccountsAutoRefresh() {
   refresh();
 }
 
+function startAdminHeartbeat() {
+  window.clearInterval(catsoftAdminHeartbeatTimer);
+  const admin = getCurrentAdmin();
+
+  if (!admin) {
+    return;
+  }
+
+  recordSessionActivity('admin', admin.username, 'active');
+  catsoftAdminHeartbeatTimer = window.setInterval(() => {
+    const currentAdmin = getCurrentAdmin();
+    if (currentAdmin) {
+      recordSessionActivity('admin', currentAdmin.username, 'active');
+    }
+  }, 60000);
+}
+
 function initAdminAuth() {
   injectAuthStyles();
 
@@ -1841,6 +2338,7 @@ function initAdminAuth() {
   renderOwnerAccessPanel();
   renderSupplierAccessPanel();
   startAdminAccountsAutoRefresh();
+  startAdminHeartbeat();
 }
 
 window.CatsoftAdminAuth = {

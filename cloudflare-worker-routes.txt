@@ -14,7 +14,11 @@ catsoft.store/api/tool-settings*
 www.catsoft.store/api/tool-settings*
 catsoft.store/api/audit-logs*
 www.catsoft.store/api/audit-logs*
+admin.catsoft.store
+admin.catsoft.store/
 admin.catsoft.store/*
+supplier.catsoft.store
+supplier.catsoft.store/
 supplier.catsoft.store/*
 catsoft.digital/api/email-messages*
 www.catsoft.digital/api/email-messages*

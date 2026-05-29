@@ -7,8 +7,8 @@
   <title>Catsoft Supplier Email</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="email-inbox.css" />
   <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="email-inbox.css?v=20260529-email-checkbox-align" />
 </head>
 <body>
   <main class="email-page">
@@ -26,30 +26,37 @@
       </div>
     </header>
 
-    <section class="inbox-layout" aria-label="Email temp mail supplier">
+    <section class="inbox-layout" aria-label="Email Temp Mail Supplier">
       <section class="inbox-panel" aria-labelledby="inboxTitle">
         <div class="panel-heading">
           <div>
-            <span class="section-kicker">Temp mail</span>
-            <h2 id="inboxTitle">Email masuk</h2>
+            <span class="section-kicker">Temp Mail</span>
+            <h2 id="inboxTitle">Email Masuk</h2>
           </div>
-          <p class="sync-status" id="syncStatus" aria-live="polite">Memuat...</p>
+          <p class="sync-status" id="syncStatus" aria-live="polite">Memuat</p>
         </div>
 
-        <div class="stats-grid" aria-label="Ringkasan email">
-          <button class="stat-card compact-stat" type="button" data-stat-filter="all">
-            <span>Total</span>
-          </button>
-          <button class="stat-card urgent" type="button" data-stat-filter="unread">
-            <span>Belum dibaca</span>
-            <strong id="unreadCount">0</strong>
+        <div class="inbox-quick-row">
+          <div class="stats-grid" aria-label="Ringkasan Email">
+            <button class="stat-card compact-stat" type="button" data-stat-filter="all">
+              <span>Semua</span>
+            </button>
+            <button class="stat-card urgent" type="button" data-stat-filter="unread">
+              <span>Belum Dibaca</span>
+              <strong id="unreadCount">0</strong>
+            </button>
+          </div>
+
+          <button class="temp-mail-toggle" id="tempMailToggle" type="button" aria-expanded="false" aria-controls="tempMailPanel">
+            <span>Generate Email</span>
+            <small>Buat alamat penerima baru</small>
           </button>
         </div>
 
-        <section class="temp-mail-panel" aria-label="Buat alamat temp mail">
+        <section class="temp-mail-panel" id="tempMailPanel" aria-label="Generate Email Supplier" hidden>
           <label class="field-group">
-            <span>Alias</span>
-            <input id="tempMailAlias" type="text" inputmode="email" placeholder="supplier-openai" autocomplete="off" />
+            <span>Username</span>
+            <input id="tempMailAlias" type="text" inputmode="email" placeholder="Kosongkan untuk nama otomatis" autocomplete="off" />
           </label>
           <label class="field-group">
             <span>Domain</span>
@@ -57,17 +64,24 @@
               <option value="catsoft.store">catsoft.store</option>
               <option value="catsoft.digital">catsoft.digital</option>
               <option value="catsoft.online">catsoft.online</option>
+              <option value="ask1q2.uk">ask1q2.uk</option>
+              <option value="fadisa1.uk">fadisa1.uk</option>
+              <option value="gasddqw1.uk">gasddqw1.uk</option>
+              <option value="kulamusic.us">kulamusic.us</option>
+              <option value="wkwkksks.uk">wkwkksks.uk</option>
             </select>
           </label>
           <div class="temp-mail-output">
-            <span id="tempMailAddress">supplier-openai@catsoft.store</span>
-            <button class="secondary-button" id="copyTempMailAddress" type="button">Copy Email</button>
+            <span id="tempMailAddress">Klik Generate Email</span>
+            <div class="temp-mail-actions">
+              <button class="secondary-button" id="generateTempMailAddress" type="button">Generate</button>
+              <button class="secondary-button" id="copyTempMailAddress" type="button">Salin Email</button>
+            </div>
           </div>
-          <p class="temp-mail-status" id="tempMailStatus" aria-live="polite"></p>
         </section>
 
         <button class="mobile-collapse-toggle" id="emailControlToggle" type="button" aria-expanded="false" aria-controls="emailControlPanel">
-          <span>Filter &amp; bulk action</span>
+          <span>Filter &amp; Aksi</span>
           <strong>Tampilkan</strong>
         </button>
 
@@ -85,6 +99,11 @@
                 <option value="catsoft.store">catsoft.store</option>
                 <option value="catsoft.digital">catsoft.digital</option>
                 <option value="catsoft.online">catsoft.online</option>
+                <option value="ask1q2.uk">ask1q2.uk</option>
+                <option value="fadisa1.uk">fadisa1.uk</option>
+                <option value="gasddqw1.uk">gasddqw1.uk</option>
+                <option value="kulamusic.us">kulamusic.us</option>
+                <option value="wkwkksks.uk">wkwkksks.uk</option>
               </select>
             </label>
 
@@ -104,27 +123,27 @@
               <span>Status</span>
               <select id="statusFilter">
                 <option value="all">Semua</option>
-                <option value="unread">Belum dibaca</option>
+                <option value="unread">Belum Dibaca</option>
                 <option value="read">Dibaca</option>
               </select>
             </label>
 
             <label class="field-group search-field">
               <span>Cari</span>
-              <input id="keywordFilter" type="search" placeholder="Subject, pengirim, isi" autocomplete="off" />
+              <input id="keywordFilter" type="search" placeholder="Subjek, Pengirim, Isi" autocomplete="off" />
             </label>
           </form>
 
-          <div class="bulk-toolbar" id="bulkToolbar" aria-label="Bulk action email">
+          <div class="bulk-toolbar" id="bulkToolbar" aria-label="Aksi Email">
             <label class="bulk-select-all">
               <input id="selectAllEmails" type="checkbox" />
-              <span>Pilih semua</span>
+              <span>Pilih Semua</span>
             </label>
-            <strong id="selectedEmailCount">0 dipilih</strong>
-            <button class="secondary-button" type="button" data-bulk-action="read">Tandai dibaca</button>
-            <button class="secondary-button" type="button" data-bulk-action="unread">Tandai belum dibaca</button>
+            <strong id="selectedEmailCount">0 Dipilih</strong>
+            <button class="secondary-button" type="button" data-bulk-action="read">Tandai Dibaca</button>
+            <button class="secondary-button" type="button" data-bulk-action="unread">Tandai Belum Dibaca</button>
             <button class="danger-button" type="button" data-bulk-action="delete">Hapus</button>
-            <button class="secondary-button" type="button" data-bulk-action="clear">Clear</button>
+            <button class="secondary-button" type="button" data-bulk-action="clear">Bersihkan</button>
           </div>
         </div>
 
@@ -135,15 +154,15 @@
 
       <aside class="message-panel" id="messagePanel" aria-live="polite">
         <div class="detail-empty">
-          <span class="section-kicker">Detail email</span>
-          <h2>Pilih email</h2>
+          <span class="section-kicker">Detail Email</span>
+          <h2>Pilih Email</h2>
         </div>
       </aside>
     </section>
   </main>
 
   <script src="supplier-auth.js?v=20260527-1" defer></script>
-  <script src="supplier-email.js?v=20260527-1" defer></script>
-  <script src="email-inbox.js?v=20260527-3" defer></script>
+  <script src="supplier-email.js?v=20260529-copy-email-fallback" defer></script>
+  <script src="email-inbox.js?v=20260529-visible-email-popup" defer></script>
 </body>
 </html>

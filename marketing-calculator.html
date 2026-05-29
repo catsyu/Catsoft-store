@@ -8,8 +8,8 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="admin-tools.css" />
-  <link rel="stylesheet" href="marketing-calculator.css" />
   <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="marketing-calculator.css?v=20260529-simple-marketing-ui-v2" />
 </head>
 <body>
   <main class="admin-page marketing-page">
@@ -21,20 +21,20 @@
           <h1>Marketing Simulator</h1>
         </div>
       </div>
-      <nav class="admin-nav" aria-label="Navigasi admin">
+      <nav class="admin-nav" aria-label="Navigasi Admin">
         <a class="ghost-button" href="https://admin.catsoft.store/">Admin Tools</a>
       </nav>
     </header>
 
     <section class="overview-band" aria-labelledby="marketingTitle">
       <div class="panel-heading">
-        <span class="section-kicker">Shopee & Ads</span>
-        <h2 id="marketingTitle">Simulasi harga, iklan, dan profit</h2>
-        <p>Masukkan HPP dan target profit, lalu simulator otomatis memberi saran harga jual, batas iklan persen, ROAS, dan budget aman.</p>
+        <span class="section-kicker">Shopee</span>
+        <h2 id="marketingTitle">Hitung Harga, Iklan, Profit</h2>
+        <p>Isi modal dan target untung, lalu lihat harga aman serta batas iklan.</p>
       </div>
       <div class="access-summary">
         <div>
-          <span>Default fee</span>
+          <span>Default Fee</span>
           <strong id="defaultFeeSummary">21,25%</strong>
         </div>
         <div>
@@ -44,67 +44,53 @@
       </div>
     </section>
 
-    <section class="marketing-grid" aria-label="Kalkulator marketing">
+    <section class="marketing-grid" aria-label="Kalkulator Marketing">
       <form class="marketing-panel" id="marketingForm">
         <div class="marketing-section-head">
-          <span class="section-kicker">Input</span>
-          <h2>Simulasi Produk</h2>
+          <span class="section-kicker">Produk</span>
+          <h2>Data Produk</h2>
         </div>
-        <div class="marketing-form-grid">
+        <div class="marketing-form-grid marketing-main-grid">
           <label>
-            Harga jual
+            Harga Jual
             <input id="salePrice" type="text" inputmode="numeric" value="Rp 50.000" data-currency-input />
           </label>
-          <div class="inline-suggestion" id="priceSuggestion">
-            <span id="priceSuggestionText">Isi HPP dan target profit untuk melihat saran harga.</span>
-            <button class="suggestion-button" id="applyPriceSuggestion" type="button">Ikuti Saran</button>
-          </div>
           <label>
-            Qty per order
-            <input id="quantity" type="number" min="1" step="1" value="1" />
-          </label>
-          <label>
-            HPP / modal produk
+            Modal Produk
             <input id="costPrice" type="text" inputmode="numeric" value="Rp 25.000" data-currency-input />
           </label>
           <label>
-            Voucher toko / diskon
-            <input id="sellerDiscount" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
+            Jumlah Order
+            <input id="quantity" type="number" min="1" step="1" value="1" />
           </label>
-          <label class="wide-field">
-            Target profit
+          <label>
+            Target Untung
             <span class="joined-control">
               <input id="targetProfit" type="text" inputmode="numeric" value="Rp 10.000" data-currency-input />
-              <select id="targetProfitMode" aria-label="Mode target profit">
+              <select id="targetProfitMode" aria-label="Mode Target Profit">
                 <option value="amount">Rp</option>
-                <option value="percent">% HPP</option>
+                <option value="percent">%</option>
               </select>
             </span>
           </label>
         </div>
 
-        <div class="marketing-section-head compact">
-          <span class="section-kicker">Setting fee</span>
-          <h2>Biaya Shopee</h2>
+        <div class="inline-suggestion simple-suggestion" id="priceSuggestion">
+          <span id="priceSuggestionText">Isi modal dan target untung untuk melihat saran harga.</span>
+          <button class="suggestion-button" id="applyPriceSuggestion" type="button">Gunakan</button>
         </div>
-        <div class="marketing-form-grid fee-grid">
-          <label>
-            Administrasi (%)
-            <input id="adminFeeRate" type="number" min="0" step="0.01" value="6.75" />
-          </label>
-          <label>
-            Program (%)
-            <input id="programFeeRate" type="number" min="0" step="0.01" value="4.5" />
-          </label>
-          <label>
-            Pemrosesan
-            <input id="processingFee" type="text" inputmode="numeric" value="Rp 1.250" data-currency-input />
-          </label>
+
+        <div class="marketing-section-head compact simple-head">
+          <span class="section-kicker">Iklan</span>
+          <h2>Biaya Iklan</h2>
+        </div>
+
+        <div class="marketing-form-grid marketing-ads-grid">
           <label class="wide-field">
-            Metode iklan
+            Iklan
             <span class="joined-control ad-control">
               <input id="adsValue" type="number" min="0" step="0.1" value="10" />
-              <select id="adsMethod" aria-label="Metode iklan">
+              <select id="adsMethod" aria-label="Metode Iklan">
                 <option value="percent">% Omset</option>
                 <option value="roas">ROAS</option>
               </select>
@@ -112,45 +98,72 @@
             </span>
           </label>
           <div class="inline-suggestion wide-field" id="adsSuggestion">
-            <span id="adsSuggestionText">Isi harga jual dan HPP untuk melihat batas iklan yang aman.</span>
-            <button class="suggestion-button" id="applyAdsSuggestion" type="button">Ikuti Saran</button>
+            <span id="adsSuggestionText">Isi harga jual dan modal untuk melihat batas iklan aman.</span>
+            <button class="suggestion-button" id="applyAdsSuggestion" type="button">Gunakan</button>
           </div>
-          <label>
-            Affiliate (%)
-            <input id="affiliateRate" type="number" min="0" step="0.1" value="0" />
-          </label>
-          <label>
-            Cashback koin (%)
-            <input id="cashbackRate" type="number" min="0" step="0.1" value="0" />
-          </label>
-          <label>
-            Subsidi ongkir
-            <input id="shippingSubsidy" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
-          </label>
-          <label>
-            Packing / operasional
-            <input id="packingCost" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
-          </label>
-          <label>
-            Biaya lain
-            <input id="otherCost" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
-          </label>
-          <label>
-            Risiko retur/problem (%)
-            <input id="riskRate" type="number" min="0" step="0.1" value="0" />
-          </label>
         </div>
 
+        <details class="marketing-advanced-costs">
+          <summary>
+            <span>
+              <strong>Biaya Lainnya</strong>
+              <small>Fee Shopee, voucher, packing, retur</small>
+            </span>
+          </summary>
+          <div class="marketing-form-grid fee-grid">
+            <label>
+              Voucher / Diskon
+              <input id="sellerDiscount" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
+            </label>
+            <label>
+              Admin Shopee (%)
+              <input id="adminFeeRate" type="number" min="0" step="0.01" value="6.75" />
+            </label>
+            <label>
+              Program Shopee (%)
+              <input id="programFeeRate" type="number" min="0" step="0.01" value="4.5" />
+            </label>
+            <label>
+              Biaya Proses
+              <input id="processingFee" type="text" inputmode="numeric" value="Rp 1.250" data-currency-input />
+            </label>
+            <label>
+              Affiliate (%)
+              <input id="affiliateRate" type="number" min="0" step="0.1" value="0" />
+            </label>
+            <label>
+              Cashback Koin (%)
+              <input id="cashbackRate" type="number" min="0" step="0.1" value="0" />
+            </label>
+            <label>
+              Subsidi Ongkir
+              <input id="shippingSubsidy" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
+            </label>
+            <label>
+              Packing
+              <input id="packingCost" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
+            </label>
+            <label>
+              Biaya Lain
+              <input id="otherCost" type="text" inputmode="numeric" value="Rp 0" data-currency-input />
+            </label>
+            <label>
+              Risiko Retur (%)
+              <input id="riskRate" type="number" min="0" step="0.1" value="0" />
+            </label>
+          </div>
+        </details>
+
         <div class="marketing-actions">
-          <button class="primary-button muted" id="applyMarketingSuggestion" type="button">Ikuti Semua Saran</button>
-          <button class="ghost-button" id="saveMarketingSettings" type="button">Simpan Setting</button>
-          <button class="ghost-button" id="resetMarketingSettings" type="button">Reset Default</button>
-          <button class="ghost-button" id="exportMarketingCsv" type="button">Export CSV</button>
+          <button class="primary-button muted" id="applyMarketingSuggestion" type="button">Terapkan Saran</button>
+          <button class="ghost-button" id="saveMarketingSettings" type="button">Simpan</button>
+          <button class="ghost-button" id="resetMarketingSettings" type="button">Reset</button>
+          <button class="ghost-button" id="exportMarketingCsv" type="button">Export</button>
         </div>
         <p class="marketing-status" id="marketingStatus" aria-live="polite"></p>
       </form>
 
-      <section class="marketing-panel result-panel" aria-label="Hasil perhitungan">
+      <section class="marketing-panel result-panel" aria-label="Hasil Perhitungan">
         <div class="marketing-section-head">
           <span class="section-kicker">Output</span>
           <h2>Hasil Cepat</h2>
@@ -161,19 +174,19 @@
             <strong id="shopeeIncome">Rp0</strong>
           </div>
           <div class="result-card primary-result">
-            <span>Profit bersih</span>
+            <span>Profit Bersih</span>
             <strong id="netProfit">Rp0</strong>
           </div>
           <div class="result-card">
-            <span>Omset bersih</span>
+            <span>Omset Bersih</span>
             <strong id="netRevenue">Rp0</strong>
           </div>
           <div class="result-card">
-            <span>Margin bersih</span>
+            <span>Margin Bersih</span>
             <strong id="netMargin">0%</strong>
           </div>
           <div class="result-card">
-            <span>Total biaya Shopee</span>
+            <span>Total Biaya Shopee</span>
             <strong id="platformCost">Rp0</strong>
           </div>
           <div class="result-card">
@@ -181,25 +194,28 @@
             <strong id="adsBudget">Rp0</strong>
           </div>
           <div class="result-card">
-            <span>ROAS iklan</span>
+            <span>ROAS Iklan</span>
             <strong id="roasAdsBudget">0x</strong>
           </div>
           <div class="result-card">
-            <span>Harga aman target profit</span>
+            <span>Harga Aman Target Profit</span>
             <strong id="minimumPrice">Rp0</strong>
           </div>
           <div class="result-card">
-            <span>ROAS minimal</span>
+            <span>ROAS Minimal</span>
             <strong id="breakEvenRoas">0x</strong>
           </div>
         </div>
         <div class="marketing-note" id="marketingAdvice"></div>
-        <div class="cost-breakdown" id="costBreakdown"></div>
+        <details class="cost-breakdown-shell">
+          <summary>Rincian Biaya</summary>
+          <div class="cost-breakdown" id="costBreakdown"></div>
+        </details>
       </section>
     </section>
   </main>
 
   <script src="admin-auth.js?v=20260528-1" defer></script>
-  <script src="marketing-calculator.js?v=20260528-1" defer></script>
+  <script src="marketing-calculator.js?v=20260529-simple-marketing-ui-v2" defer></script>
 </body>
 </html>

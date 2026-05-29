@@ -108,6 +108,21 @@ def is_ignored_asset(relative_path, patterns):
     return False
 
 
+def get_asset_content_type(path):
+    extension = path.suffix.lower().lstrip(".")
+    types = {
+        "css": "text/css; charset=utf-8",
+        "html": "text/html; charset=utf-8",
+        "js": "application/javascript; charset=utf-8",
+        "json": "application/json; charset=utf-8",
+        "png": "image/png",
+        "svg": "image/svg+xml",
+        "txt": "text/plain; charset=utf-8",
+        "webp": "image/webp",
+    }
+    return types.get(extension, "application/octet-stream")
+
+
 def iter_asset_files():
     patterns = load_assets_ignore_patterns()
     for path in ROOT.rglob("*"):
@@ -122,8 +137,9 @@ def iter_asset_files():
 def asset_hash(path):
     data = path.read_bytes()
     extension = path.suffix.lower().lstrip(".")
+    content_type = get_asset_content_type(path)
     encoded = base64.b64encode(data).decode("ascii")
-    digest = hashlib.sha256(f"{encoded}{extension}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{encoded}{extension}{content_type}".encode("utf-8")).hexdigest()
     return digest[:32], len(data)
 
 
@@ -169,7 +185,7 @@ def upload_static_assets():
             headers = (
                 f"--{boundary}\r\n"
                 f"Content-Disposition: form-data; name=\"{digest}\"; filename=\"{digest}\"\r\n"
-                f"Content-Type: application/null\r\n\r\n"
+                f"Content-Type: {get_asset_content_type(path)}\r\n\r\n"
             )
             parts.append(headers.encode("utf-8") + encoded + b"\r\n")
         body = b"".join(parts) + f"--{boundary}--\r\n".encode("utf-8")
@@ -227,7 +243,12 @@ def upload_worker():
         },
     }
     if assets_jwt:
-        metadata["assets"] = {"jwt": assets_jwt}
+        metadata["assets"] = {
+            "jwt": assets_jwt,
+            "config": {
+                "run_worker_first": ["/*"]
+            },
+        }
     else:
         metadata["keep_assets"] = True
     boundary = f"----catsoft{uuid.uuid4().hex}"

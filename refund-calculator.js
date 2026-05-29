@@ -168,22 +168,22 @@ function parseOcrCurrency(value) {
 
 function packageLabel(durationDays) {
   if (durationDays === 30) {
-    return '1 bulan = 30 hari';
+    return '1 Bulan = 30 Hari';
   }
 
   if (durationDays === 90) {
-    return '3 bulan = 90 hari';
+    return '3 Bulan = 90 Hari';
   }
 
   if (durationDays === 180) {
-    return '6 bulan = 180 hari';
+    return '6 Bulan = 180 Hari';
   }
 
   if (durationDays === 365) {
-    return '1 tahun = 365 hari';
+    return '1 Tahun = 365 Hari';
   }
 
-  return `${durationDays} hari`;
+  return `${durationDays} Hari`;
 }
 
 function paymentMethodLabel(paymentMethod) {
@@ -243,7 +243,7 @@ function getCalculation() {
 
 function buildResultText(calculation) {
   if (!calculation) {
-    return 'Isi data order untuk melihat rincian refund.';
+    return 'Lengkapi data order untuk melihat rincian refund.';
   }
 
   const lines = [
@@ -283,14 +283,16 @@ function renderCalculation() {
 
   if (!calculation) {
     refundValue.textContent = 'Rp0';
-    remainingValue.textContent = '0 hari';
+    remainingValue.textContent = '0 Hari';
     expiryValue.textContent = '-';
+    resultText.classList.add('is-empty');
     resultText.textContent = buildResultText(null);
     return;
   }
 
+  resultText.classList.remove('is-empty');
   refundValue.textContent = formatCurrency(calculation.refundAmount);
-  remainingValue.textContent = `${calculation.remainingDays} hari`;
+  remainingValue.textContent = `${calculation.remainingDays} Hari`;
   expiryValue.textContent = formatDate(calculation.expiryDate);
   resultText.textContent = buildResultText(calculation);
 }

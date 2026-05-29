@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Customer Center</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="customer-center.css?v=20260529-customer-email-access" />
+</head>
+<body class="customer-console-body">
+  <main class="customer-console-page">
+    <header class="customer-console-topbar">
+      <a class="customer-console-brand" href="https://customer.catsoft.store/" aria-label="Catsoft Customer Center">
+        <img src="logo.png" alt="Catsoft" />
+      </a>
+      <nav class="customer-console-tabs" aria-label="Navigasi Customer Center">
+        <a class="is-active" href="#overview" data-customer-view-target="overview">Ikhtisar</a>
+        <a href="#orders" data-customer-view-target="orders">Akses</a>
+        <a href="#email" data-customer-view-target="email" data-customer-email-nav hidden>Email</a>
+        <a href="#help" data-customer-view-target="help">Bantuan</a>
+      </nav>
+      <nav class="customer-console-actions" aria-label="Akun Customer"></nav>
+    </header>
+
+    <section class="customer-console-shell">
+      <section class="customer-hero" aria-labelledby="customerTitle">
+        <div>
+          <span>Customer Center</span>
+          <h1 id="customerTitle">Akses Customer Catsoft</h1>
+          <p>Lihat produk aktif, target aktivasi, status order, dan masa berlaku akun dari satu pusat customer.</p>
+        </div>
+      </section>
+
+      <section class="customer-metrics" aria-label="Ringkasan Customer">
+        <article>
+          <span>Akses Aktif</span>
+          <strong data-customer-summary="active">0</strong>
+        </article>
+        <article>
+          <span>Total Order</span>
+          <strong data-customer-summary="total">0</strong>
+        </article>
+        <article>
+          <span>Expire Terdekat</span>
+          <strong data-customer-summary="expiry">-</strong>
+        </article>
+      </section>
+
+      <section class="customer-panel" data-customer-view="overview">
+        <div class="customer-panel-head">
+          <h2>Ringkasan Akses</h2>
+          <button type="button" data-customer-refresh>Refresh</button>
+        </div>
+        <div class="customer-order-list" data-customer-overview-list></div>
+      </section>
+
+      <section class="customer-panel" data-customer-view="orders" hidden>
+        <div class="customer-panel-head">
+          <h2>Riwayat Akses</h2>
+          <button type="button" data-customer-refresh>Refresh</button>
+        </div>
+        <div class="customer-order-list" data-customer-order-list></div>
+      </section>
+
+      <section class="customer-panel customer-email-panel" data-customer-view="email" data-customer-email-panel hidden>
+        <div class="customer-panel-head">
+          <h2>Email Inbox</h2>
+        </div>
+        <iframe class="customer-email-frame" title="Email Inbox Customer" data-customer-email-frame src="/tool/email-inbox?embedded=1&customer=1" allow="clipboard-write"></iframe>
+      </section>
+
+      <section class="customer-panel" data-customer-view="help" hidden>
+        <div class="customer-panel-head">
+          <h2>Bantuan</h2>
+        </div>
+        <div class="customer-help-grid">
+          <a href="https://catsoft.store/#kontak">Hubungi Admin</a>
+          <a href="https://catsoft.store/tutorial">Tutorial Produk</a>
+          <a href="https://catsoft.store/faq">FAQ Catsoft</a>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="customer-auth.js?v=20260529-customer-email-access" defer></script>
+  <script src="customer-center.js?v=20260529-customer-email-access" defer></script>
+</body>
+</html>

@@ -143,7 +143,7 @@
         </td>
         <td><code>${escapeHtml(key)}</code></td>
         <td>${product.plans.length}</td>
-        <td>${detail.tutorialUrl ? escapeHtml(detail.tutorialLabel || 'Ada') : '<span class="content-muted">Tidak ada</span>'}</td>
+        <td>${detail.tutorialUrl ? escapeHtml(detail.tutorialLabel || 'Ada') : '<span class="content-muted">Tidak Ada</span>'}</td>
         <td>
           <div class="content-row-actions">
             <button class="ghost-button" type="button" data-edit-product="${escapeAttr(key)}">Edit</button>
@@ -181,15 +181,15 @@
           <button class="ghost-button" type="button" data-remove-plan="${index}">Hapus</button>
         </div>
         <div class="content-form-grid">
-          <label>Kode paket<input data-plan-field="value" type="text" value="${escapeAttr(plan.value)}" required /></label>
-          <label>Nama paket<input data-plan-field="name" type="text" value="${escapeAttr(plan.name)}" required /></label>
+          <label>Kode Paket<input data-plan-field="value" type="text" value="${escapeAttr(plan.value)}" required /></label>
+          <label>Nama Paket<input data-plan-field="name" type="text" value="${escapeAttr(plan.name)}" required /></label>
         </div>
         <div class="content-form-grid">
           <label>Harga<input data-plan-field="price" type="text" value="${escapeAttr(plan.price)}" required /></label>
           <label>Durasi<input data-plan-field="duration" type="text" value="${escapeAttr(plan.duration)}" required /></label>
         </div>
-        <label>Label dropdown<input data-plan-field="label" type="text" value="${escapeAttr(plan.label)}" required /></label>
-        <label>Ketentuan paket<textarea data-plan-field="terms" rows="3" required>${escapeHtml(plan.terms)}</textarea></label>
+        <label>Label Dropdown<input data-plan-field="label" type="text" value="${escapeAttr(plan.label)}" required /></label>
+        <label>Ketentuan Paket<textarea data-plan-field="terms" rows="3" required>${escapeHtml(plan.terms)}</textarea></label>
       `;
       planList.appendChild(card);
     });
@@ -384,7 +384,7 @@
       <div class="content-preview-note">
         <strong>Catatan</strong>
         <p>${escapeHtml(detail.note || 'Tidak ada catatan tambahan.')}</p>
-        ${detail.tutorialUrl ? `<a href="${escapeAttr(detail.tutorialUrl)}" target="_blank" rel="noopener">${escapeHtml(detail.tutorialLabel || 'Buka tutorial')}</a>` : ''}
+        ${detail.tutorialUrl ? `<a href="${escapeAttr(detail.tutorialUrl)}" target="_blank" rel="noopener">${escapeHtml(detail.tutorialLabel || 'Buka Tutorial')}</a>` : ''}
       </div>
     `;
 

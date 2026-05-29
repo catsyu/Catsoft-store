@@ -12,6 +12,25 @@ const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
 
 const categoryRules = [
   {
+    value: 'spam',
+    checks: [
+      'loan offer',
+      'pinjaman',
+      'quick cash',
+      'easy loan',
+      'cash loan',
+      'kredit tanpa',
+      'casino',
+      'jackpot',
+      'lottery',
+      'winner',
+      'free money',
+      'claim now',
+      'crypto profit',
+      'investment opportunity'
+    ]
+  },
+  {
     value: 'chatgpt-otp',
     checks: ['chatgpt', 'openai', 'tm.openai.com', 'verification code', 'kode verifikasi', 'otp']
   },
@@ -97,12 +116,28 @@ export default {
       return saveSupplierAccountsApi(request, env);
     }
 
+    if (url.pathname === '/api/customer-accounts' && request.method === 'GET') {
+      return listCustomerAccounts(request, env);
+    }
+
+    if (url.pathname === '/api/customer-accounts' && request.method === 'POST') {
+      return saveCustomerAccountsApi(request, env);
+    }
+
     if (url.pathname === '/api/session-activity' && request.method === 'POST') {
       return saveSessionActivity(request, env);
     }
 
     if (url.pathname === '/api/audit-logs' && request.method === 'GET') {
       return listAuditLogs(request, env);
+    }
+
+    if (url.pathname === '/api/internal-chat/messages' && request.method === 'GET') {
+      return listInternalChatMessages(request, env);
+    }
+
+    if (url.pathname === '/api/internal-chat/messages' && request.method === 'POST') {
+      return createInternalChatMessage(request, env);
     }
 
     if (url.pathname === '/api/tool-settings/marketing-calculator' && request.method === 'GET') {
@@ -141,8 +176,13 @@ export default {
       return generateOfficeConfirmation(request, env);
     }
 
+    const internalChatDetailMatch = url.pathname.match(/^\/api\/internal-chat\/messages\/([^/]+)$/);
     const customerDetailMatch = url.pathname.match(/^\/api\/customer-records\/([^/]+)$/);
     const detailMatch = url.pathname.match(/^\/api\/email-messages\/([^/]+)$/);
+
+    if (internalChatDetailMatch && request.method === 'DELETE') {
+      return deleteInternalChatMessage(request, env, internalChatDetailMatch[1]);
+    }
 
     if (customerDetailMatch && request.method === 'PATCH') {
       return patchCustomerRecord(request, env, customerDetailMatch[1]);
@@ -191,14 +231,24 @@ const staticRouteFallbacks = new Map([
 
 const adminHostRouteFallbacks = new Map([
   ['/', '/admin-tools.html'],
-  ['/access', '/admin-access.html'],
-  ['/supplier-access', '/supplier-access.html'],
-  ['/customers', '/customer-database.html'],
-  ['/refund', '/refund-calculator.html'],
-  ['/mail', '/email-inbox.html'],
-  ['/office', '/office-activation.html'],
-  ['/marketing', '/marketing-calculator.html'],
-  ['/content', '/content-editor.html']
+  ['/access', '/admin-tools.html'],
+  ['/supplier-access', '/admin-tools.html'],
+  ['/customer-access', '/admin-tools.html'],
+  ['/customers', '/admin-tools.html'],
+  ['/refund', '/admin-tools.html'],
+  ['/mail', '/admin-tools.html'],
+  ['/chat', '/admin-tools.html'],
+  ['/office', '/admin-tools.html'],
+  ['/marketing', '/admin-tools.html'],
+  ['/content', '/admin-tools.html'],
+  ['/tool/customer-database', '/customer-database.html'],
+  ['/tool/customer-access', '/customer-access.html'],
+  ['/tool/refund-calculator', '/refund-calculator.html'],
+  ['/tool/office-activation', '/office-activation.html'],
+  ['/tool/email-inbox', '/email-inbox.html'],
+  ['/tool/internal-chat', '/internal-chat.html'],
+  ['/tool/marketing-calculator', '/marketing-calculator.html'],
+  ['/tool/content-editor', '/content-editor.html']
 ]);
 
 const supplierHostRouteFallbacks = new Map([
@@ -206,46 +256,150 @@ const supplierHostRouteFallbacks = new Map([
   ['/mail', '/supplier-email.html']
 ]);
 
+const customerHostRouteFallbacks = new Map([
+  ['/', '/customer-center.html'],
+  ['/center', '/customer-center.html'],
+  ['/subscriptions', '/customer-center.html'],
+  ['/mail', '/customer-center.html'],
+  ['/tool/email-inbox', '/email-inbox.html']
+]);
+
 async function serveStaticAsset(request, env) {
   const url = new URL(request.url);
   const routedRequest = getHostRoutedStaticRequest(request, url);
   const routedUrl = new URL(routedRequest.url);
   const fallbackPath = getStaticFallbackPath(routedUrl.pathname, routedUrl.hostname) || routedUrl.pathname;
-
-  if (isToolsHostname(routedUrl.hostname)) {
-    const githubResponse = await fetchGitHubStaticAsset(fallbackPath, routedUrl.search);
-
-    if (githubResponse.status !== 404) {
-      return githubResponse;
-    }
-  }
+  const toolsHost = isToolsHostname(routedUrl.hostname);
+  const assetRequest = createStaticAssetRequest(routedRequest, fallbackPath, routedUrl.search);
 
   if (env.ASSETS) {
-    const response = await env.ASSETS.fetch(routedRequest);
+    const response = await fetchStaticAssetWithoutClientRedirect(env.ASSETS, assetRequest);
 
     if (response.status !== 404) {
-      return response;
+      return withToolsStaticHeaders(response, toolsHost, fallbackPath, url.pathname);
     }
   }
 
   if (env.ASSETS && fallbackPath !== routedUrl.pathname) {
-    const fallbackUrl = new URL(routedRequest.url);
-    fallbackUrl.pathname = fallbackPath;
-    fallbackUrl.search = routedUrl.search;
-
-    const response = await env.ASSETS.fetch(new Request(fallbackUrl.toString(), routedRequest));
-
+    const response = await fetchStaticAssetWithoutClientRedirect(
+      env.ASSETS,
+      routedRequest
+    );
     if (response.status !== 404) {
-      return response;
+      return withToolsStaticHeaders(response, toolsHost, routedUrl.pathname, url.pathname);
     }
   }
 
-  return fetchGitHubStaticAsset(fallbackPath, routedUrl.search);
+  if (toolsHost) {
+    const githubResponse = await fetchGitHubStaticAsset(fallbackPath, routedUrl.search);
+
+    if (githubResponse.status !== 404) {
+      return withToolsStaticHeaders(githubResponse, true, fallbackPath, url.pathname);
+    }
+  }
+
+  return withToolsStaticHeaders(await fetchGitHubStaticAsset(fallbackPath, routedUrl.search), toolsHost, fallbackPath, url.pathname);
+}
+
+function createStaticAssetRequest(request, pathname, search = '') {
+  const assetUrl = new URL(request.url);
+  assetUrl.pathname = pathname;
+  assetUrl.search = search;
+  return new Request(assetUrl.toString(), request);
+}
+
+async function fetchStaticAssetWithoutClientRedirect(assetFetcher, request, maxRedirects = 3) {
+  let currentRequest = request;
+  let response = await assetFetcher.fetch(currentRequest);
+  let redirectCount = 0;
+
+  while ([301, 302, 303, 307, 308].includes(response.status) && redirectCount < maxRedirects) {
+    const location = response.headers.get('Location');
+
+    if (!location) {
+      break;
+    }
+
+    const nextUrl = new URL(location, currentRequest.url);
+    currentRequest = new Request(nextUrl.toString(), currentRequest);
+    response = await assetFetcher.fetch(currentRequest);
+    redirectCount += 1;
+  }
+
+  return response;
+}
+
+async function withToolsStaticHeaders(response, toolsHost, pathname = '', sourcePathname = '') {
+  const headers = new Headers(response.headers);
+  const hasStaticPath = Boolean(pathname);
+
+  if (!toolsHost && !hasStaticPath) {
+    return response;
+  }
+
+  if (hasStaticPath) {
+    headers.set('Content-Type', getStaticContentType(pathname));
+  }
+
+  if (toolsHost) {
+    headers.set('Cache-Control', 'no-store');
+  }
+
+  const embeddedToolHtmlFiles = new Set([
+    '/customer-database',
+    '/customer-database.html',
+    '/customer-access',
+    '/customer-access.html',
+    '/customer-center',
+    '/customer-center.html',
+    '/refund-calculator',
+    '/refund-calculator.html',
+    '/office-activation',
+    '/office-activation.html',
+    '/email-inbox',
+    '/email-inbox.html',
+    '/internal-chat',
+    '/internal-chat.html',
+    '/marketing-calculator',
+    '/marketing-calculator.html',
+    '/content-editor',
+    '/content-editor.html'
+  ]);
+  const normalizedPathname = String(pathname || '').split('?')[0].replace(/\/+$/, '');
+  const shouldInjectBaseHref = toolsHost
+    && (
+      String(sourcePathname || '').startsWith('/tool/')
+      || embeddedToolHtmlFiles.has(normalizedPathname)
+    )
+    && headers.get('Content-Type')?.includes('text/html')
+    && response.status < 400;
+
+  if (shouldInjectBaseHref) {
+    headers.delete('Content-Length');
+    const html = await response.text();
+    const htmlWithBase = /<base\s/i.test(html)
+      ? html
+      : html.replace(/<head([^>]*)>/i, '<head$1>\n  <base href="/">');
+
+    return new Response(htmlWithBase, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
 function isToolsHostname(hostname) {
   const normalizedHost = String(hostname || '').toLowerCase();
-  return normalizedHost === 'admin.catsoft.store' || normalizedHost === 'supplier.catsoft.store';
+  return normalizedHost === 'admin.catsoft.store'
+    || normalizedHost === 'supplier.catsoft.store'
+    || normalizedHost === 'customer.catsoft.store';
 }
 
 function getHostRoutedStaticRequest(request, url) {
@@ -270,6 +424,10 @@ function getHostRoutedStaticPath(pathname, hostname) {
 
   if (normalizedHost === 'supplier.catsoft.store' && supplierHostRouteFallbacks.has(normalizedPath)) {
     return supplierHostRouteFallbacks.get(normalizedPath);
+  }
+
+  if (normalizedHost === 'customer.catsoft.store' && customerHostRouteFallbacks.has(normalizedPath)) {
+    return customerHostRouteFallbacks.get(normalizedPath);
   }
 
   return '';
@@ -330,7 +488,28 @@ function getStaticFallbackPath(pathname, hostname = '') {
 }
 
 function getStaticContentType(pathname) {
-  const extension = pathname.split('.').pop().toLowerCase();
+  const cleanPath = String(pathname || '').split('?')[0].replace(/\/+$/, '');
+  const fileName = cleanPath.split('/').pop().toLowerCase();
+  const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+  const extensionlessHtmlFiles = new Set([
+    'admin-tools',
+    'customer-access',
+    'customer-center',
+    'customer-database',
+    'refund-calculator',
+    'office-activation',
+    'email-inbox',
+    'internal-chat',
+    'marketing-calculator',
+    'content-editor',
+    'supplier-center',
+    'supplier-email'
+  ]);
+
+  if (!extension && extensionlessHtmlFiles.has(fileName)) {
+    return 'text/html; charset=utf-8';
+  }
+
   const types = {
     css: 'text/css; charset=utf-8',
     html: 'text/html; charset=utf-8',
@@ -637,13 +816,39 @@ async function markEmailRead(request, env, id) {
   await ensureEmailMaintenanceColumns(env.EMAIL_DB);
 
   const payload = await readJson(request).catch(() => ({}));
-  const shouldRead = payload.read !== false;
+  const updates = [];
+  const params = [];
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'read')) {
+    updates.push('read_at = ?');
+    params.push(payload.read !== false ? new Date().toISOString() : null);
+  }
+
+  if (typeof payload.category === 'string') {
+    const category = normalizeSearch(payload.category);
+    const allowedCategories = new Set(['chatgpt-otp', 'adobe', 'canva', 'support', 'spam', 'other']);
+
+    if (allowedCategories.has(category)) {
+      updates.push('category = ?');
+      params.push(category);
+    }
+  }
+
+  if (typeof payload.spam === 'boolean') {
+    updates.push('category = ?');
+    params.push(payload.spam ? 'spam' : 'other');
+  }
+
+  if (!updates.length) {
+    updates.push('read_at = ?');
+    params.push(new Date().toISOString());
+  }
 
   await env.EMAIL_DB.prepare(`
     UPDATE email_messages
-    SET read_at = ?
+    SET ${updates.join(', ')}
     WHERE id = ?
-  `).bind(shouldRead ? new Date().toISOString() : null, id).run();
+  `).bind(...params, id).run();
 
   return json({ ok: true }, 200, request);
 }
@@ -692,6 +897,7 @@ async function ensureAdminAccountsTable(adminDb) {
   await addColumnIfMissing(adminDb, 'admin_accounts', 'active_at', 'TEXT');
   await addColumnIfMissing(adminDb, 'admin_accounts', 'login_count_today', 'INTEGER NOT NULL DEFAULT 0');
   await addColumnIfMissing(adminDb, 'admin_accounts', 'login_count_date', 'TEXT');
+  await addColumnIfMissing(adminDb, 'admin_accounts', 'whatsapp_target', 'TEXT');
 }
 
 function parseJsonArray(value) {
@@ -708,6 +914,7 @@ function mapAdminAccountRow(row) {
     username: row.username,
     password: row.password,
     passwordHash: row.password_hash || '',
+    whatsappTarget: row.whatsapp_target || '',
     tools: parseJsonArray(row.tools),
     inboxAccessAll: Boolean(row.inbox_access_all),
     inboxRules: parseJsonArray(row.inbox_rules),
@@ -744,7 +951,7 @@ async function ensureSupplierAccountsTable(adminDb) {
       password TEXT NOT NULL,
       password_hash TEXT,
       tools TEXT NOT NULL DEFAULT '[]',
-      allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
+      allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]',
       inbox_access_all INTEGER NOT NULL DEFAULT 0,
       inbox_rules TEXT NOT NULL DEFAULT '[]',
       created_by TEXT,
@@ -762,7 +969,7 @@ async function ensureSupplierAccountsTable(adminDb) {
     adminDb,
     'supplier_accounts',
     'allowed_domains',
-    'TEXT NOT NULL DEFAULT \'["catsoft.store","catsoft.digital","catsoft.online"]\''
+    'TEXT NOT NULL DEFAULT \'["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]\''
   );
   await addColumnIfMissing(adminDb, 'supplier_accounts', 'password_hash', 'TEXT');
   await addColumnIfMissing(adminDb, 'supplier_accounts', 'last_login_at', 'TEXT');
@@ -800,7 +1007,7 @@ async function listAdminAccounts(request, env) {
   await ensureAdminAccountsTable(adminDb);
 
   const result = await adminDb.prepare(`
-    SELECT username, password, password_hash, tools, inbox_access_all, inbox_rules,
+    SELECT username, password, password_hash, whatsapp_target, tools, inbox_access_all, inbox_rules,
       last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
     FROM admin_accounts
     ORDER BY updated_at DESC
@@ -832,6 +1039,7 @@ async function saveAdminAccountsApi(request, env) {
     const username = String(account.username || '').trim();
     const password = String(account.password || '');
     const passwordHash = String(account.passwordHash || account.password_hash || '');
+    const whatsappTarget = String(account.whatsappTarget || account.whatsapp_target || '').replace(/\D/g, '');
 
     if (!username || (!password && !passwordHash)) {
       return;
@@ -839,13 +1047,14 @@ async function saveAdminAccountsApi(request, env) {
 
     statements.push(adminDb.prepare(`
       INSERT INTO admin_accounts (
-        username, password, password_hash, tools, inbox_access_all, inbox_rules,
+        username, password, password_hash, whatsapp_target, tools, inbox_access_all, inbox_rules,
         last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(username) DO UPDATE SET
         password = excluded.password,
         password_hash = excluded.password_hash,
+        whatsapp_target = excluded.whatsapp_target,
         tools = excluded.tools,
         inbox_access_all = excluded.inbox_access_all,
         inbox_rules = excluded.inbox_rules,
@@ -858,6 +1067,7 @@ async function saveAdminAccountsApi(request, env) {
       username,
       password,
       passwordHash || null,
+      whatsappTarget,
       JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
       account.inboxAccessAll ? 1 : 0,
       JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
@@ -961,7 +1171,7 @@ async function saveSupplierAccountsApi(request, env) {
       password,
       passwordHash || null,
       JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
-      JSON.stringify(Array.isArray(account.allowedDomains) ? account.allowedDomains : ['catsoft.store', 'catsoft.digital', 'catsoft.online']),
+      JSON.stringify(Array.isArray(account.allowedDomains) ? account.allowedDomains : ['catsoft.store', 'catsoft.digital', 'catsoft.online', 'ask1q2.uk', 'fadisa1.uk', 'gasddqw1.uk', 'kulamusic.us', 'wkwkksks.uk']),
       account.inboxAccessAll ? 1 : 0,
       JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
       String(account.createdBy || ''),
@@ -987,6 +1197,276 @@ async function saveSupplierAccountsApi(request, env) {
   await saveAuditLog(adminDb, {
     action: 'supplier_accounts_saved',
     targetType: 'supplier_accounts',
+    targetId: String(accounts.length),
+    metadata: { total: accounts.length }
+  });
+
+  return json({ ok: true, accounts: accounts.length }, 200, request);
+}
+
+async function ensureCustomerAccountsTable(customerDb) {
+  await customerDb.prepare(`
+    CREATE TABLE IF NOT EXISTS customer_accounts (
+      username TEXT PRIMARY KEY,
+      password TEXT NOT NULL,
+      password_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      inbox_access_all INTEGER NOT NULL DEFAULT 0,
+      inbox_rules TEXT NOT NULL DEFAULT '[]',
+      source_record_id TEXT,
+      record_count INTEGER NOT NULL DEFAULT 0,
+      last_record_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await customerDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_accounts_updated_at
+    ON customer_accounts (updated_at DESC)
+  `).run();
+
+  await customerDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_accounts_status
+    ON customer_accounts (status)
+  `).run();
+
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'password_hash', 'TEXT');
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'status', "TEXT NOT NULL DEFAULT 'active'");
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'inbox_access_all', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'inbox_rules', "TEXT NOT NULL DEFAULT '[]'");
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'source_record_id', 'TEXT');
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'record_count', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissing(customerDb, 'customer_accounts', 'last_record_at', 'TEXT');
+}
+
+function generateCustomerDefaultPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return `CS-${[...bytes].map((byte) => alphabet[byte % alphabet.length]).join('')}`;
+}
+
+function normalizeCustomerAccountUsername(value) {
+  return cleanValue(value, 120).replace(/\s+/g, '');
+}
+
+function mapCustomerAccountRow(row) {
+  return {
+    username: row.username || '',
+    password: row.password || '',
+    passwordHash: row.password_hash || '',
+    status: row.status || 'active',
+    inboxAccessAll: Boolean(row.inbox_access_all),
+    inboxRules: parseJsonArray(row.inbox_rules),
+    sourceRecordId: row.source_record_id || '',
+    recordCount: Number(row.record_count || 0),
+    lastRecordAt: row.last_record_at || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || ''
+  };
+}
+
+async function syncCustomerAccountsFromRecords(customerDb) {
+  await ensureCustomerAccountsTable(customerDb);
+
+  let records = [];
+
+  try {
+    const result = await customerDb.prepare(`
+      SELECT id, customer_name, updated_at, created_at
+      FROM customer_records
+      WHERE customer_name IS NOT NULL AND TRIM(customer_name) != ''
+      ORDER BY updated_at DESC
+    `).all();
+    records = result.results || [];
+  } catch (error) {
+    if (!/no such table/i.test(error.message || '')) {
+      throw error;
+    }
+  }
+
+  if (!records.length) {
+    return 0;
+  }
+
+  const existingResult = await customerDb.prepare(`
+    SELECT username, password, password_hash, status, source_record_id, record_count,
+      last_record_at, created_at, updated_at
+    FROM customer_accounts
+  `).all();
+  const existingByUsername = new Map((existingResult.results || []).map((row) => [
+    normalizeSearch(row.username),
+    mapCustomerAccountRow(row)
+  ]));
+  const grouped = new Map();
+
+  for (const row of records) {
+    const username = normalizeCustomerAccountUsername(row.customer_name);
+    const key = normalizeSearch(username);
+
+    if (!username || !key) {
+      continue;
+    }
+
+    const current = grouped.get(key) || {
+      username,
+      sourceRecordId: row.id,
+      recordCount: 0,
+      lastRecordAt: row.updated_at || row.created_at || ''
+    };
+
+    current.recordCount += 1;
+
+    if ((row.updated_at || row.created_at || '') > (current.lastRecordAt || '')) {
+      current.lastRecordAt = row.updated_at || row.created_at || '';
+      current.sourceRecordId = row.id;
+    }
+
+    grouped.set(key, current);
+  }
+
+  const statements = [];
+  const now = new Date().toISOString();
+
+  grouped.forEach((account, key) => {
+    const existing = existingByUsername.get(key);
+
+    if (existing) {
+      statements.push(customerDb.prepare(`
+        UPDATE customer_accounts
+        SET source_record_id = ?,
+          record_count = ?,
+          last_record_at = ?,
+          updated_at = ?
+        WHERE LOWER(username) = ?
+      `).bind(account.sourceRecordId, account.recordCount, account.lastRecordAt, now, key));
+      return;
+    }
+
+    statements.push(customerDb.prepare(`
+      INSERT INTO customer_accounts (
+        username, password, password_hash, status, source_record_id,
+        record_count, last_record_at, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      account.username,
+      generateCustomerDefaultPassword(),
+      null,
+      'active',
+      account.sourceRecordId,
+      account.recordCount,
+      account.lastRecordAt,
+      now,
+      now
+    ));
+  });
+
+  if (statements.length) {
+    await customerDb.batch(statements);
+  }
+
+  return statements.length;
+}
+
+async function listCustomerAccounts(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await syncCustomerAccountsFromRecords(customerDb);
+
+    const result = await customerDb.prepare(`
+    SELECT username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
+      record_count, last_record_at, created_at, updated_at
+    FROM customer_accounts
+    ORDER BY updated_at DESC
+  `).all();
+
+  return json({
+    accounts: (result.results || []).map(mapCustomerAccountRow)
+  }, 200, request);
+}
+
+async function saveCustomerAccountsApi(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureCustomerAccountsTable(customerDb);
+
+  const payload = await readJson(request);
+  const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+  const now = new Date().toISOString();
+  const statements = [];
+
+  accounts.forEach((account) => {
+    const originalUsername = normalizeCustomerAccountUsername(account.originalUsername || account.original_username || account.username);
+    const username = normalizeCustomerAccountUsername(account.username);
+    const password = String(account.password || '');
+    const passwordHash = String(account.passwordHash || account.password_hash || '');
+    const status = normalizeSearch(account.status) === 'inactive' ? 'inactive' : 'active';
+    const inboxRules = Array.isArray(account.inboxRules)
+      ? account.inboxRules
+      : Array.isArray(account.inbox_rules)
+        ? account.inbox_rules
+        : [];
+
+    if (account.deleted && originalUsername) {
+      statements.push(customerDb.prepare('DELETE FROM customer_accounts WHERE LOWER(username) = ?').bind(normalizeSearch(originalUsername)));
+      return;
+    }
+
+    if (!username || (!password && !passwordHash)) {
+      return;
+    }
+
+    if (originalUsername && normalizeSearch(originalUsername) !== normalizeSearch(username)) {
+      statements.push(customerDb.prepare('DELETE FROM customer_accounts WHERE LOWER(username) = ?').bind(normalizeSearch(originalUsername)));
+    }
+
+    statements.push(customerDb.prepare(`
+      INSERT INTO customer_accounts (
+        username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
+        record_count, last_record_at, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(username) DO UPDATE SET
+        password = excluded.password,
+        password_hash = excluded.password_hash,
+        status = excluded.status,
+        inbox_access_all = excluded.inbox_access_all,
+        inbox_rules = excluded.inbox_rules,
+        source_record_id = COALESCE(excluded.source_record_id, customer_accounts.source_record_id),
+        record_count = COALESCE(excluded.record_count, customer_accounts.record_count),
+        last_record_at = COALESCE(excluded.last_record_at, customer_accounts.last_record_at),
+        updated_at = excluded.updated_at
+    `).bind(
+      username,
+      password,
+      passwordHash || null,
+      status,
+      account.inboxAccessAll || account.inbox_access_all ? 1 : 0,
+      JSON.stringify(inboxRules),
+      account.sourceRecordId || account.source_record_id || null,
+      Number(account.recordCount || account.record_count || 0),
+      account.lastRecordAt || account.last_record_at || null,
+      account.createdAt || account.created_at || now,
+      now
+    ));
+  });
+
+  if (statements.length) {
+    await customerDb.batch(statements);
+  }
+
+  await saveAuditLog(getAdminDb(env) || customerDb, {
+    action: 'customer_accounts_saved',
+    targetType: 'customer_accounts',
     targetId: String(accounts.length),
     metadata: { total: accounts.length }
   });
@@ -1066,7 +1546,7 @@ async function saveSessionActivity(request, env) {
     responsePayload.supplierAccounts = (result.results || []).map(mapSupplierAccountRow);
   } else {
     const result = await adminDb.prepare(`
-      SELECT username, password, password_hash, tools, inbox_access_all, inbox_rules,
+      SELECT username, password, password_hash, whatsapp_target, tools, inbox_access_all, inbox_rules,
         last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
       FROM admin_accounts
       ORDER BY updated_at DESC
@@ -1158,6 +1638,151 @@ async function listAuditLogs(request, env) {
   }, 200, request);
 }
 
+async function ensureInternalChatTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS internal_chat_messages (
+      id TEXT PRIMARY KEY,
+      room_id TEXT NOT NULL DEFAULT 'all',
+      sender_username TEXT NOT NULL,
+      target_username TEXT,
+      message_text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_internal_chat_room_created
+    ON internal_chat_messages (room_id, created_at DESC)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_internal_chat_created
+    ON internal_chat_messages (created_at DESC)
+  `).run();
+}
+
+function normalizeInternalChatRoomId(value) {
+  const text = cleanValue(value || 'all', 180).toLowerCase();
+  return text.replace(/[^a-z0-9:._-]+/g, '-') || 'all';
+}
+
+function mapInternalChatMessageRow(row) {
+  return {
+    id: row.id,
+    roomId: row.room_id || 'all',
+    senderUsername: row.sender_username || '',
+    targetUsername: row.target_username || '',
+    messageText: row.message_text || '',
+    createdAt: row.created_at || '',
+    deletedAt: row.deleted_at || ''
+  };
+}
+
+async function listInternalChatMessages(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureInternalChatTable(adminDb);
+
+  const url = new URL(request.url);
+  const roomId = normalizeInternalChatRoomId(url.searchParams.get('room') || 'all');
+  const limit = clampNumber(url.searchParams.get('limit'), 120, 1, 300);
+  const result = await adminDb.prepare(`
+    SELECT id, room_id, sender_username, target_username, message_text, created_at, deleted_at
+    FROM (
+      SELECT id, room_id, sender_username, target_username, message_text, created_at, deleted_at
+      FROM internal_chat_messages
+      WHERE room_id = ? AND deleted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT ?
+    )
+    ORDER BY created_at ASC
+  `).bind(roomId, limit).all();
+
+  return json({
+    roomId,
+    messages: (result.results || []).map(mapInternalChatMessageRow)
+  }, 200, request);
+}
+
+async function createInternalChatMessage(request, env) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureInternalChatTable(adminDb);
+
+  const payload = await readJson(request);
+  const roomId = normalizeInternalChatRoomId(payload.roomId || payload.room || 'all');
+  const senderUsername = cleanValue(payload.senderUsername || payload.sender || payload.actorUsername, 120);
+  const targetUsername = cleanValue(payload.targetUsername || payload.target || '', 120);
+  const messageText = cleanValue(payload.messageText || payload.message || payload.body, 1200);
+
+  if (!senderUsername) {
+    return json({ ok: false, error: 'Username pengirim wajib diisi.' }, 400, request);
+  }
+
+  if (!messageText) {
+    return json({ ok: false, error: 'Pesan wajib diisi.' }, 400, request);
+  }
+
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+
+  await adminDb.prepare(`
+    INSERT INTO internal_chat_messages (
+      id, room_id, sender_username, target_username, message_text, created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(id, roomId, senderUsername, targetUsername, messageText, createdAt).run();
+
+  await saveAuditLog(adminDb, {
+    actorRole: 'admin',
+    actorUsername: senderUsername,
+    action: 'internal_chat_message_created',
+    targetType: 'internal_chat',
+    targetId: roomId,
+    metadata: { targetUsername }
+  });
+
+  return json({
+    ok: true,
+    message: {
+      id,
+      roomId,
+      senderUsername,
+      targetUsername,
+      messageText,
+      createdAt,
+      deletedAt: ''
+    }
+  }, 200, request);
+}
+
+async function deleteInternalChatMessage(request, env, id) {
+  const adminDb = getAdminDb(env);
+
+  if (!adminDb) {
+    return json({ error: 'Missing ADMIN_DB, CUSTOMER_DB, or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureInternalChatTable(adminDb);
+
+  await adminDb.prepare(`
+    UPDATE internal_chat_messages
+    SET deleted_at = COALESCE(deleted_at, ?)
+    WHERE id = ?
+  `).bind(new Date().toISOString(), cleanValue(id, 120)).run();
+
+  return json({ ok: true }, 200, request);
+}
+
 async function getToolSetting(request, env, toolId) {
   const adminDb = getAdminDb(env);
 
@@ -1221,14 +1846,18 @@ async function listCustomerRecords(request, env) {
   const url = new URL(request.url);
   const limit = clampNumber(url.searchParams.get('limit'), DEFAULT_LIMIT, 1, MAX_LIMIT);
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
+  const customerFilter = normalizeSearch(url.searchParams.get('customer') || url.searchParams.get('username'));
+  const whereClause = customerFilter ? 'WHERE LOWER(customer_name) = ?' : '';
+  const bindings = customerFilter ? [customerFilter, limit, offset] : [limit, offset];
   const result = await customerDb.prepare(`
     SELECT id, customer_name, activated_email, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
       status, notes, created_at, updated_at
     FROM customer_records
+    ${whereClause}
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
-  `).bind(limit, offset).all();
+  `).bind(...bindings).all();
 
   return json({
     records: (result.results || []).map(mapCustomerRecordRow)
@@ -1296,6 +1925,8 @@ async function upsertCustomerRecords(request, env) {
     await saveCustomerRecord(customerDb, record);
   }
 
+  await syncCustomerAccountsFromRecords(customerDb);
+
   return json({
     ok: true,
     total: records.length,
@@ -1334,6 +1965,7 @@ async function bulkImportCustomerRecords(request, env) {
   }
 
   await saveCustomerRecordsBatch(customerDb, mergedRecords);
+  await syncCustomerAccountsFromRecords(customerDb);
 
   return json({
     ok: true,
@@ -1364,7 +1996,7 @@ async function bulkUpdateCustomerRecordStatus(request, env) {
   const updatedAt = cleanValue(payload.updatedAt || payload.updated_at, 80) || new Date().toISOString();
 
   if (!customerStatusValues.has(status) || status === 'incomplete') {
-    return json({ ok: false, error: 'Status bulk tidak valid.' }, 400, request);
+    return json({ ok: false, error: 'Status Bulk tidak valid.' }, 400, request);
   }
 
   if (!ids.length) {
@@ -1453,6 +2085,7 @@ async function patchCustomerRecord(request, env, id) {
   }
 
   await saveCustomerRecord(customerDb, record);
+  await syncCustomerAccountsFromRecords(customerDb);
 
   return json({ ok: true, record }, 200, request);
 }
@@ -1474,11 +2107,9 @@ function getCustomerDb(env) {
 }
 
 function findCustomerRecordBatchConflict(records) {
-  const emailRecords = new Map();
   const orderNumbers = new Map();
 
   for (const record of records) {
-    const email = normalizeCustomerUniqueEmail(record.activatedEmail);
     const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
 
     if (orderNumber) {
@@ -1494,31 +2125,12 @@ function findCustomerRecordBatchConflict(records) {
 
       orderNumbers.set(orderNumber, record);
     }
-
-    if (email && shouldCheckCustomerActivationEmailDuplicate(record)) {
-      const matchingRecords = emailRecords.get(email) || [];
-      const existingRecord = matchingRecords.find((matchingRecord) => {
-        return matchingRecord.id !== record.id && shouldBlockCustomerActivationEmailDuplicate(record, matchingRecord);
-      });
-
-      if (existingRecord) {
-        return {
-          field: 'activatedEmail',
-          value: record.activatedEmail,
-          existingRecord
-        };
-      }
-
-      matchingRecords.push(record);
-      emailRecords.set(email, matchingRecords);
-    }
   }
 
   return null;
 }
 
 async function findCustomerRecordConflict(customerDb, record) {
-  const email = normalizeCustomerUniqueEmail(record.activatedEmail);
   const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
 
   if (orderNumber) {
@@ -1540,38 +2152,11 @@ async function findCustomerRecordConflict(customerDb, record) {
     }
   }
 
-  if (!email || !shouldCheckCustomerActivationEmailDuplicate(record)) {
-    return null;
-  }
-
-  const emailRows = await customerDb.prepare(`
-    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
-      order_source, product_name, duration_days, start_date, expiry_date,
-      status, notes, created_at, updated_at
-    FROM customer_records
-    WHERE id <> ? AND LOWER(activated_email) = ?
-  `).bind(record.id, email).all();
-
-  for (const row of emailRows.results || []) {
-    const existingRecord = mapCustomerRecordRow(row);
-
-    if (shouldBlockCustomerActivationEmailDuplicate(record, existingRecord)) {
-      return {
-        field: 'activatedEmail',
-        value: record.activatedEmail,
-        existingRecord
-      };
-    }
-  }
-
   return null;
 }
 
 function customerRecordConflictResponse(conflict, request) {
-  const label = conflict.field === 'activatedEmail' ? 'Email aktivasi' : 'Nomor pesanan';
-  const message = conflict.field === 'activatedEmail' ?
-    `${label} ${conflict.value} sudah dipakai pada periode langganan yang bentrok.` :
-    `${label} ${conflict.value} sudah ada di database.`;
+  const message = `Nomor pesanan ${conflict.value} sudah ada di database.`;
 
   return json({
     ok: false,
@@ -1610,18 +2195,10 @@ async function mergeCustomerImportRecords(customerDb, records) {
 }
 
 async function findCustomerRecordBulkConflict(customerDb, records) {
-  const recordsByEmail = new Map();
   const orderRecords = new Map();
 
   records.forEach((record) => {
-    const email = normalizeCustomerUniqueEmail(record.activatedEmail);
     const orderNumber = normalizeCustomerUniqueOrderNumber(record.orderNumber);
-
-    if (email && shouldCheckCustomerActivationEmailDuplicate(record)) {
-      const matchingRecords = recordsByEmail.get(email) || [];
-      matchingRecords.push(record);
-      recordsByEmail.set(email, matchingRecords);
-    }
 
     if (orderNumber) {
       orderRecords.set(orderNumber, record);
@@ -1634,7 +2211,7 @@ async function findCustomerRecordBulkConflict(customerDb, records) {
     return orderConflict;
   }
 
-  return findCustomerRecordBulkEmailConflict(customerDb, recordsByEmail);
+  return null;
 }
 
 async function findCustomerRecordBulkConflictByField(customerDb, columnName, recordMap, field) {
@@ -1976,9 +2553,7 @@ function isCustomerTargetLinkProduct(record) {
 }
 
 function shouldCheckCustomerActivationEmailDuplicate(record) {
-  return Boolean(normalizeCustomerUniqueEmail(record.activatedEmail || record.activated_email)) &&
-    !isCustomerSharedActivationEmailProduct(record) &&
-    !isCustomerTargetLinkProduct(record);
+  return false;
 }
 
 function customerDateValue(value) {
@@ -2429,6 +3004,19 @@ function stripHtml(value) {
 
 function categorizeEmail(email) {
   const haystack = normalizeSearch(`${email.recipient} ${email.sender} ${email.subject} ${email.body}`);
+  const sender = String(email.sender || '');
+  const subject = String(email.subject || '');
+  const compactSubject = normalizeSearch(subject).replace(/\s+/g, ' ');
+  const numericSender = /^[\s"'<]*\d{3,8}[\s"'>]*$/i.test(sender) || /^[\d\s+-]{3,12}$/.test((sender.split('@')[0] || sender));
+
+  if (numericSender && /(loan|pinjaman|kredit|offer|promo|cash)/i.test(subject)) {
+    return 'spam';
+  }
+
+  if (/^loan offer$/i.test(compactSubject)) {
+    return 'spam';
+  }
+
   const matchedRule = categoryRules.find((rule) => rule.checks.some((check) => haystack.includes(check)));
 
   return matchedRule ? matchedRule.value : 'other';

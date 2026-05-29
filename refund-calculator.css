@@ -69,7 +69,7 @@ a {
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .brand-mark h1 {
@@ -726,6 +726,29 @@ body {
   min-height: 300px;
   border-radius: 8px;
   padding: 12px;
+}
+
+.result-text.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  border: 1px solid #d8d8d8;
+  background: #f3f3f2;
+  color: #555;
+  text-align: center;
+  white-space: normal;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow: hidden;
+}
+
+body.catsoft-embedded-tool .result-text.is-empty {
+  border-color: #d8d8d8 !important;
+  background: #f3f3f2 !important;
+  color: #555 !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 760px) {

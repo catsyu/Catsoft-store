@@ -1,4 +1,4 @@
-if (!window.CATSOFT_ADMIN_AUTHORIZED && !window.CATSOFT_SUPPLIER_AUTHORIZED) {
+if (!window.CATSOFT_ADMIN_AUTHORIZED && !window.CATSOFT_SUPPLIER_AUTHORIZED && !window.CATSOFT_CUSTOMER_AUTHORIZED) {
   throw new Error('Catsoft inbox authorization required.');
 }
 
@@ -6,13 +6,17 @@ const productionApiEndpoint = 'https://catsoft.store/api/email-messages';
 const apiEndpoint = window.CATSOFT_EMAIL_INBOX_API || getDefaultApiEndpoint();
 const readStorageKey = 'catsoftEmailInboxReadIds';
 const deletedStorageKey = 'catsoftEmailInboxDeletedIds';
+const spamStorageKey = 'catsoftEmailInboxSpamIds';
+const notSpamStorageKey = 'catsoftEmailInboxNotSpamIds';
 const autoRefreshMs = 15000;
 const emailFetchLimit = 500;
 
 const refreshBtn = document.getElementById('refreshBtn');
 const syncStatus = document.getElementById('syncStatus');
+const inboxTitle = document.getElementById('inboxTitle');
 const totalCount = document.getElementById('totalCount');
 const unreadCount = document.getElementById('unreadCount');
+const spamCount = document.getElementById('spamCount');
 const otpCount = document.getElementById('otpCount');
 const recipientCount = document.getElementById('recipientCount');
 const filterForm = document.getElementById('filterForm');
@@ -37,10 +41,30 @@ const categoryLabels = {
   adobe: 'Adobe',
   canva: 'Canva',
   support: 'Support',
+  spam: 'Spam',
   other: 'Lainnya'
 };
 
 const categoryRules = [
+  {
+    value: 'spam',
+    checks: [
+      'loan offer',
+      'pinjaman',
+      'quick cash',
+      'easy loan',
+      'cash loan',
+      'kredit tanpa',
+      'casino',
+      'jackpot',
+      'lottery',
+      'winner',
+      'free money',
+      'claim now',
+      'crypto profit',
+      'investment opportunity'
+    ]
+  },
   {
     value: 'chatgpt-otp',
     checks: ['chatgpt', 'openai', 'tm.openai.com', 'verification code', 'kode verifikasi', 'otp']
@@ -69,20 +93,27 @@ const state = {
   source: 'api',
   readIds: loadReadIds(),
   deletedIds: loadDeletedIds(),
+  spamIds: loadStoredIdSet(spamStorageKey),
+  notSpamIds: loadStoredIdSet(notSpamStorageKey),
   selectedIds: new Set(),
   lastUpdatedAt: null
 };
 
 const currentAdminAccess = window.CatsoftAdminAuth ? window.CatsoftAdminAuth.getCurrentAdmin() : null;
 const currentSupplierAccess = window.CatsoftSupplierAuth ? window.CatsoftSupplierAuth.getCurrentSupplier() : null;
-const inboxAccess = currentSupplierAccess && window.CatsoftSupplierAuth
-  ? window.CatsoftSupplierAuth.getInboxAccess()
-  : currentAdminAccess && currentAdminAccess.role !== 'owner' && window.CatsoftAdminAuth
-    ? window.CatsoftAdminAuth.getInboxAccess()
-    : { all: true, rules: [] };
+const currentCustomerAccess = window.CatsoftCustomerAuth ? window.CatsoftCustomerAuth.getCurrentCustomer() : null;
+const inboxAccess = currentCustomerAccess && window.CatsoftCustomerAuth
+  ? window.CatsoftCustomerAuth.getInboxAccess()
+  : currentSupplierAccess && window.CatsoftSupplierAuth
+    ? window.CatsoftSupplierAuth.getInboxAccess()
+    : currentAdminAccess && currentAdminAccess.role !== 'owner' && window.CatsoftAdminAuth
+      ? window.CatsoftAdminAuth.getInboxAccess()
+      : { all: true, rules: [] };
 
 let isLoadingEmails = false;
 let autoRefreshTimer;
+let embeddedDetailRaf = 0;
+let embeddedDetailTrackingBound = false;
 
 function canUseDemoFallback() {
   return window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname.toLowerCase());
@@ -196,6 +227,19 @@ function loadDeletedIds() {
 
 function saveDeletedIds() {
   localStorage.setItem(deletedStorageKey, JSON.stringify([...state.deletedIds]));
+}
+
+function loadStoredIdSet(storageKey) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveStoredIdSet(storageKey, ids) {
+  localStorage.setItem(storageKey, JSON.stringify([...ids]));
 }
 
 function escapeHtml(value) {
@@ -334,7 +378,7 @@ function normalizeEmail(rawEmail) {
   const body = buildReadableMessageBody(textBody, htmlText, rawEmail.rawContent || rawEmail.raw_content || '');
   const receivedAt = rawEmail.receivedAt || rawEmail.received_at || rawEmail.timestamp || rawEmail.date || new Date().toISOString();
   const subject = rawEmail.subject || '(Tanpa subject)';
-  const category = normalizeCategory(rawEmail.category, { from, to, subject, body });
+  const category = normalizeCategory(rawEmail.category, { id, from, to, subject, body });
   const snippet = getReadableSnippet(rawEmail.snippet || rawEmail.preview, subject, body, category);
   const otpCode = rawEmail.otpCode || rawEmail.otp_code || extractOtp(`${subject}\n${body}`);
   const hasServerReadState = Object.prototype.hasOwnProperty.call(rawEmail, 'read')
@@ -396,7 +440,27 @@ function isUsefulMessageText(value) {
 }
 
 function normalizeCategory(value, email) {
-  if (value && categoryLabels[value]) {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+
+  if (normalizedValue === 'spam') {
+    return 'spam';
+  }
+
+  if (isSpamEmail(email)) {
+    return 'spam';
+  }
+
+  if (normalizedValue && categoryLabels[normalizedValue]) {
+    return normalizedValue;
+  }
+
+  return inferNonSpamCategory(email);
+}
+
+function inferNonSpamCategory(email) {
+  const value = String(email.category || '').trim().toLowerCase();
+
+  if (value && value !== 'spam' && categoryLabels[value]) {
     return value;
   }
 
@@ -411,15 +475,59 @@ function normalizeCategory(value, email) {
   }
 
   const matchedRule = categoryRules
-    .filter((rule) => rule.value !== 'chatgpt-otp' && rule.value !== 'adobe')
+    .filter((rule) => !['spam', 'chatgpt-otp', 'adobe'].includes(rule.value))
     .find((rule) => rule.checks.some((check) => haystack.includes(check)));
 
   return matchedRule ? matchedRule.value : 'other';
 }
 
+function isSpamEmail(email) {
+  const id = email.id || '';
+
+  if (id && state.notSpamIds.has(id)) {
+    return false;
+  }
+
+  if (id && state.spamIds.has(id)) {
+    return true;
+  }
+
+  const sender = cleanAddress(email.from);
+  const subject = String(email.subject || '');
+  const body = String(email.body || '');
+  const haystack = normalizeSearch(`${sender} ${email.to} ${subject} ${body}`);
+  const compactSubject = normalizeSearch(subject).replace(/\s+/g, ' ');
+  const numericSender = /^[\s"'<]*\d{3,8}[\s"'>]*$/i.test(sender) || /^[\d\s+-]{3,12}$/.test(sender.split('@')[0] || sender);
+
+  if (numericSender && /(loan|pinjaman|kredit|offer|promo|cash)/i.test(subject)) {
+    return true;
+  }
+
+  if (/^loan offer$/i.test(compactSubject)) {
+    return true;
+  }
+
+  const spamRule = categoryRules.find((rule) => rule.value === 'spam');
+  return Boolean(spamRule && spamRule.checks.some((check) => haystack.includes(check)));
+}
+
 function extractOtp(value) {
-  const match = String(value || '').match(/\b\d{4,8}\b/);
-  return match ? match[0] : '';
+  const text = String(value || '');
+  const patterns = [
+    /(?:code|kode|otp|verification|verifikasi|authentication|auth|security)[^\d]{0,32}(\d[\d\s-]{2,12}\d)/i,
+    /(\d[\d\s-]{2,12}\d)[^\n]{0,32}(?:code|kode|otp|verification|verifikasi|authentication|auth|security)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const digits = match ? String(match[1] || '').replace(/\D/g, '') : '';
+
+    if (digits.length >= 4 && digits.length <= 8) {
+      return digits;
+    }
+  }
+
+  return '';
 }
 
 function isRead(email) {
@@ -489,7 +597,7 @@ async function loadEmails(options = {}) {
   isLoadingEmails = true;
 
   if (!options.silent) {
-    setStatus('Memuat...');
+    setStatus('Memuat');
   }
 
   refreshBtn.disabled = true;
@@ -585,7 +693,15 @@ function applyFilters() {
       }
     }
 
-    if (categoryValue !== 'all' && email.category !== categoryValue) {
+    if (categoryValue === 'spam' && email.category !== 'spam') {
+      return false;
+    }
+
+    if (categoryValue !== 'spam' && email.category === 'spam') {
+      return false;
+    }
+
+    if (categoryValue !== 'all' && categoryValue !== 'spam' && email.category !== categoryValue) {
       return false;
     }
 
@@ -605,6 +721,7 @@ function applyFilters() {
   });
 
   renderStats();
+  renderInboxTitle();
   renderCategoryTabs();
   syncSelectedIds();
   renderEmailList();
@@ -622,20 +739,34 @@ function syncSelectedIds() {
 }
 
 function renderStats() {
-  const uniqueRecipients = new Set(state.emails.map((email) => normalizeSearch(email.to)).filter(Boolean));
+  const visibleEmails = state.emails.filter((email) => email.category !== 'spam');
+  const spamEmails = state.emails.filter((email) => email.category === 'spam');
+  const uniqueRecipients = new Set(visibleEmails.map((email) => normalizeSearch(email.to)).filter(Boolean));
 
   if (totalCount) {
-    totalCount.textContent = state.emails.length;
+    totalCount.textContent = visibleEmails.length;
   }
-  unreadCount.textContent = state.emails.filter((email) => !isRead(email)).length;
+  unreadCount.textContent = visibleEmails.filter((email) => !isRead(email)).length;
+
+  if (spamCount) {
+    spamCount.textContent = spamEmails.length;
+  }
 
   if (otpCount) {
-    otpCount.textContent = state.emails.filter((email) => email.category === 'chatgpt-otp').length;
+    otpCount.textContent = visibleEmails.filter((email) => email.category === 'chatgpt-otp').length;
   }
 
   if (recipientCount) {
     recipientCount.textContent = uniqueRecipients.size;
   }
+}
+
+function renderInboxTitle() {
+  if (!inboxTitle) {
+    return;
+  }
+
+  inboxTitle.textContent = categoryFilter.value === 'spam' ? 'Email Spam' : 'Semua Email Masuk';
 }
 
 function renderCategoryTabs() {
@@ -651,11 +782,19 @@ function renderCategoryTabs() {
 function renderBulkToolbar() {
   const selectedCount = state.selectedIds.size;
   const filteredCount = state.filteredEmails.length;
+  const isSpamView = categoryFilter.value === 'spam';
+  const visibleActions = new Set(isSpamView
+    ? ['inbox', 'delete', 'clear']
+    : ['read', 'unread', 'spam', 'delete', 'clear']);
 
-  selectedEmailCount.textContent = `${selectedCount} dipilih`;
+  selectedEmailCount.textContent = `${selectedCount} Dipilih`;
   bulkToolbar.classList.toggle('has-selection', selectedCount > 0);
+  bulkToolbar.classList.toggle('is-spam-view', isSpamView);
   bulkToolbar.querySelectorAll('button[data-bulk-action]').forEach((button) => {
-    button.disabled = selectedCount === 0 && button.dataset.bulkAction !== 'clear';
+    const action = button.dataset.bulkAction;
+    const canShow = selectedCount > 0 && visibleActions.has(action);
+    button.hidden = !canShow;
+    button.disabled = !canShow;
   });
 
   selectAllEmails.checked = filteredCount > 0 && selectedCount === filteredCount;
@@ -674,8 +813,8 @@ function renderEmailList() {
     const checked = state.selectedIds.has(email.id);
 
     return `
-      <article class="email-item ${read ? '' : 'is-unread'} ${selected ? 'is-selected' : ''}" data-email-id="${escapeHtml(email.id)}" role="button" tabindex="0">
-        <label class="email-select" aria-label="Pilih email">
+      <article class="email-item ${read ? '' : 'is-unread'} ${selected ? 'is-selected' : ''} ${email.category === 'spam' ? 'is-spam' : ''}" data-email-id="${escapeHtml(email.id)}" role="button" tabindex="0">
+        <label class="email-select" aria-label="Pilih Email">
           <input type="checkbox" data-email-select="${escapeHtml(email.id)}" ${checked ? 'checked' : ''} />
           <span></span>
         </label>
@@ -684,14 +823,9 @@ function renderEmailList() {
           <div class="email-title">
             <strong class="sender-name">${escapeHtml(getSenderName(email.from, email.category))}</strong>
             <h3>${escapeHtml(email.subject)}</h3>
-            <p>${escapeHtml(getAddressSummary(email))}</p>
+            ${email.category === 'spam' ? '<p class="spam-hint">Terdeteksi spam</p>' : ''}
           </div>
           <span class="email-time">${escapeHtml(formatDateTime(email.receivedAt))}</span>
-        </div>
-        <p class="email-preview">${escapeHtml(email.snippet || email.body || 'Tidak ada preview.')}</p>
-        <div class="email-meta-row">
-          <span class="category-badge ${escapeHtml(email.category)}">${escapeHtml(categoryLabels[email.category] || categoryLabels.other)}</span>
-          <span class="read-badge ${read ? '' : 'unread'}">${read ? 'Sudah dibaca' : 'Belum dibaca'}</span>
         </div>
       </article>
     `;
@@ -829,6 +963,43 @@ function deleteEmail(email) {
   }
 }
 
+function updateEmailCategory(email, category) {
+  email.category = category;
+
+  if (category === 'spam') {
+    state.spamIds.add(email.id);
+    state.notSpamIds.delete(email.id);
+  } else {
+    state.spamIds.delete(email.id);
+    state.notSpamIds.add(email.id);
+  }
+
+  saveStoredIdSet(spamStorageKey, state.spamIds);
+  saveStoredIdSet(notSpamStorageKey, state.notSpamIds);
+
+  if (state.source === 'api') {
+    fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category })
+    }).catch(() => {});
+  }
+}
+
+function markSpam(email) {
+  updateEmailCategory(email, 'spam');
+  if (state.selectedId === email.id && categoryFilter.value !== 'spam') {
+    state.selectedId = null;
+  }
+}
+
+function restoreFromSpam(email) {
+  updateEmailCategory(email, 'other');
+  if (state.selectedId === email.id && categoryFilter.value === 'spam') {
+    state.selectedId = null;
+  }
+}
+
 function getSelectedEmailBody(email) {
   const raw = String(email.body || email.snippet || 'Isi email belum tersedia.')
     .replace(/\r\n/g, '\n')
@@ -867,6 +1038,10 @@ function runBulkAction(action) {
     saveDeletedIds();
     saveReadIds();
     state.emails = state.emails.filter((email) => !state.deletedIds.has(email.id));
+  } else if (action === 'spam') {
+    selectedEmails.forEach(markSpam);
+  } else if (action === 'inbox') {
+    selectedEmails.forEach(restoreFromSpam);
   }
 
   state.selectedIds.clear();
@@ -879,8 +1054,8 @@ function renderSelectedEmail(email) {
   if (!selectedEmail) {
     messagePanel.innerHTML = `
       <div class="detail-empty">
-        <span class="section-kicker">Detail email</span>
-        <h2>Pilih email</h2>
+        <span class="section-kicker">Detail Email</span>
+        <h2>Pilih Email</h2>
       </div>
     `;
     return;
@@ -889,23 +1064,22 @@ function renderSelectedEmail(email) {
   const body = getSelectedEmailBody(selectedEmail);
   const recipientLabel = getRecipientLabel(selectedEmail);
   const senderLabel = getSenderName(selectedEmail.from, selectedEmail.category);
+  const spamActionMarkup = selectedEmail.category === 'spam'
+    ? '<button class="secondary-button" type="button" data-detail-action="restore-inbox">Kembalikan Ke Inbox</button>'
+    : '<button class="secondary-button" type="button" data-detail-action="move-spam">Pindah Ke Spam</button>';
   const otpMarkup = selectedEmail.otpCode ? `
     <div class="otp-strip">
       <div>
         <span>Kode OTP</span>
         <strong>${escapeHtml(selectedEmail.otpCode)}</strong>
       </div>
-      <button class="secondary-button" type="button" data-detail-action="copy-otp" data-copy-value="${escapeHtml(selectedEmail.otpCode)}">Copy OTP</button>
+      <button class="secondary-button" type="button" data-detail-action="copy-otp" data-copy-value="${escapeHtml(selectedEmail.otpCode)}">Salin OTP</button>
     </div>
   ` : '';
 
   messagePanel.innerHTML = `
     <div class="detail-header">
-      <div class="detail-toolbar">
-        <button class="secondary-button mobile-close-button" type="button" data-detail-action="close-detail">Tutup</button>
-        <button class="secondary-button" type="button" data-detail-action="copy-recipient" data-copy-value="${escapeHtml(selectedEmail.to)}">Copy Email</button>
-        <button class="secondary-button" type="button" data-detail-action="copy-body" data-copy-value="${escapeHtml(body)}">Copy Isi</button>
-      </div>
+      <button class="secondary-button mobile-close-button" type="button" data-detail-action="close-detail">Tutup</button>
       <h2 class="detail-subject">${escapeHtml(selectedEmail.subject)}</h2>
       <div class="detail-top">
         <span class="sender-avatar detail-avatar" aria-hidden="true">${escapeHtml(getSenderInitial(selectedEmail))}</span>
@@ -920,12 +1094,133 @@ function renderSelectedEmail(email) {
         <span>Dari ${escapeHtml(senderLabel)}</span>
         <span>${escapeHtml(formatDateTime(selectedEmail.receivedAt))}</span>
       </div>
+      <div class="detail-toolbar">
+        ${spamActionMarkup}
+        <button class="secondary-button" type="button" data-detail-action="copy-recipient" data-copy-value="${escapeHtml(selectedEmail.to)}">Salin Email</button>
+        <button class="secondary-button" type="button" data-detail-action="copy-body" data-copy-value="${escapeHtml(body)}">Salin Isi</button>
+      </div>
     </div>
     ${otpMarkup}
     <div class="message-body">
       <div class="message-content">${escapeHtml(body)}</div>
     </div>
   `;
+}
+
+function isEmbeddedEmailTool() {
+  return document.body.classList.contains('catsoft-embedded-tool')
+    || new URLSearchParams(window.location.search).get('embedded') === '1';
+}
+
+function getEmbeddedFrameElement() {
+  if (window.parent === window) {
+    return null;
+  }
+
+  try {
+    return Array.from(window.parent.document.querySelectorAll('iframe'))
+      .find((frame) => frame.contentWindow === window) || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getParentTopbarBottom() {
+  if (window.parent === window) {
+    return 0;
+  }
+
+  try {
+    const topbar = window.parent.document.querySelector('.console-topbar');
+    const rect = topbar ? topbar.getBoundingClientRect() : null;
+    return rect ? Math.max(0, rect.bottom) : 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function resetEmbeddedDetailPosition() {
+  window.cancelAnimationFrame(embeddedDetailRaf);
+  embeddedDetailRaf = 0;
+  document.body.style.removeProperty('--embedded-detail-top');
+  document.body.style.removeProperty('--embedded-detail-height');
+  document.body.style.removeProperty('--embedded-detail-left');
+  document.body.style.removeProperty('--embedded-detail-width');
+  messagePanel.style.removeProperty('position');
+  messagePanel.style.removeProperty('top');
+  messagePanel.style.removeProperty('right');
+  messagePanel.style.removeProperty('bottom');
+  messagePanel.style.removeProperty('left');
+  messagePanel.style.removeProperty('width');
+  messagePanel.style.removeProperty('max-height');
+}
+
+function positionEmbeddedMobileDetail() {
+  if (!isEmbeddedEmailTool() || !messagePanel.classList.contains('is-open')) {
+    return;
+  }
+
+  const frame = getEmbeddedFrameElement();
+
+  if (!frame) {
+    return;
+  }
+
+  const frameRect = frame.getBoundingClientRect();
+  const parentTopbarBottom = getParentTopbarBottom();
+  const viewportHeight = window.parent?.innerHeight || window.innerHeight;
+  const margin = window.innerWidth <= 420 ? 8 : 10;
+  const top = Math.max(8, Math.round(parentTopbarBottom + margin - frameRect.top));
+  const visibleHeight = Math.max(260, Math.round(viewportHeight - parentTopbarBottom - margin * 2));
+  const frameWidth = Math.max(0, Math.round(frameRect.width));
+  const panelWidth = Math.max(260, frameWidth - margin * 2);
+
+  document.body.style.setProperty('--embedded-detail-top', `${top}px`);
+  document.body.style.setProperty('--embedded-detail-height', `${visibleHeight}px`);
+  document.body.style.setProperty('--embedded-detail-left', `${margin}px`);
+  document.body.style.setProperty('--embedded-detail-width', `${panelWidth}px`);
+  messagePanel.style.setProperty('position', 'absolute', 'important');
+  messagePanel.style.setProperty('top', `${top}px`, 'important');
+  messagePanel.style.setProperty('right', 'auto', 'important');
+  messagePanel.style.setProperty('bottom', 'auto', 'important');
+  messagePanel.style.setProperty('left', `${margin}px`, 'important');
+  messagePanel.style.setProperty('width', `${panelWidth}px`, 'important');
+  messagePanel.style.setProperty('max-height', `${Math.min(620, visibleHeight)}px`, 'important');
+}
+
+function scheduleEmbeddedMobileDetailPosition() {
+  window.cancelAnimationFrame(embeddedDetailRaf);
+  embeddedDetailRaf = window.requestAnimationFrame(positionEmbeddedMobileDetail);
+}
+
+function bindEmbeddedDetailTracking() {
+  if (embeddedDetailTrackingBound || !isEmbeddedEmailTool() || window.parent === window) {
+    return;
+  }
+
+  embeddedDetailTrackingBound = true;
+
+  try {
+    window.parent.addEventListener('scroll', scheduleEmbeddedMobileDetailPosition, { passive: true });
+    window.parent.addEventListener('resize', scheduleEmbeddedMobileDetailPosition);
+  } catch (error) {
+    embeddedDetailTrackingBound = false;
+  }
+}
+
+function unbindEmbeddedDetailTracking() {
+  if (!embeddedDetailTrackingBound || window.parent === window) {
+    return;
+  }
+
+  try {
+    window.parent.removeEventListener('scroll', scheduleEmbeddedMobileDetailPosition);
+    window.parent.removeEventListener('resize', scheduleEmbeddedMobileDetailPosition);
+  } catch (error) {
+    // Ignore cross-window cleanup failures; the modal already closed locally.
+  }
+
+  embeddedDetailTrackingBound = false;
 }
 
 function openMobileDetail() {
@@ -935,11 +1230,20 @@ function openMobileDetail() {
 
   document.body.classList.add('detail-drawer-open');
   messagePanel.classList.add('is-open');
+
+  if (isEmbeddedEmailTool()) {
+    positionEmbeddedMobileDetail();
+    bindEmbeddedDetailTracking();
+    window.setTimeout(positionEmbeddedMobileDetail, 40);
+    window.setTimeout(positionEmbeddedMobileDetail, 160);
+  }
 }
 
 function closeMobileDetail() {
   document.body.classList.remove('detail-drawer-open');
   messagePanel.classList.remove('is-open');
+  unbindEmbeddedDetailTracking();
+  resetEmbeddedDetailPosition();
 }
 
 function copyText(value) {
@@ -1063,6 +1367,22 @@ messagePanel.addEventListener('click', (event) => {
 
   if (button.dataset.detailAction === 'close-detail') {
     closeMobileDetail();
+    return;
+  }
+
+  if (button.dataset.detailAction === 'move-spam' || button.dataset.detailAction === 'restore-inbox') {
+    const email = state.emails.find((item) => item.id === state.selectedId);
+
+    if (email) {
+      if (button.dataset.detailAction === 'move-spam') {
+        markSpam(email);
+      } else {
+        restoreFromSpam(email);
+      }
+
+      applyFilters();
+      closeMobileDetail();
+    }
     return;
   }
 

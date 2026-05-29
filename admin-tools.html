@@ -4,221 +4,294 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Catsoft Admin Tools</title>
+  <title>Catsoft Admin Console</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260529-chat-popup" />
   <link rel="stylesheet" href="form-standard.css" />
 </head>
-<body>
-  <main class="admin-page">
-    <header class="admin-header">
-      <div class="brand-mark">
+<body class="admin-console-body">
+  <main class="admin-console-page">
+    <header class="console-topbar">
+      <a class="console-brand" href="https://admin.catsoft.store/" aria-label="Catsoft Admin Console">
         <img src="logo.png" alt="Catsoft" />
-        <div>
-          <span>Catsoft Tools</span>
-          <h1>Admin Tools</h1>
-        </div>
-      </div>
-      <nav class="admin-nav" aria-label="Navigasi admin">
-        <a class="ghost-button" href="https://catsoft.store/">Website</a>
+      </a>
+      <nav class="console-tabs" aria-label="Navigasi Admin Console">
+        <a class="is-active" href="#overview" data-console-target="overview">Ikhtisar</a>
+        <a href="#admin" data-console-target="admin" data-admin-tool-link="access-console">Akses</a>
+        <a href="#customer" data-console-target="customer" data-admin-tool-link="customer-suite">Customer</a>
+        <a href="#email" data-console-target="email" data-admin-tool-link="email-inbox">Email</a>
+        <a href="#marketing" data-console-target="marketing" data-admin-tool-link="marketing-suite">Marketing</a>
+      </nav>
+      <nav class="admin-nav console-actions" aria-label="Akun Admin">
+        <span class="console-site-link">Profil</span>
       </nav>
     </header>
 
-    <section class="overview-band" aria-labelledby="toolsTitle">
-      <div class="panel-heading">
-        <span class="section-kicker">Dashboard internal</span>
-        <h2 id="toolsTitle">Admin Tools</h2>
-        <p>Tempat akses cepat untuk alat operasional Catsoft yang dipakai admin saat memproses order, refund, dan kebutuhan customer support.</p>
+    <section class="console-shell" aria-labelledby="consoleTitle">
+      <div class="console-main">
+        <section class="console-intro" aria-labelledby="consoleTitle" data-console-overview>
+          <div>
+            <span class="section-kicker">Ikhtisar</span>
+            <h1 id="consoleTitle">Pusat Kontrol Admin Catsoft</h1>
+            <p>Kelola akses, tools operasional, dan workflow Catsoft dari satu console.</p>
+          </div>
+        </section>
+
+        <section class="console-overview-metrics" aria-label="Ringkasan Cepat" data-console-overview>
+          <article>
+            <span>Tools Aktif</span>
+            <strong data-admin-summary="tools">9 Aktif</strong>
+          </article>
+          <article>
+            <span>Mode Akses</span>
+            <strong data-admin-summary="access">Owner Full</strong>
+          </article>
+        </section>
+
+        <section class="console-overview-grid" aria-label="Ringkasan Admin Console" data-console-overview>
+          <article class="console-panel console-product-panel">
+            <div class="console-panel-head">
+              <h2>Tools Catsoft</h2>
+              <a href="#admin" data-console-target="admin">Kelola</a>
+            </div>
+            <div class="console-table" role="grid" aria-label="Tools Catsoft">
+              <div class="console-table-head" role="row">
+                <span role="columnheader">Tools</span>
+                <span role="columnheader">Status</span>
+              </div>
+              <a class="console-product-row" href="#admin" data-console-target="admin" data-admin-tool-link="admin-access" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-admin" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Admin Access</strong><small>Akses Admin Dan Password</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Owner</b><small>Akses</small></span>
+              </a>
+              <a class="console-product-row" href="#admin" data-console-target="admin" data-admin-access-target="supplier" data-admin-tool-link="supplier-access" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-supplier" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Supplier Access</strong><small>Akses Supplier Center</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Owner</b><small>Supplier</small></span>
+              </a>
+              <a class="console-product-row" href="#customer" data-console-target="customer" data-console-tool-target="customer-access" data-admin-tool-link="customer-access" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-customer-access" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Customer Access</strong><small>Akun Customer Center</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Akses</b><small>Customer</small></span>
+              </a>
+              <a class="console-product-row" href="#customer" data-console-target="customer" data-console-tool-target="customer-database" data-admin-tool-link="customer-database" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-customer" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Customer Database</strong><small>Data Customer Dan Order</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Data</b><small>Order</small></span>
+              </a>
+              <a class="console-product-row" href="#customer" data-console-target="customer" data-console-tool-target="refund-calculator" data-admin-tool-link="refund-calculator" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-refund" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Refund Calculator</strong><small>Hitung Pengembalian Dana</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Hitung</b><small>Refund</small></span>
+              </a>
+              <a class="console-product-row" href="#email" data-console-target="email" data-admin-tool-link="email-inbox" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-mail" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Email Inbox</strong><small>Pantau OTP Dan Email</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>OTP</b><small>Support</small></span>
+              </a>
+              <a class="console-product-row" href="#customer" data-console-target="customer" data-console-tool-target="office-activation" data-admin-tool-link="office-activation" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-office" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Office Activation</strong><small>Installation ID Dan CID</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>CID</b><small>Aktivasi</small></span>
+              </a>
+              <a class="console-product-row" href="#marketing" data-console-target="marketing" data-console-tool-target="marketing-calculator" data-admin-tool-link="marketing-calculator" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-growth" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Marketing Simulator</strong><small>ROAS, HPP, Dan Profit</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>ROAS</b><small>Profit</small></span>
+              </a>
+              <a class="console-product-row" href="#marketing" data-console-target="marketing" data-console-tool-target="content-editor" data-admin-tool-link="content-editor" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-content" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Content Editor</strong><small>Konten Website Catsoft</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Konten</b><small>Website</small></span>
+              </a>
+            </div>
+          </article>
+        </section>
+
+        <section class="console-module-view" data-console-view="admin" data-admin-tool-module="access-console" hidden>
+          <div class="console-module-head">
+            <div>
+              <span class="section-kicker">Akses</span>
+              <h2>Akses</h2>
+              <p>Kelola akun, password, izin tools, dan status pengguna Catsoft.</p>
+            </div>
+          </div>
+          <div class="console-access-workspace">
+            <aside class="console-access-sidebar" aria-label="Menu Admin">
+              <button class="is-active" type="button" data-admin-access-target="admin">
+                <span>Kelola Admin</span>
+                <small>Akun, Password, Tools, Online</small>
+              </button>
+              <button type="button" data-admin-access-target="supplier">
+                <span>Kelola Supplier</span>
+                <small>Akun Supplier Dan Email Center</small>
+              </button>
+            </aside>
+            <div class="console-access-content">
+              <section class="console-access-pane" data-admin-access-pane="admin">
+                <section id="adminAccessRoot" aria-label="Pengaturan Akses Admin"></section>
+              </section>
+              <section class="console-access-pane" data-admin-access-pane="supplier" hidden>
+                <section id="supplierAccessRoot" aria-label="Pengaturan Akses Supplier"></section>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="console-module-view" data-console-view="customer" data-admin-tool-module="customer-suite" hidden>
+          <div class="console-module-head">
+            <div>
+              <span class="section-kicker">Customer</span>
+              <h2>Customer</h2>
+              <p>Kelola database customer, refund, dan aktivasi Office dari satu menu operasional.</p>
+            </div>
+          </div>
+          <div class="console-access-workspace console-tool-workspace">
+            <aside class="console-access-sidebar console-tool-sidebar" aria-label="Menu Customer">
+              <button class="is-active" type="button" data-console-tool-target="customer-access" data-admin-tool-link="customer-access">
+                <span>Kelola Customer</span>
+                <small>Akun Customer Center</small>
+              </button>
+              <button type="button" data-console-tool-target="customer-database" data-admin-tool-link="customer-database">
+                <span>Database Customer</span>
+                <small>Data Customer Dan Order</small>
+              </button>
+              <button type="button" data-console-tool-target="refund-calculator" data-admin-tool-link="refund-calculator">
+                <span>Refund</span>
+                <small>Hitung Pengembalian Dana</small>
+              </button>
+              <button type="button" data-console-tool-target="office-activation" data-admin-tool-link="office-activation">
+                <span>Aktivasi Office</span>
+                <small>Installation ID Dan CID</small>
+              </button>
+            </aside>
+            <div class="console-access-content console-tool-content">
+              <section class="console-access-pane console-tool-pane" data-console-tool-pane="customer-access">
+                <iframe class="console-tool-frame is-compact-tool" title="Customer Access" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-access?embedded=1"></iframe>
+              </section>
+              <section class="console-access-pane console-tool-pane" data-console-tool-pane="customer-database" hidden>
+                <iframe class="console-tool-frame" title="Customer Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-database?embedded=1"></iframe>
+              </section>
+              <section class="console-access-pane console-tool-pane" data-console-tool-pane="refund-calculator" hidden>
+                <iframe class="console-tool-frame is-compact-tool" title="Refund Calculator" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/refund-calculator?embedded=1"></iframe>
+              </section>
+              <section class="console-access-pane console-tool-pane" data-console-tool-pane="office-activation" hidden>
+                <iframe class="console-tool-frame is-compact-tool" title="Office Activation" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/office-activation?embedded=1"></iframe>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="console-module-view" data-console-view="email" data-admin-tool-module="email-inbox" hidden>
+          <div class="console-module-head">
+            <div>
+              <span class="section-kicker">Email</span>
+              <h2>Email Inbox</h2>
+              <p>Pantau email, OTP, status baca, penerima, dan temp mail dari dalam console.</p>
+            </div>
+          </div>
+          <iframe class="console-tool-frame" title="Email Inbox" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/email-inbox?embedded=1"></iframe>
+        </section>
+
+        <section class="console-module-view" data-console-view="marketing" data-admin-tool-module="marketing-suite" hidden>
+          <div class="console-module-head">
+            <div>
+              <span class="section-kicker">Marketing</span>
+              <h2>Marketing</h2>
+              <p>Jalankan simulasi harga, ROAS, profit, dan kelola konten website dari satu ruang kerja.</p>
+            </div>
+          </div>
+          <div class="console-access-workspace console-tool-workspace">
+            <aside class="console-access-sidebar console-tool-sidebar" aria-label="Menu Marketing">
+              <button class="is-active" type="button" data-console-tool-target="marketing-calculator" data-admin-tool-link="marketing-calculator">
+                <span>Perhitungan Simulasi</span>
+                <small>Harga, HPP, ROAS, Profit</small>
+              </button>
+              <button type="button" data-console-tool-target="content-editor" data-admin-tool-link="content-editor">
+                <span>Konten</span>
+                <small>Pricelist, Paket, Website</small>
+              </button>
+            </aside>
+            <div class="console-access-content console-tool-content">
+              <section class="console-access-pane console-tool-pane" data-console-tool-pane="marketing-calculator">
+                <iframe class="console-tool-frame" title="Marketing Simulator" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/marketing-calculator?embedded=1"></iframe>
+              </section>
+              <section class="console-access-pane console-tool-pane" data-console-tool-pane="content-editor" hidden>
+                <iframe class="console-tool-frame" title="Content Editor" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/content-editor?embedded=1"></iframe>
+              </section>
+            </div>
+          </div>
+        </section>
       </div>
-      <div class="access-summary dashboard-summary" aria-label="Ringkasan admin tools">
-        <div>
-          <span>Tools</span>
-          <strong data-admin-summary="tools">7 Aktif</strong>
+
+      <aside class="console-quick-panel" aria-label="Tautan Cepat">
+        <h2>Tautan Cepat</h2>
+        <div class="console-quick-links">
+          <a href="#admin" data-console-target="admin" data-admin-tool-link="admin-access">
+            <span class="console-quick-icon is-admin" aria-hidden="true"></span>
+            Tambahkan Admin
+          </a>
+          <a href="#admin" data-console-target="admin" data-admin-access-target="supplier" data-admin-tool-link="supplier-access">
+            <span class="console-quick-icon is-supplier" aria-hidden="true"></span>
+            Tambahkan Supplier
+          </a>
+          <a href="#customer" data-console-target="customer" data-console-tool-target="customer-access" data-admin-tool-link="customer-access">
+            <span class="console-quick-icon is-customer-access" aria-hidden="true"></span>
+            Kelola Customer
+          </a>
+          <a href="#customer" data-console-target="customer" data-console-tool-target="customer-database" data-admin-tool-link="customer-database">
+            <span class="console-quick-icon is-customer" aria-hidden="true"></span>
+            Database Customer
+          </a>
+          <a href="#customer" data-console-target="customer" data-console-tool-target="refund-calculator" data-admin-tool-link="refund-calculator">
+            <span class="console-quick-icon is-refund" aria-hidden="true"></span>
+            Refund Calculator
+          </a>
+          <a href="#email" data-console-target="email" data-admin-tool-link="email-inbox">
+            <span class="console-quick-icon is-mail" aria-hidden="true"></span>
+            Email Inbox
+          </a>
+          <a href="#customer" data-console-target="customer" data-console-tool-target="office-activation" data-admin-tool-link="office-activation">
+            <span class="console-quick-icon is-office" aria-hidden="true"></span>
+            Office Activation
+          </a>
+          <a href="#marketing" data-console-target="marketing" data-console-tool-target="marketing-calculator" data-admin-tool-link="marketing-calculator">
+            <span class="console-quick-icon is-growth" aria-hidden="true"></span>
+            Marketing Simulator
+          </a>
+          <a href="#marketing" data-console-target="marketing" data-console-tool-target="content-editor" data-admin-tool-link="content-editor">
+            <span class="console-quick-icon is-content" aria-hidden="true"></span>
+            Content Editor
+          </a>
         </div>
-        <div>
-          <span>Access</span>
-          <strong data-admin-summary="access">Owner Only</strong>
-        </div>
-      </div>
+      </aside>
     </section>
 
-    <section class="tools-section" aria-labelledby="activeToolsTitle">
-      <div class="section-title-row">
-        <div>
-          <span class="section-kicker">Tools aktif</span>
-          <h2 id="activeToolsTitle">Pilih berdasarkan kebutuhan</h2>
-        </div>
-      </div>
-
-      <div class="tools-console-shell">
-        <aside class="tools-console-nav" aria-label="Kategori admin tools">
-          <a href="#category-access">Pengaturan Akun</a>
-          <a href="#category-operasional">Order & Customer</a>
-          <a href="#category-support">Email & Aktivasi</a>
-          <a href="#category-growth">Marketing & Website</a>
-        </aside>
-
-        <div class="tools-category-list">
-        <details class="tools-category" id="category-access" data-tools-category>
-          <summary class="tools-category-head">
-            <div>
-              <span class="section-kicker">Access</span>
-              <h3>Pengaturan Akun</h3>
-            </div>
-            <span class="category-count">Owner</span>
-          </summary>
-          <div class="tools-grid compact-tools-grid">
-            <article class="tool-card owner-tool-card" data-admin-tool-card="admin-access">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Owner</span>
-                  <span class="tool-category">Admin</span>
-                </div>
-                <h3>Admin Access</h3>
-                <p>Kelola admin, password, akses tool, dan rule inbox.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/access">Kelola</a>
-              </div>
-            </article>
-
-            <article class="tool-card owner-tool-card" data-admin-tool-card="supplier-access">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Owner</span>
-                  <span class="tool-category">Supplier</span>
-                </div>
-                <h3>Supplier Access</h3>
-                <p>Kelola akun supplier dan akses Email Supplier Center.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/supplier-access">Kelola</a>
-              </div>
-            </article>
-          </div>
-        </details>
-
-        <details class="tools-category" id="category-operasional" data-tools-category>
-          <summary class="tools-category-head">
-            <div>
-              <span class="section-kicker">Operasional</span>
-              <h3>Order & Customer</h3>
-            </div>
-            <span class="category-count">Harian</span>
-          </summary>
-          <div class="tools-grid compact-tools-grid">
-            <article class="tool-card" data-admin-tool-card="customer-database">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Aktif</span>
-                  <span class="tool-category">Customer</span>
-                </div>
-                <h3>Customer Database</h3>
-                <p>Catat customer, produk, tanggal expire, status, dan data pesanan.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/customers">Buka</a>
-              </div>
-            </article>
-
-            <article class="tool-card" data-admin-tool-card="refund-calculator">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Aktif</span>
-                  <span class="tool-category">Refund</span>
-                </div>
-                <h3>Refund Calculator</h3>
-                <p>Hitung refund, sisa masa aktif, potongan, dan output siap copy.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/refund">Buka</a>
-              </div>
-            </article>
-          </div>
-        </details>
-
-        <details class="tools-category" id="category-support" data-tools-category>
-          <summary class="tools-category-head">
-            <div>
-              <span class="section-kicker">Support</span>
-              <h3>Email & Aktivasi</h3>
-            </div>
-            <span class="category-count">Support</span>
-          </summary>
-          <div class="tools-grid compact-tools-grid">
-            <article class="tool-card" data-admin-tool-card="email-inbox">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Baru</span>
-                  <span class="tool-category">Email</span>
-                </div>
-                <h3>Email Inbox</h3>
-                <p>Pantau email, OTP, penerima, status baca, dan temp mail admin.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/mail">Buka</a>
-              </div>
-            </article>
-
-            <article class="tool-card" data-admin-tool-card="office-activation">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Baru</span>
-                  <span class="tool-category">Office</span>
-                </div>
-                <h3>Office Activation</h3>
-                <p>Baca Installation ID dan tampilkan Confirmation ID untuk customer.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/office">Buka</a>
-              </div>
-            </article>
-          </div>
-        </details>
-
-        <details class="tools-category" id="category-growth" data-tools-category>
-          <summary class="tools-category-head">
-            <div>
-              <span class="section-kicker">Growth</span>
-              <h3>Marketing & Website</h3>
-            </div>
-            <span class="category-count">Strategi</span>
-          </summary>
-          <div class="tools-grid compact-tools-grid">
-            <article class="tool-card" data-admin-tool-card="marketing-calculator">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Baru</span>
-                  <span class="tool-category">Marketing</span>
-                </div>
-                <h3>Marketing Simulator</h3>
-                <p>Simulasi harga jual, HPP, fee Shopee, iklan, ROAS, dan profit.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/marketing">Buka</a>
-              </div>
-            </article>
-
-            <article class="tool-card" data-admin-tool-card="content-editor">
-              <div class="tool-card-content">
-                <div class="tool-card-top">
-                  <span class="tool-status">Baru</span>
-                  <span class="tool-category">Konten</span>
-                </div>
-                <h3>Content Editor</h3>
-                <p>Edit pricelist, paket, deskripsi produk, catatan, dan tutorial.</p>
-              </div>
-              <div class="tool-card-actions">
-                <a class="primary-button" href="https://admin.catsoft.store/content">Buka</a>
-              </div>
-            </article>
-          </div>
-        </details>
-        </div>
-      </div>
-    </section>
+    <footer class="console-footer">
+      <span>Catsoft Admin Console</span>
+      <span>Bahasa Indonesia</span>
+      <span>2026 Catsoft Digital</span>
+    </footer>
   </main>
-  <script src="admin-auth.js" defer></script>
+  <script src="admin-auth.js?v=20260529-chat-popup" defer></script>
 </body>
 </html>

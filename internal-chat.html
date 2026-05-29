@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Chat Internal</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="internal-chat.css?v=20260529-chat-popup" />
+</head>
+<body class="internal-chat-body">
+  <main class="internal-chat-page" aria-labelledby="chatTitle">
+    <section class="chat-overview">
+      <div>
+        <span class="section-kicker">Chat</span>
+        <h1 id="chatTitle">Chat Internal</h1>
+        <p>Ruang komunikasi untuk koordinasi cepat antar admin Catsoft.</p>
+      </div>
+      <span class="chat-status-pill" id="chatStatus">Memuat</span>
+    </section>
+
+    <section class="chat-shell" aria-label="Sistem Chat Internal">
+      <aside class="chat-sidebar" aria-label="Ruang Chat">
+        <div class="chat-sidebar-head">
+          <span>Ruang</span>
+          <button type="button" id="refreshChatBtn">Refresh</button>
+        </div>
+        <button class="chat-room is-active" type="button" data-room-id="all" data-room-title="Semua Admin" data-target-username="">
+          <strong>Semua Admin</strong>
+          <small>Ruang bersama</small>
+        </button>
+        <div class="chat-direct-list" id="directRoomList"></div>
+      </aside>
+
+      <section class="chat-panel" aria-label="Percakapan">
+        <header class="chat-panel-head">
+          <div>
+            <span id="activeRoomLabel">Ruang bersama</span>
+            <h2 id="activeRoomTitle">Semua Admin</h2>
+          </div>
+          <span id="messageCount">0 Pesan</span>
+        </header>
+
+        <div class="chat-messages" id="chatMessages" aria-live="polite">
+          <div class="chat-empty">Memuat percakapan...</div>
+        </div>
+
+        <form class="chat-composer" id="chatForm">
+          <label class="sr-only" for="chatInput">Pesan</label>
+          <textarea id="chatInput" maxlength="1200" rows="2" placeholder="Tulis pesan internal..."></textarea>
+          <button type="submit">Kirim</button>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="admin-auth.js?v=20260529-chat-popup" defer></script>
+  <script src="internal-chat.js?v=20260529-chat-popup" defer></script>
+</body>
+</html>

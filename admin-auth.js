@@ -7,20 +7,65 @@ const CATSOFT_ADMIN_ACCOUNTS_API = window.CATSOFT_ADMIN_ACCOUNTS_API || getDefau
 const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 10000;
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
+const CATSOFT_CUSTOMER_ACCOUNTS_API = window.CATSOFT_CUSTOMER_ACCOUNTS_API || getDefaultCustomerAccountsApiEndpoint();
 const CATSOFT_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_API || getDefaultSessionActivityApiEndpoint();
 let catsoftAdminAccountsRefreshTimer = null;
 let catsoftAdminHeartbeatTimer = null;
+let catsoftAdminPageSize = 10;
+let catsoftSupplierPageSize = 10;
+let catsoftActiveAdminAccessPane = '';
+const catsoftActiveConsoleToolPanes = {};
 
 const CATSOFT_ADMIN_TOOLS = [
+  { id: 'customer-access', label: 'Customer Access', path: 'customer-access.html', route: '/customer-access' },
   { id: 'refund-calculator', label: 'Refund Calculator', path: 'refund-calculator.html', route: '/refund' },
   { id: 'customer-database', label: 'Customer Database', path: 'customer-database.html', route: '/customers' },
   { id: 'email-inbox', label: 'Email Inbox', path: 'email-inbox.html', route: '/mail' },
+  { id: 'internal-chat', label: 'Chat Internal', path: 'internal-chat.html', route: '/chat' },
   { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html', route: '/office' },
   { id: 'marketing-calculator', label: 'Marketing Calculator', path: 'marketing-calculator.html', route: '/marketing' },
   { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html', route: '/content' },
   { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html', route: '/supplier-access' },
   { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', route: '/access', ownerOnly: true }
 ];
+
+const CATSOFT_ADMIN_TOOL_GROUPS = {
+  'customer-suite': ['customer-access', 'customer-database', 'refund-calculator', 'office-activation'],
+  'marketing-suite': ['marketing-calculator', 'content-editor'],
+  'access-console': ['admin-access', 'supplier-access']
+};
+
+const CATSOFT_ADMIN_ACCESS_TOOL_CATEGORIES = [
+  {
+    id: 'customer',
+    label: 'Customer',
+    note: 'Akun, Database, Refund, Aktivasi Office',
+    tools: ['customer-access', 'customer-database', 'refund-calculator', 'office-activation']
+  },
+  {
+    id: 'email',
+    label: 'Komunikasi',
+    note: 'Email Inbox Dan Chat Internal',
+    tools: ['email-inbox', 'internal-chat']
+  },
+  {
+    id: 'marketing',
+    label: 'Marketing',
+    note: 'Simulasi Dan Konten',
+    tools: ['marketing-calculator', 'content-editor']
+  },
+  {
+    id: 'access',
+    label: 'Akses',
+    note: 'Supplier Center',
+    tools: ['supplier-access']
+  }
+];
+
+const CATSOFT_CONSOLE_TOOL_PANES = {
+  customer: CATSOFT_ADMIN_TOOL_GROUPS['customer-suite'],
+  marketing: CATSOFT_ADMIN_TOOL_GROUPS['marketing-suite']
+};
 
 const CATSOFT_SUPPLIER_TOOLS = [
   { id: 'supplier-email', label: 'Email', path: 'supplier-email.html', route: '/mail' }
@@ -29,7 +74,12 @@ const CATSOFT_SUPPLIER_TOOLS = [
 const CATSOFT_SUPPLIER_DOMAINS = [
   'catsoft.store',
   'catsoft.digital',
-  'catsoft.online'
+  'catsoft.online',
+  'ask1q2.uk',
+  'fadisa1.uk',
+  'gasddqw1.uk',
+  'kulamusic.us',
+  'wkwkksks.uk'
 ];
 
 const CATSOFT_DEFAULT_INBOX_RULES = [
@@ -41,15 +91,16 @@ const CATSOFT_DEFAULT_INBOX_RULES = [
 ];
 
 const CATSOFT_INBOX_PRESETS = [
-  { value: 'all', label: 'Semua email masuk' },
+  { value: 'all', label: 'Semua Email Masuk' },
   { value: 'openai', label: 'OpenAI / ChatGPT' },
   { value: 'adobe', label: 'Adobe' },
   { value: 'canva', label: 'Canva' },
   { value: 'support', label: 'Support' },
   { value: 'office', label: 'Office' },
-  { value: 'catsoft.store', label: 'Domain catsoft.store' },
-  { value: 'catsoft.digital', label: 'Domain catsoft.digital' },
-  { value: 'catsoft.online', label: 'Domain catsoft.online' }
+  ...CATSOFT_SUPPLIER_DOMAINS.map((domain) => ({
+    value: domain,
+    label: `Domain ${domain}`
+  }))
 ];
 
 const CATSOFT_DEFAULT_ADMIN_ACCOUNTS = [
@@ -110,6 +161,17 @@ function getDefaultSupplierAccountsApiEndpoint() {
   return '/api/supplier-accounts';
 }
 
+function getDefaultCustomerAccountsApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/customer-accounts';
+  }
+
+  return '/api/customer-accounts';
+}
+
 function getDefaultSessionActivityApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
@@ -124,7 +186,14 @@ function getDefaultSessionActivityApiEndpoint() {
 function getCurrentAdminToolId() {
   const pageName = getCurrentPageName();
   const routePath = normalizeRoutePath(window.location.pathname);
-  const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.path === pageName || normalizeRoutePath(item.route) === routePath);
+  const basePageName = pageName.replace(/\.html$/i, '');
+  const tool = CATSOFT_ADMIN_TOOLS.find((item) => {
+    const toolBasePath = String(item.path || '').replace(/\.html$/i, '');
+    return item.path === pageName
+      || toolBasePath === basePageName
+      || normalizeRoutePath(item.route) === routePath
+      || normalizeRoutePath(`/tool/${toolBasePath}`) === routePath;
+  });
   return tool ? tool.id : '';
 }
 
@@ -155,6 +224,7 @@ function normalizeAdminAccount(account) {
     username: String(account.username || '').trim(),
     password: String(account.password || ''),
     passwordHash: String(account.passwordHash || account.password_hash || ''),
+    whatsappTarget: normalizeWhatsappTarget(account.whatsappTarget || account.whatsapp_target || ''),
     tools: Array.isArray(account.tools) ? account.tools : [],
     inboxAccessAll: Boolean(account.inboxAccessAll),
     inboxRules: normalizeInboxRules(account),
@@ -165,6 +235,24 @@ function normalizeAdminAccount(account) {
     createdAt: account.createdAt || new Date().toISOString(),
     updatedAt: account.updatedAt || new Date().toISOString()
   };
+}
+
+function normalizeWhatsappTarget(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+
+  if (!digits) {
+    return '';
+  }
+
+  if (digits.startsWith('0')) {
+    return `62${digits.slice(1)}`;
+  }
+
+  if (digits.startsWith('8')) {
+    return `62${digits}`;
+  }
+
+  return digits;
 }
 
 function parseAdminAccountsResponse(data) {
@@ -526,6 +614,50 @@ function adminHasToolAccess(toolId) {
   return admin.tools.includes(toolId);
 }
 
+function adminCanUseAccessConsole(admin = getCurrentAdmin()) {
+  return Boolean(admin && (
+    admin.role === 'owner'
+    || (Array.isArray(admin.tools) && (admin.tools.includes('admin-access') || admin.tools.includes('supplier-access')))
+  ));
+}
+
+function adminCanUseAccessPane(paneName, admin = getCurrentAdmin()) {
+  if (!admin) {
+    return false;
+  }
+
+  if (admin.role === 'owner') {
+    return true;
+  }
+
+  if (paneName === 'supplier') {
+    return admin.tools.includes('supplier-access');
+  }
+
+  return admin.tools.includes('admin-access');
+}
+
+function getDefaultAccessPane(admin = getCurrentAdmin()) {
+  return adminCanUseAccessPane('admin', admin) ? 'admin' : 'supplier';
+}
+
+function canAccessToolLink(toolId, admin = getCurrentAdmin()) {
+  if (toolId === 'access-console') {
+    return adminCanUseAccessConsole(admin);
+  }
+
+  if (!admin) {
+    return false;
+  }
+
+  if (CATSOFT_ADMIN_TOOL_GROUPS[toolId]) {
+    return CATSOFT_ADMIN_TOOL_GROUPS[toolId].some((childToolId) => canAccessToolLink(childToolId, admin));
+  }
+
+  const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.id === toolId);
+  return admin.role === 'owner' || !(tool && tool.ownerOnly) && admin.tools.includes(toolId);
+}
+
 function getInboxAccess() {
   const admin = getCurrentAdmin();
 
@@ -590,6 +722,145 @@ function injectAuthStyles() {
       display: none !important;
     }
 
+    body.catsoft-embedded-tool {
+      background: #fff !important;
+      color: #222 !important;
+      font-family: "Adobe Clean", adobe-clean, "Source Sans 3", "Segoe UI", Roboto, Arial, sans-serif !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+
+    body.catsoft-embedded-tool,
+    body.catsoft-embedded-tool * {
+      font-family: "Adobe Clean", adobe-clean, "Source Sans 3", "Segoe UI", Roboto, Arial, sans-serif !important;
+    }
+
+    body.catsoft-embedded-tool .admin-header,
+    body.catsoft-embedded-tool .refund-header,
+    body.catsoft-embedded-tool .customer-header,
+    body.catsoft-embedded-tool .email-header,
+    body.catsoft-embedded-tool .activation-header {
+      display: none !important;
+    }
+
+    body.catsoft-embedded-tool .admin-page,
+    body.catsoft-embedded-tool .refund-page,
+    body.catsoft-embedded-tool .customer-page,
+    body.catsoft-embedded-tool .email-page,
+    body.catsoft-embedded-tool .activation-page {
+      width: 100% !important;
+      max-width: none !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding: 14px 16px 24px !important;
+      background: #fff !important;
+    }
+
+    body.catsoft-embedded-tool .overview-band {
+      margin-bottom: 14px !important;
+      border-color: #d8d8d8 !important;
+      background: #fff !important;
+      box-shadow: none !important;
+    }
+
+    body.catsoft-embedded-tool .section-kicker {
+      color: #555 !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0 !important;
+    }
+
+    body.catsoft-embedded-tool h1,
+    body.catsoft-embedded-tool h2,
+    body.catsoft-embedded-tool h3,
+    body.catsoft-embedded-tool strong,
+    body.catsoft-embedded-tool label,
+    body.catsoft-embedded-tool button {
+      font-weight: 500 !important;
+    }
+
+    body.catsoft-embedded-tool input,
+    body.catsoft-embedded-tool select,
+    body.catsoft-embedded-tool textarea {
+      border-color: #cfcfcf !important;
+      border-radius: 8px !important;
+      box-shadow: none !important;
+    }
+
+    body.catsoft-embedded-tool input:focus,
+    body.catsoft-embedded-tool select:focus,
+    body.catsoft-embedded-tool textarea:focus {
+      border-color: #777 !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+
+    body.catsoft-embedded-tool .refund-form,
+    body.catsoft-embedded-tool .result-panel,
+    body.catsoft-embedded-tool .customer-form,
+    body.catsoft-embedded-tool .database-panel,
+    body.catsoft-embedded-tool .inbox-panel,
+    body.catsoft-embedded-tool .message-panel,
+    body.catsoft-embedded-tool .activation-form,
+    body.catsoft-embedded-tool .workflow-panel,
+    body.catsoft-embedded-tool .marketing-panel,
+    body.catsoft-embedded-tool .content-database-panel,
+    body.catsoft-embedded-tool .content-editor-panel,
+    body.catsoft-embedded-tool .content-import-panel,
+    body.catsoft-embedded-tool .content-empty-state,
+    body.catsoft-embedded-tool .content-preview-panel {
+      border-color: #d8d8d8 !important;
+      border-radius: 10px !important;
+      background: #fff !important;
+      box-shadow: none !important;
+    }
+
+    body.catsoft-embedded-tool .upload-panel,
+    body.catsoft-embedded-tool .result-card,
+    body.catsoft-embedded-tool .stat-card,
+    body.catsoft-embedded-tool .temp-mail-panel,
+    body.catsoft-embedded-tool .content-live-preview-card,
+    body.catsoft-embedded-tool .content-preview-note,
+    body.catsoft-embedded-tool .inline-suggestion {
+      border-color: #d8d8d8 !important;
+      background: #f8f8f8 !important;
+      box-shadow: none !important;
+    }
+
+    body.catsoft-embedded-tool .result-card.primary {
+      border-color: #111 !important;
+      background: #111 !important;
+      color: #fff !important;
+    }
+
+    body.catsoft-embedded-tool .primary-button,
+    body.catsoft-embedded-tool .secondary-button,
+    body.catsoft-embedded-tool .ghost-button,
+    body.catsoft-embedded-tool .mini-button,
+    body.catsoft-embedded-tool .suggestion-button,
+    body.catsoft-embedded-tool button[type="submit"] {
+      min-height: 34px;
+      border-radius: 999px !important;
+      box-shadow: none !important;
+      font-size: 12px !important;
+    }
+
+    body.catsoft-embedded-tool .primary-button,
+    body.catsoft-embedded-tool button[type="submit"] {
+      border: 1px solid #111 !important;
+      background: #111 !important;
+      color: #fff !important;
+    }
+
+    body.catsoft-embedded-tool .secondary-button,
+    body.catsoft-embedded-tool .ghost-button,
+    body.catsoft-embedded-tool .mini-button,
+    body.catsoft-embedded-tool .suggestion-button {
+      border: 1px solid #cfcfcf !important;
+      background: #fff !important;
+      color: #333 !important;
+    }
+
     .admin-login-panel {
       width: calc(100vw - 48px);
       max-width: 430px;
@@ -620,7 +891,7 @@ function injectAuthStyles() {
       color: #2563eb;
       font-size: 12px;
       font-weight: 900;
-      text-transform: uppercase;
+      text-transform: none;
     }
 
     .admin-login-brand h1,
@@ -741,6 +1012,28 @@ function injectAuthStyles() {
       box-shadow: 0 12px 28px rgba(37, 99, 235, 0.16);
     }
 
+    .admin-access-form .admin-whatsapp-send {
+      min-height: 36px;
+      border: 1px solid #cfcfcf;
+      border-radius: 999px;
+      padding: 7px 13px;
+      background: #fff;
+      color: #222;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      box-shadow: none;
+    }
+
+    .admin-access-form .admin-whatsapp-send:hover,
+    .admin-access-form .admin-whatsapp-send:focus-visible {
+      border-color: #999;
+      background: #f3f3f3;
+      color: #111;
+      outline: none;
+      box-shadow: none;
+    }
+
     .admin-denied-actions {
       display: flex;
       flex-wrap: wrap;
@@ -771,18 +1064,38 @@ function injectAuthStyles() {
     }
 
     .admin-profile {
-      display: inline-grid;
-      grid-template-columns: 38px minmax(0, 1fr) auto;
+      position: relative;
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
       min-width: 0;
       max-width: 100%;
-      min-height: 46px;
-      padding: 4px 6px 4px 4px;
-      border: 1px solid rgba(148, 163, 184, 0.28);
+      min-height: 38px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .admin-profile-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      min-height: 38px;
+      border: 0;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .admin-profile-trigger:hover,
+    .admin-profile-trigger:focus-visible {
+      outline: none;
+      filter: brightness(0.94);
     }
 
     .admin-profile-avatar {
@@ -809,7 +1122,7 @@ function injectAuthStyles() {
       color: #64748b;
       font-size: 10px;
       font-weight: 900;
-      text-transform: uppercase;
+      text-transform: none;
     }
 
     .admin-profile-name {
@@ -1068,7 +1381,7 @@ function injectAuthStyles() {
       color: #64748b;
       font-size: 11px;
       font-weight: 900;
-      text-transform: uppercase;
+      text-transform: none;
     }
 
     .admin-account-stat strong {
@@ -1107,7 +1420,7 @@ function injectAuthStyles() {
       color: #64748b;
       font-size: 11px;
       font-weight: 950;
-      text-transform: uppercase;
+      text-transform: none;
     }
 
     .admin-account-main {
@@ -1212,30 +1525,17 @@ function injectAuthStyles() {
         width: 100%;
       }
 
-      .admin-profile {
-        width: 100%;
-      }
-
-      .admin-profile-actions {
-        grid-column: 1 / -1;
-        justify-content: stretch;
-      }
-
-      .admin-profile-actions button {
-        flex: 1 1 120px;
-      }
-
       .admin-profile-name {
         max-width: none;
       }
 
       .header-actions .admin-session-bar {
-        grid-column: 1 / -1;
-        width: 100%;
+        grid-column: auto;
+        width: auto;
       }
 
       .header-actions .admin-profile {
-        width: 100%;
+        width: auto;
       }
 
       .admin-account-toolbar {
@@ -1256,30 +1556,10 @@ function injectAuthStyles() {
     }
 
     @media (max-width: 520px) {
-      .admin-profile {
-        grid-template-columns: 36px minmax(0, 1fr);
-        gap: 7px;
-        min-height: 0;
-        padding: 7px;
-        border-radius: 18px;
-      }
-
       .admin-profile-avatar {
         width: 34px;
         height: 34px;
         font-size: 12px;
-      }
-
-      .admin-profile-actions {
-        display: grid;
-        grid-column: 1 / -1;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
-        width: 100%;
-      }
-
-      .admin-profile-actions button {
-        width: 100%;
       }
 
       .admin-account-actions,
@@ -1409,6 +1689,66 @@ function closeAdminPasswordDialog() {
   }
 }
 
+function getAdminChatPopup() {
+  return document.querySelector('[data-admin-chat-popup]');
+}
+
+function ensureAdminChatPopup() {
+  let popup = getAdminChatPopup();
+
+  if (popup) {
+    return popup;
+  }
+
+  popup = document.createElement('section');
+  popup.className = 'admin-chat-popup';
+  popup.setAttribute('data-admin-chat-popup', '');
+  popup.setAttribute('aria-label', 'Inbox Chat Internal');
+  popup.hidden = true;
+  popup.innerHTML = `
+    <header class="admin-chat-popup-head">
+      <div>
+        <span>Inbox</span>
+        <h2>Chat Internal</h2>
+      </div>
+      <button type="button" data-admin-chat-close aria-label="Tutup Chat">×</button>
+    </header>
+    <iframe class="admin-chat-popup-frame" title="Chat Internal" allow="clipboard-write" data-admin-chat-frame></iframe>
+  `;
+
+  document.body.appendChild(popup);
+  popup.querySelector('[data-admin-chat-close]')?.addEventListener('click', closeAdminChatPopup);
+  return popup;
+}
+
+function openAdminChatPopup() {
+  const admin = getCurrentAdmin();
+
+  if (!admin || !canAccessToolLink('internal-chat', admin)) {
+    return;
+  }
+
+  const popup = ensureAdminChatPopup();
+  const frame = popup.querySelector('[data-admin-chat-frame]');
+
+  if (frame && !frame.getAttribute('src')) {
+    frame.setAttribute('src', '/tool/internal-chat?embedded=1&popup=1');
+  }
+
+  popup.hidden = false;
+  document.body.classList.add('admin-chat-popup-open');
+}
+
+function closeAdminChatPopup() {
+  const popup = getAdminChatPopup();
+
+  if (popup) {
+    popup.hidden = true;
+  }
+
+  document.body.classList.remove('admin-chat-popup-open');
+}
+
 function showAdminPasswordDialog() {
   const admin = getCurrentAdmin();
 
@@ -1506,27 +1846,61 @@ function addSessionControls() {
   const admin = getCurrentAdmin();
   const header = document.querySelector('.admin-nav, .header-actions');
 
-  if (!admin || !header || header.querySelector('[data-admin-logout]')) {
+  if (!admin || !header || header.querySelector('[data-admin-profile-menu]')) {
     return;
   }
 
+  const profileName = header.querySelector('.console-site-link');
+  if (profileName) {
+    profileName.textContent = admin.username;
+  }
+
+  const showInboxButton = document.body.classList.contains('admin-console-body') && canAccessToolLink('internal-chat', admin);
   const sessionBar = document.createElement('div');
   sessionBar.className = 'admin-session-bar';
   sessionBar.innerHTML = `
     <div class="admin-profile">
-      <span class="admin-profile-avatar" aria-hidden="true">${escapeAdminHtml(getAdminInitials(admin.username))}</span>
-      <span class="admin-profile-text">
-        <span class="admin-profile-role">${escapeAdminHtml(admin.role === 'owner' ? 'Owner' : 'Admin')}</span>
-        <span class="admin-profile-name">${escapeAdminHtml(admin.username)}</span>
-      </span>
-      <span class="admin-profile-actions">
-        <button type="button" data-admin-password>Password</button>
+      <button class="admin-profile-trigger" type="button" data-admin-profile-toggle aria-expanded="false" aria-label="Buka Menu Profil ${escapeAdminHtml(admin.username)}">
+        <span class="admin-profile-avatar" aria-hidden="true">${escapeAdminHtml(getAdminInitials(admin.username))}</span>
+      </button>
+      <div class="admin-profile-menu" data-admin-profile-menu hidden>
+        <div class="admin-profile-menu-head">
+          <span class="admin-profile-avatar" aria-hidden="true">${escapeAdminHtml(getAdminInitials(admin.username))}</span>
+          <div>
+            <span class="admin-profile-role">${escapeAdminHtml(admin.role === 'owner' ? 'Owner' : 'Admin')}</span>
+            <span class="admin-profile-name">${escapeAdminHtml(admin.username)}</span>
+          </div>
+        </div>
+        ${showInboxButton ? '<button type="button" data-admin-inbox>Inbox</button>' : ''}
+        <button type="button" data-admin-password>Ubah Password</button>
         <button type="button" data-admin-logout>Logout</button>
-      </span>
+      </div>
     </div>
   `;
   header.appendChild(sessionBar);
-  sessionBar.querySelector('[data-admin-password]').addEventListener('click', showAdminPasswordDialog);
+  const trigger = sessionBar.querySelector('[data-admin-profile-toggle]');
+  const menu = sessionBar.querySelector('[data-admin-profile-menu]');
+  const closeProfileMenu = () => {
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  };
+
+  trigger.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const isOpen = menu.hidden;
+    menu.hidden = !isOpen;
+    trigger.setAttribute('aria-expanded', String(isOpen));
+  });
+  menu.addEventListener('click', (event) => event.stopPropagation());
+  document.addEventListener('click', closeProfileMenu);
+  sessionBar.querySelector('[data-admin-inbox]')?.addEventListener('click', () => {
+    closeProfileMenu();
+    openAdminChatPopup();
+  });
+  sessionBar.querySelector('[data-admin-password]').addEventListener('click', () => {
+    closeProfileMenu();
+    showAdminPasswordDialog();
+  });
   sessionBar.querySelector('[data-admin-logout]').addEventListener('click', () => {
     clearAdminSession();
     window.location.href = 'https://admin.catsoft.store/';
@@ -1536,7 +1910,9 @@ function addSessionControls() {
 function filterAdminToolCards() {
   const admin = getCurrentAdmin();
   let visibleCount = 0;
+  let cardCount = 0;
   document.querySelectorAll('[data-admin-tool-card]').forEach((card) => {
+    cardCount += 1;
     const toolId = card.getAttribute('data-admin-tool-card');
     const tool = CATSOFT_ADMIN_TOOLS.find((item) => item.id === toolId);
     const hidden = !admin || (admin.role !== 'owner' && (tool && tool.ownerOnly || !admin.tools.includes(toolId)));
@@ -1547,34 +1923,74 @@ function filterAdminToolCards() {
     }
   });
 
+  if (!cardCount && admin) {
+    visibleCount = CATSOFT_ADMIN_TOOLS.filter((tool) => {
+      return admin.role === 'owner' || (!tool.ownerOnly && admin.tools.includes(tool.id));
+    }).length;
+  }
+
+  document.querySelectorAll('[data-admin-tool-link]').forEach((link) => {
+    const toolId = link.getAttribute('data-admin-tool-link');
+    link.hidden = !canAccessToolLink(toolId, admin);
+  });
+
+  document.querySelectorAll('[data-admin-tool-module]').forEach((module) => {
+    const toolId = module.getAttribute('data-admin-tool-module');
+    const hidden = !canAccessToolLink(toolId, admin);
+    module.dataset.permissionHidden = hidden ? 'true' : 'false';
+    if (hidden) {
+      module.hidden = true;
+    }
+  });
+
   document.querySelectorAll('[data-tools-category]').forEach((category) => {
     category.hidden = !category.querySelector('[data-admin-tool-card]:not([hidden])');
   });
 
   updateAdminToolsSummary(admin, visibleCount);
+  const consoleState = getCurrentAdminConsoleState();
+  showAdminConsoleView(consoleState.view, {
+    updateHash: false,
+    scroll: false,
+    adminAccessPane: consoleState.adminAccessPane || getActiveAdminAccessPane(),
+    consoleToolPane: consoleState.consoleToolPane || getActiveConsoleToolPane(consoleState.view)
+  });
 }
 
 function enableAdminToolAccordions() {
+  const closeOtherAdminToolCategories = (activeCategory) => {
+    document.querySelectorAll('[data-tools-category][open]').forEach((otherCategory) => {
+      if (otherCategory !== activeCategory) {
+        otherCategory.open = false;
+      }
+    });
+  };
+
   document.querySelectorAll('[data-tools-category]').forEach((category) => {
     if (category.dataset.accordionReady === 'true') {
       return;
     }
 
     category.dataset.accordionReady = 'true';
+    const summary = category.querySelector('summary');
+    if (summary) {
+      summary.addEventListener('click', () => {
+        if (!category.open) {
+          closeOtherAdminToolCategories(category);
+        }
+      });
+    }
+
     category.addEventListener('toggle', () => {
       if (!category.open) {
         return;
       }
 
-      document.querySelectorAll('[data-tools-category][open]').forEach((otherCategory) => {
-        if (otherCategory !== category) {
-          otherCategory.open = false;
-        }
-      });
+      closeOtherAdminToolCategories(category);
     });
   });
 
-  document.querySelectorAll('.tools-console-nav a[href^="#"]').forEach((link) => {
+  document.querySelectorAll('.tools-console-nav a[href^="#"], .console-tabs a[href^="#"], .console-tour-card a[href^="#"], .console-panel-head a[href^="#"]').forEach((link) => {
     if (link.dataset.navReady === 'true') {
       return;
     }
@@ -1583,9 +1999,466 @@ function enableAdminToolAccordions() {
     link.addEventListener('click', () => {
       const target = document.querySelector(link.getAttribute('href'));
       if (target && target.matches('[data-tools-category]')) {
+        closeOtherAdminToolCategories(target);
         target.open = true;
       }
     });
+  });
+}
+
+function getCurrentAdminConsoleState() {
+  const hash = String(window.location.hash || '').replace(/^#/, '');
+  const viewAliases = {
+    'customer-access': 'customer',
+    refund: 'customer',
+    office: 'customer',
+    content: 'marketing',
+    'supplier-access': 'admin'
+  };
+  const hashToolPanes = {
+    'customer-access': 'customer-access',
+    customer: 'customer-database',
+    refund: 'refund-calculator',
+    office: 'office-activation',
+    marketing: 'marketing-calculator',
+    content: 'content-editor'
+  };
+  const hashAccessPanes = {
+    admin: 'admin',
+    'supplier-access': 'supplier'
+  };
+  const routeState = {
+    '/access': { view: 'admin', adminAccessPane: 'admin' },
+    '/supplier-access': { view: 'admin', adminAccessPane: 'supplier' },
+    '/customer-access': { view: 'customer', consoleToolPane: 'customer-access' },
+    '/customers': { view: 'customer', consoleToolPane: 'customer-database' },
+    '/refund': { view: 'customer', consoleToolPane: 'refund-calculator' },
+    '/office': { view: 'customer', consoleToolPane: 'office-activation' },
+    '/mail': { view: 'email' },
+    '/chat': { view: 'overview' },
+    '/marketing': { view: 'marketing', consoleToolPane: 'marketing-calculator' },
+    '/content': { view: 'marketing', consoleToolPane: 'content-editor' }
+  };
+  const normalizedHash = viewAliases[hash] || hash;
+  const allowedViews = ['overview', 'admin', 'customer', 'email', 'marketing'];
+  if (allowedViews.includes(normalizedHash)) {
+    return {
+      view: normalizedHash,
+      consoleToolPane: hashToolPanes[hash] || '',
+      adminAccessPane: hashAccessPanes[hash] || ''
+    };
+  }
+
+  const routePath = normalizeRoutePath(window.location.pathname);
+  return routeState[routePath] || { view: 'overview', consoleToolPane: '', adminAccessPane: '' };
+}
+
+function getCurrentAdminConsoleView() {
+  return getCurrentAdminConsoleState().view;
+}
+
+function setAdminConsoleActiveTab(viewName) {
+  let activeLink = null;
+  document.querySelectorAll('[data-console-target]').forEach((link) => {
+    const isActive = link.getAttribute('data-console-target') === viewName;
+    link.classList.toggle('is-active', isActive);
+    if (isActive && link.closest('.console-tabs')) {
+      activeLink = link;
+    }
+  });
+
+  if (activeLink) {
+    activeLink.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+}
+
+function getActiveConsoleToolPane(viewName) {
+  return catsoftActiveConsoleToolPanes[viewName] || '';
+}
+
+function getActiveAdminAccessPane() {
+  return catsoftActiveAdminAccessPane || '';
+}
+
+function getAdminConsoleHashForState(viewName) {
+  if (viewName === 'customer') {
+    const activeToolPane = getActiveConsoleToolPane('customer');
+    if (activeToolPane === 'customer-access') return '#customer-access';
+    if (activeToolPane === 'refund-calculator') return '#refund';
+    if (activeToolPane === 'office-activation') return '#office';
+    return '#customer';
+  }
+
+  if (viewName === 'marketing') {
+    return getActiveConsoleToolPane('marketing') === 'content-editor' ? '#content' : '#marketing';
+  }
+
+  if (viewName === 'admin') {
+    return getActiveAdminAccessPane() === 'supplier' ? '#supplier-access' : '#admin';
+  }
+
+  if (viewName === 'email') {
+    return '#email';
+  }
+
+  return '#overview';
+}
+
+const catsoftConsoleFrameAutoHeight = new WeakMap();
+
+function getConsoleFrameMinimumHeight(frame) {
+  const computedMinHeight = Number.parseFloat(window.getComputedStyle(frame).minHeight);
+  return Number.isFinite(computedMinHeight) && computedMinHeight > 0 ? computedMinHeight : 720;
+}
+
+function resizeConsoleToolFrame(frame) {
+  if (!frame) {
+    return;
+  }
+
+  let doc;
+  try {
+    doc = frame.contentDocument || frame.contentWindow?.document;
+  } catch (error) {
+    return;
+  }
+
+  if (!doc || !doc.documentElement || !doc.body) {
+    return;
+  }
+
+  doc.documentElement.style.overflow = 'hidden';
+  doc.documentElement.style.minHeight = '0';
+  doc.documentElement.style.height = 'auto';
+  doc.body.style.overflow = 'hidden';
+  doc.body.style.minHeight = '0';
+  doc.body.style.height = 'auto';
+
+  const bodyRect = doc.body.getBoundingClientRect();
+  const childContentHeight = Array.from(doc.body.children).reduce((height, child) => {
+    const childRect = child.getBoundingClientRect();
+    return Math.max(height, childRect.bottom - bodyRect.top);
+  }, 0);
+  const measuredScrollHeight = Math.max(
+    doc.documentElement.scrollHeight,
+    doc.documentElement.offsetHeight,
+    doc.body.scrollHeight,
+    doc.body.offsetHeight
+  );
+  const contentHeight = childContentHeight > 0
+    ? Math.max(childContentHeight, Math.min(measuredScrollHeight, childContentHeight + 120))
+    : measuredScrollHeight;
+  const minHeight = getConsoleFrameMinimumHeight(frame);
+  const nextHeight = Math.ceil(Math.max(minHeight, contentHeight + 12));
+
+  if (Number.parseInt(frame.style.height, 10) !== nextHeight) {
+    frame.style.height = `${nextHeight}px`;
+  }
+
+  frame.dataset.autoHeightReady = 'true';
+}
+
+function setupConsoleToolFrameAutoHeight(frame) {
+  if (!frame) {
+    return;
+  }
+
+  const previous = catsoftConsoleFrameAutoHeight.get(frame);
+  if (previous?.cleanup) {
+    previous.cleanup();
+  }
+
+  let doc;
+  try {
+    doc = frame.contentDocument || frame.contentWindow?.document;
+  } catch (error) {
+    resizeConsoleToolFrame(frame);
+    return;
+  }
+
+  if (!doc || !doc.body) {
+    resizeConsoleToolFrame(frame);
+    return;
+  }
+
+  let frameRaf = 0;
+  const timeouts = [];
+  const cleanups = [];
+  const refresh = () => {
+    window.cancelAnimationFrame(frameRaf);
+    frameRaf = window.requestAnimationFrame(() => resizeConsoleToolFrame(frame));
+  };
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const resizeObserver = new ResizeObserver(refresh);
+    resizeObserver.observe(doc.documentElement);
+    resizeObserver.observe(doc.body);
+    cleanups.push(() => resizeObserver.disconnect());
+  }
+
+  if (typeof MutationObserver !== 'undefined') {
+    const mutationObserver = new MutationObserver(refresh);
+    mutationObserver.observe(doc.body, {
+      attributes: true,
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+    cleanups.push(() => mutationObserver.disconnect());
+  }
+
+  if (frame.contentWindow) {
+    frame.contentWindow.addEventListener('resize', refresh);
+    cleanups.push(() => frame.contentWindow.removeEventListener('resize', refresh));
+  }
+
+  [0, 120, 360, 900, 1800].forEach((delay) => {
+    const timeout = window.setTimeout(refresh, delay);
+    timeouts.push(timeout);
+  });
+
+  catsoftConsoleFrameAutoHeight.set(frame, {
+    cleanup() {
+      window.cancelAnimationFrame(frameRaf);
+      timeouts.forEach((timeout) => window.clearTimeout(timeout));
+      cleanups.forEach((cleanup) => cleanup());
+    }
+  });
+
+  refresh();
+}
+
+function bindConsoleToolFrameAutoHeight(frame) {
+  if (!frame) {
+    return;
+  }
+
+  frame.setAttribute('scrolling', 'no');
+
+  if (frame.dataset.autoHeightBound === 'true') {
+    resizeConsoleToolFrame(frame);
+    return;
+  }
+
+  frame.dataset.autoHeightBound = 'true';
+  frame.addEventListener('load', () => setupConsoleToolFrameAutoHeight(frame));
+
+  try {
+    if (frame.contentDocument?.readyState === 'complete') {
+      setupConsoleToolFrameAutoHeight(frame);
+    }
+  } catch (error) {
+    // Cross-origin frames are not expected here, but leaving them alone keeps the console usable.
+  }
+}
+
+function refreshConsoleToolFrames(root = document) {
+  root.querySelectorAll('[data-console-frame]').forEach((frame) => {
+    bindConsoleToolFrameAutoHeight(frame);
+    resizeConsoleToolFrame(frame);
+  });
+}
+
+function loadAdminConsoleFrame(view) {
+  const frame = view.querySelector('[data-console-tool-pane]:not([hidden]) [data-console-frame]')
+    || view.querySelector('[data-console-frame]');
+
+  if (!frame) {
+    return;
+  }
+
+  bindConsoleToolFrameAutoHeight(frame);
+
+  if (frame.getAttribute('src')) {
+    resizeConsoleToolFrame(frame);
+    return;
+  }
+
+  const src = frame.getAttribute('data-src');
+  if (src) {
+    frame.setAttribute('src', src);
+  }
+}
+
+function getDefaultConsoleToolPane(viewName, admin = getCurrentAdmin()) {
+  const toolIds = CATSOFT_CONSOLE_TOOL_PANES[viewName] || [];
+  return toolIds.find((toolId) => canAccessToolLink(toolId, admin)) || toolIds[0] || '';
+}
+
+function showConsoleToolPane(viewName, toolId = '') {
+  const admin = getCurrentAdmin();
+  const moduleView = document.querySelector(`[data-console-view="${viewName}"]`);
+  const allowedToolIds = CATSOFT_CONSOLE_TOOL_PANES[viewName] || [];
+
+  if (!moduleView || !allowedToolIds.length) {
+    return;
+  }
+
+  const requestedToolId = allowedToolIds.includes(toolId) ? toolId : getDefaultConsoleToolPane(viewName, admin);
+  const activeToolId = canAccessToolLink(requestedToolId, admin)
+    ? requestedToolId
+    : getDefaultConsoleToolPane(viewName, admin);
+
+  catsoftActiveConsoleToolPanes[viewName] = activeToolId;
+
+  moduleView.querySelectorAll('[data-console-tool-pane]').forEach((pane) => {
+    const paneToolId = pane.getAttribute('data-console-tool-pane');
+    const canUsePane = canAccessToolLink(paneToolId, admin);
+    pane.hidden = paneToolId !== activeToolId || !canUsePane;
+  });
+
+  moduleView.querySelectorAll('.console-tool-sidebar [data-console-tool-target]').forEach((control) => {
+    const paneToolId = control.getAttribute('data-console-tool-target');
+    const canUsePane = canAccessToolLink(paneToolId, admin);
+    control.hidden = !canUsePane;
+    control.classList.toggle('is-active', canUsePane && paneToolId === activeToolId);
+  });
+
+  loadAdminConsoleFrame(moduleView);
+  window.requestAnimationFrame(() => refreshConsoleToolFrames(moduleView));
+}
+
+function showAdminAccessPane(paneName = 'admin') {
+  const admin = getCurrentAdmin();
+  const requestedPane = paneName === 'supplier' ? 'supplier' : 'admin';
+  const activePane = adminCanUseAccessPane(requestedPane, admin) ? requestedPane : getDefaultAccessPane(admin);
+
+  catsoftActiveAdminAccessPane = activePane;
+
+  document.querySelectorAll('[data-admin-access-pane]').forEach((pane) => {
+    const paneName = pane.getAttribute('data-admin-access-pane');
+    pane.hidden = paneName !== activePane || !adminCanUseAccessPane(paneName, admin);
+  });
+
+  document.querySelectorAll('.console-access-sidebar [data-admin-access-target]').forEach((control) => {
+    const paneName = control.getAttribute('data-admin-access-target');
+    const canUsePane = adminCanUseAccessPane(paneName, admin);
+    control.hidden = !canUsePane;
+    control.classList.toggle('is-active', canUsePane && paneName === activePane);
+  });
+}
+
+function showAdminConsoleView(viewName = 'overview', options = {}) {
+  const viewAliases = {
+    'customer-access': 'customer',
+    refund: 'customer',
+    office: 'customer',
+    content: 'marketing'
+  };
+  const requestedView = viewAliases[viewName] || viewName || 'overview';
+  const moduleView = document.querySelector(`[data-console-view="${requestedView}"]`);
+  const canShowModule = requestedView !== 'overview'
+    && moduleView
+    && moduleView.dataset.permissionHidden !== 'true';
+  const activeView = canShowModule ? requestedView : 'overview';
+  const showOverview = activeView === 'overview';
+
+  document.querySelectorAll('[data-console-overview]').forEach((section) => {
+    section.hidden = !showOverview;
+  });
+
+  document.querySelectorAll('[data-console-view]').forEach((view) => {
+    const isActive = view.getAttribute('data-console-view') === activeView && view.dataset.permissionHidden !== 'true';
+    view.hidden = !isActive;
+    if (isActive && !CATSOFT_CONSOLE_TOOL_PANES[activeView]) {
+      loadAdminConsoleFrame(view);
+    }
+  });
+
+  setAdminConsoleActiveTab(activeView);
+
+  if (activeView === 'admin') {
+    showAdminAccessPane(options.adminAccessPane || getActiveAdminAccessPane() || getDefaultAccessPane());
+  }
+
+  if (CATSOFT_CONSOLE_TOOL_PANES[activeView]) {
+    showConsoleToolPane(activeView, options.consoleToolPane || getActiveConsoleToolPane(activeView));
+  }
+
+  if (options.updateHash !== false) {
+    const nextHash = getAdminConsoleHashForState(activeView);
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', nextHash);
+    }
+  }
+
+  if (options.scroll !== false) {
+    const shell = document.querySelector('.console-shell');
+    if (shell) {
+      shell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+}
+
+function enableAdminConsoleViews() {
+  document.querySelectorAll('[data-console-target]').forEach((link) => {
+    if (link.dataset.consoleReady === 'true') {
+      return;
+    }
+
+    link.dataset.consoleReady = 'true';
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      showAdminConsoleView(link.getAttribute('data-console-target'), {
+        updateHash: true,
+        scroll: true,
+        adminAccessPane: link.getAttribute('data-admin-access-target') || 'admin',
+        consoleToolPane: link.getAttribute('data-console-tool-target') || ''
+      });
+    });
+  });
+
+  document.querySelectorAll('.console-access-sidebar [data-admin-access-target]').forEach((button) => {
+    if (button.dataset.accessReady === 'true') {
+      return;
+    }
+
+    button.dataset.accessReady = 'true';
+    button.addEventListener('click', () => {
+      showAdminConsoleView('admin', {
+        updateHash: true,
+        scroll: false,
+        adminAccessPane: button.getAttribute('data-admin-access-target')
+      });
+    });
+  });
+
+  document.querySelectorAll('.console-tool-sidebar [data-console-tool-target]').forEach((button) => {
+    if (button.dataset.toolPaneReady === 'true') {
+      return;
+    }
+
+    button.dataset.toolPaneReady = 'true';
+    button.addEventListener('click', () => {
+      const moduleView = button.closest('[data-console-view]');
+      if (!moduleView) {
+        return;
+      }
+
+      showAdminConsoleView(moduleView.getAttribute('data-console-view'), {
+        updateHash: true,
+        scroll: false,
+        consoleToolPane: button.getAttribute('data-console-tool-target')
+      });
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    const consoleState = getCurrentAdminConsoleState();
+    showAdminConsoleView(consoleState.view, {
+      updateHash: false,
+      scroll: false,
+      adminAccessPane: consoleState.adminAccessPane || getActiveAdminAccessPane(),
+      consoleToolPane: consoleState.consoleToolPane || getActiveConsoleToolPane(consoleState.view)
+    });
+  });
+
+  const consoleState = getCurrentAdminConsoleState();
+  showAdminConsoleView(consoleState.view, {
+    updateHash: false,
+    scroll: false,
+    adminAccessPane: consoleState.adminAccessPane || getActiveAdminAccessPane(),
+    consoleToolPane: consoleState.consoleToolPane || getActiveConsoleToolPane(consoleState.view)
   });
 }
 
@@ -1627,6 +2500,78 @@ function getOnlineLabel(activeAt) {
   return Date.now() - date.getTime() <= 2 * 60 * 1000 ? 'Online' : `Aktif ${formatAdminDateTime(activeAt)}`;
 }
 
+function renderAdminToolAccessCategories() {
+  const toolById = new Map(CATSOFT_ADMIN_TOOLS.map((tool) => [tool.id, tool]));
+
+  return `
+    <div class="admin-tool-categories" aria-label="Akses Tool">
+      ${CATSOFT_ADMIN_ACCESS_TOOL_CATEGORIES.map((category, index) => `
+        <details class="admin-tool-category" data-admin-tool-category="${escapeAdminHtml(category.id)}" ${index === 0 ? 'open' : ''}>
+          <summary>
+            <span>
+              <strong>${escapeAdminHtml(category.label)}</strong>
+              <small>${escapeAdminHtml(category.note)}</small>
+            </span>
+            <em data-admin-tool-category-count>0 Aktif</em>
+          </summary>
+          <div class="admin-access-checks">
+            ${category.tools.map((toolId) => {
+              const tool = toolById.get(toolId);
+
+              if (!tool || tool.ownerOnly) {
+                return '';
+              }
+
+              return `
+                <label>
+                  <input type="checkbox" name="tools" value="${escapeAdminHtml(tool.id)}" />
+                  <span class="admin-check-icon" aria-hidden="true">✓</span>
+                  <span class="admin-check-text">${escapeAdminHtml(tool.label)}</span>
+                </label>
+              `;
+            }).join('')}
+          </div>
+        </details>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderSupplierToolAccessCategories() {
+  return `
+    <div class="admin-tool-categories" aria-label="Akses Tool Supplier">
+      <details class="admin-tool-category" open>
+        <summary>
+          <span>
+            <strong>Supplier Center</strong>
+            <small>Email Center Dan Temp Mail</small>
+          </span>
+          <em data-supplier-tool-category-count>0 Aktif</em>
+        </summary>
+        <div class="admin-access-checks">
+          ${CATSOFT_SUPPLIER_TOOLS.map((tool) => `
+            <label>
+              <input type="checkbox" name="supplierTools" value="${escapeAdminHtml(tool.id)}" checked />
+              <span class="admin-check-icon" aria-hidden="true">✓</span>
+              <span class="admin-check-text">${escapeAdminHtml(tool.label)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function renderInboxPresetChecks(inputName, detailAttribute) {
+  return CATSOFT_INBOX_PRESETS.map((preset) => `
+    <label ${preset.value === 'all' ? '' : detailAttribute}>
+      <input type="checkbox" name="${escapeAdminHtml(inputName)}" value="${escapeAdminHtml(preset.value)}" />
+      <span class="admin-check-icon" aria-hidden="true">✓</span>
+      <span class="admin-check-text">${escapeAdminHtml(preset.label)}</span>
+    </label>
+  `).join('');
+}
+
 function renderOwnerAccessPanel() {
   const admin = getCurrentAdmin();
   const accessRoot = document.getElementById('adminAccessRoot');
@@ -1639,59 +2584,94 @@ function renderOwnerAccessPanel() {
   panel.className = 'admin-access-panel admin-access-page-panel';
   panel.id = 'adminAccessPanel';
   panel.innerHTML = `
-    <div class="admin-access-header">
-      <div>
-        <span class="admin-access-kicker">OwnerCatsoft</span>
-        <h2>Kelola Admin</h2>
+    <div class="admin-spectrum-page">
+      <div class="admin-spectrum-head">
+        <h2>Administrator</h2>
+        <dl>
+          <div>
+            <dt>Total Admin</dt>
+            <dd data-admin-count>0</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="admin-spectrum-rule"></div>
+      <div class="admin-spectrum-toolbar">
+        <label class="admin-spectrum-search">
+          <span>Cari Berdasarkan Email, Nama Pengguna, Nama Depan Atau Belakang</span>
+          <span class="admin-spectrum-search-field">
+            <input id="adminAccountSearch" type="search" autocomplete="off" />
+          </span>
+        </label>
+        <div class="admin-spectrum-actions">
+          <button class="admin-spectrum-primary" type="button" id="adminAddAccount">Tambahkan Admin</button>
+          <button class="admin-spectrum-secondary" type="button" id="adminDeleteSelected" disabled>Hapus Admin</button>
+        </div>
       </div>
       <p class="admin-access-status" id="adminAccessStatus" aria-live="polite"></p>
-    </div>
-    <div class="admin-access-grid">
-      <form class="admin-access-card admin-access-form" id="adminAccessForm">
-        <input id="adminAccessOriginalUsername" type="hidden" />
-        <label>
-          Username admin
-          <input id="adminAccessUsername" type="text" autocomplete="off" required />
-        </label>
-        <label>
-          Password admin
-          <input id="adminAccessPassword" type="text" autocomplete="off" required />
-        </label>
-        <div class="admin-access-field-block">
-          <span class="admin-access-label">Akses tool</span>
-          <div class="admin-access-checks" aria-label="Akses tool">
-          ${CATSOFT_ADMIN_TOOLS.filter((tool) => !tool.ownerOnly).map((tool) => `
-            <label>
-              <input type="checkbox" name="tools" value="${escapeAdminHtml(tool.id)}" />
-              <span class="admin-check-icon" aria-hidden="true">✓</span>
-              <span class="admin-check-text">${escapeAdminHtml(tool.label)}</span>
-            </label>
-          `).join('')}
-          </div>
-        </div>
-        <div class="admin-access-field-block" id="adminInboxAccessBlock">
-          <span class="admin-access-label">Akses Email Inbox</span>
-          <div class="admin-access-checks admin-inbox-presets" aria-label="Preset akses email">
-            ${CATSOFT_INBOX_PRESETS.map((preset) => `
-              <label>
-                <input type="checkbox" name="inboxPresets" value="${escapeAdminHtml(preset.value)}" />
-                <span class="admin-check-icon" aria-hidden="true">✓</span>
-                <span class="admin-check-text">${escapeAdminHtml(preset.label)}</span>
-              </label>
-            `).join('')}
-          </div>
-        </div>
-        <label id="adminInboxRulesField">
-          Rule custom
-          <textarea id="adminAccessRules" placeholder="Contoh:&#10;openai&#10;adobe.com&#10;billing@catsoft.store&#10;kode verifikasi"></textarea>
-        </label>
-        <div class="admin-form-actions">
-          <button type="submit">Simpan Admin</button>
-          <button type="button" id="adminAccessCancelEdit">Bersihkan</button>
-        </div>
-      </form>
       <div class="admin-account-list" id="adminAccountList"></div>
     </div>
+    <div class="admin-detail-scrim" id="adminAccessScrim" hidden></div>
+    <aside class="admin-detail-drawer" id="adminAccessDrawer" aria-label="Edit Admin" hidden>
+      <div class="admin-detail-head">
+        <span class="admin-detail-avatar" aria-hidden="true"></span>
+        <div>
+          <h3 id="adminAccessDrawerTitle">Tambahkan Admin</h3>
+          <span class="admin-detail-role">Akses Admin</span>
+        </div>
+        <div class="admin-detail-actions">
+          <button class="admin-detail-save" type="submit" form="adminAccessForm">Simpan</button>
+          <button class="admin-detail-close" type="button" id="adminAccessDrawerClose" aria-label="Tutup">×</button>
+        </div>
+      </div>
+      <form class="admin-access-form admin-detail-form" id="adminAccessForm">
+        <input id="adminAccessOriginalUsername" type="hidden" />
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Profil Admin</h4>
+          </div>
+          <label>
+            Username Admin
+            <input id="adminAccessUsername" type="text" autocomplete="off" required />
+          </label>
+          <label>
+            Password Admin
+            <input id="adminAccessPassword" type="text" autocomplete="off" required />
+          </label>
+          <div class="admin-whatsapp-share">
+            <label class="admin-whatsapp-field">
+              <span>WhatsApp</span>
+              <input id="adminAccessWhatsapp" type="tel" inputmode="tel" autocomplete="off" placeholder="62812..." />
+            </label>
+            <button class="admin-whatsapp-send" type="button" id="adminSendAccessWhatsapp">Kirim Akses</button>
+            <span id="adminWhatsappStatus" aria-live="polite"></span>
+          </div>
+        </section>
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Produk</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Akses Tool</span>
+            ${renderAdminToolAccessCategories()}
+          </div>
+        </section>
+        <section class="admin-detail-section" id="adminInboxAccessBlock">
+          <div class="admin-detail-section-head">
+            <h4>Email Inbox</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Akses Email Inbox</span>
+            <div class="admin-access-checks admin-inbox-presets" aria-label="Preset Akses Email">
+              ${renderInboxPresetChecks('inboxPresets', 'data-admin-inbox-detail')}
+            </div>
+          </div>
+          <label id="adminInboxRulesField" data-admin-inbox-detail>
+            Rule Custom
+            <textarea id="adminAccessRules" placeholder="Satu Rule Per Baris:&#10;openai&#10;adobe.com&#10;billing@catsoft.store"></textarea>
+          </label>
+        </section>
+      </form>
+    </aside>
   `;
 
   accessRoot.appendChild(panel);
@@ -1716,10 +2696,90 @@ function getAccessFormValues() {
     originalUsername: document.getElementById('adminAccessOriginalUsername').value,
     username: document.getElementById('adminAccessUsername').value.trim(),
     password: document.getElementById('adminAccessPassword').value,
+    whatsappTarget: normalizeWhatsappTarget(document.getElementById('adminAccessWhatsapp')?.value || ''),
     tools,
     inboxAccessAll: inboxRules.includes('all'),
     inboxRules: inboxRules.filter((rule) => rule !== 'all')
   };
+}
+
+function getAdminToolShareUrl(tool) {
+  return new URL(tool.route || '/', 'https://admin.catsoft.store').href;
+}
+
+function getAdminToolShareLines(toolIds) {
+  const toolById = new Map(CATSOFT_ADMIN_TOOLS.map((tool) => [tool.id, tool]));
+  return toolIds
+    .map((toolId) => toolById.get(toolId))
+    .filter((tool) => tool && !tool.ownerOnly)
+    .map((tool) => `- ${tool.label}: ${getAdminToolShareUrl(tool)}`);
+}
+
+function buildAdminAccessWhatsappMessage(values) {
+  const accessLines = getAdminToolShareLines(values.tools);
+  const messageLines = [
+    'Halo, berikut akses Admin Catsoft.',
+    '',
+    `Username: ${values.username}`,
+    `Password: ${values.password}`,
+    'Login: https://admin.catsoft.store/',
+    '',
+    'Akses:',
+    ...(accessLines.length ? accessLines : ['- Belum ada tool yang dipilih'])
+  ];
+
+  if (values.tools.includes('email-inbox')) {
+    messageLines.push(values.inboxAccessAll
+      ? 'Email Inbox: Semua email masuk'
+      : `Email Inbox: ${values.inboxRules.length ? values.inboxRules.join(', ') : 'Rule belum diatur'}`);
+  }
+
+  messageLines.push('', 'Silakan login melalui link di atas.');
+  return messageLines.join('\n');
+}
+
+function setAdminWhatsappStatus(message, type = '') {
+  const status = document.getElementById('adminWhatsappStatus');
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('success', type === 'success');
+}
+
+function sendAdminAccessViaWhatsapp() {
+  const values = getAccessFormValues();
+
+  if (!values.username) {
+    setAdminWhatsappStatus('Isi username dulu.');
+    document.getElementById('adminAccessUsername')?.focus();
+    return;
+  }
+
+  if (!values.password) {
+    setAdminWhatsappStatus('Isi password dulu.');
+    document.getElementById('adminAccessPassword')?.focus();
+    return;
+  }
+
+  if (!values.whatsappTarget) {
+    setAdminWhatsappStatus('Isi nomor WhatsApp tujuan.');
+    document.getElementById('adminAccessWhatsapp')?.focus();
+    return;
+  }
+
+  const message = buildAdminAccessWhatsappMessage(values);
+  const url = `https://wa.me/${values.whatsappTarget}?text=${encodeURIComponent(message)}`;
+  const opened = window.open(url, '_blank', 'noopener');
+
+  if (!opened) {
+    setAdminWhatsappStatus('Popup diblokir. Izinkan popup lalu klik lagi.');
+    return;
+  }
+
+  setAdminWhatsappStatus('WhatsApp dibuka dengan akses siap kirim.', 'success');
 }
 
 function setAccessStatus(message, type = '') {
@@ -1733,27 +2793,93 @@ function setAccessStatus(message, type = '') {
   status.classList.toggle('success', type === 'success');
 }
 
+function setAdminAccessDrawerOpen(isOpen) {
+  const drawer = document.getElementById('adminAccessDrawer');
+  const scrim = document.getElementById('adminAccessScrim');
+
+  if (!drawer || !scrim) {
+    return;
+  }
+
+  drawer.hidden = !isOpen;
+  scrim.hidden = !isOpen;
+  document.body.classList.toggle('admin-drawer-open', isOpen);
+}
+
+function updateAdminAccessDrawerTitle(label = 'Tambahkan Admin') {
+  const username = document.getElementById('adminAccessUsername');
+  const title = document.getElementById('adminAccessDrawerTitle');
+  const avatar = document.querySelector('#adminAccessDrawer .admin-detail-avatar');
+  const value = username && username.value.trim() ? username.value.trim() : label;
+
+  if (title) title.textContent = value;
+  if (avatar) avatar.textContent = getAdminInitials(value);
+}
+
 function resetAccessForm() {
   const form = document.getElementById('adminAccessForm');
   form.reset();
   document.getElementById('adminAccessOriginalUsername').value = '';
+  document.getElementById('adminAccessWhatsapp').value = '';
+  setAdminWhatsappStatus('');
   document.querySelectorAll('#adminAccessForm input[name="inboxPresets"]').forEach((input) => {
     input.checked = CATSOFT_DEFAULT_INBOX_RULES.includes(input.value);
   });
   document.getElementById('adminAccessRules').value = '';
   updateInboxAccessVisibility();
+  resetAdminToolCategoryOpenState();
+  updateAdminToolCategoryState();
+  updateAdminAccessDrawerTitle('Tambahkan Admin');
 }
 
 function wireOwnerAccessPanel() {
   resetAccessForm();
 
-  document.getElementById('adminAccessCancelEdit').addEventListener('click', () => {
+  document.getElementById('adminAccessCancelEdit')?.addEventListener('click', () => {
     resetAccessForm();
-    setAccessStatus('Form siap untuk admin baru.', 'success');
+    setAdminAccessDrawerOpen(false);
+    setAccessStatus('', 'success');
   });
 
+  document.getElementById('adminAccessDrawerClose').addEventListener('click', () => {
+    resetAccessForm();
+    setAdminAccessDrawerOpen(false);
+  });
+
+  document.getElementById('adminAccessScrim').addEventListener('click', () => {
+    resetAccessForm();
+    setAdminAccessDrawerOpen(false);
+  });
+
+  document.getElementById('adminAddAccount').addEventListener('click', () => {
+    resetAccessForm();
+    setAdminAccessDrawerOpen(true);
+    setAccessStatus('');
+  });
+
+  document.getElementById('adminDeleteSelected').addEventListener('click', async () => {
+    const selected = [...document.querySelectorAll('#adminAccountList input[name="selectedAdmin"]:checked')]
+      .map((input) => input.value);
+
+    for (const username of selected) {
+      await deleteAdminAccount(username);
+    }
+  });
+
+  document.getElementById('adminAccessUsername').addEventListener('input', () => updateAdminAccessDrawerTitle('Tambahkan Admin'));
+  document.getElementById('adminAccessWhatsapp').addEventListener('input', () => setAdminWhatsappStatus(''));
+  document.getElementById('adminAccessPassword').addEventListener('input', () => setAdminWhatsappStatus(''));
+  document.getElementById('adminSendAccessWhatsapp').addEventListener('click', sendAdminAccessViaWhatsapp);
+
   document.querySelectorAll('#adminAccessForm input[name="tools"]').forEach((input) => {
-    input.addEventListener('change', updateInboxAccessVisibility);
+    input.addEventListener('change', () => {
+      updateInboxAccessVisibility();
+      updateAdminToolCategoryState();
+    });
+  });
+
+  document.querySelectorAll('#adminAccessForm input[name="inboxPresets"]').forEach((input) => {
+    input.addEventListener('change', () => handleAdminInboxPresetChange(input));
   });
 
   document.getElementById('adminAccessForm').addEventListener('submit', async (event) => {
@@ -1790,6 +2916,7 @@ function wireOwnerAccessPanel() {
       username: values.username,
       password: values.password ? '' : (existingAccount ? existingAccount.password : ''),
       passwordHash,
+      whatsappTarget: values.whatsappTarget,
       tools: values.tools,
       inboxAccessAll: values.inboxAccessAll,
       inboxRules: values.inboxRules,
@@ -1807,6 +2934,7 @@ function wireOwnerAccessPanel() {
 
     saveAdminAccounts(nextAccounts);
     resetAccessForm();
+    setAdminAccessDrawerOpen(false);
     renderAdminAccountList();
     setAccessStatus('Akses admin tersimpan lokal, mengirim sync...', 'success');
 
@@ -1819,21 +2947,69 @@ function wireOwnerAccessPanel() {
   });
 }
 
+function updateAdminToolCategoryState() {
+  const categories = [...document.querySelectorAll('#adminAccessForm .admin-tool-category')];
+
+  categories.forEach((category, index) => {
+    const checkedCount = category.querySelectorAll('input[name="tools"]:checked').length;
+    const totalCount = category.querySelectorAll('input[name="tools"]').length;
+    const counter = category.querySelector('[data-admin-tool-category-count]');
+
+    if (counter) {
+      counter.textContent = checkedCount ? `${checkedCount}/${totalCount} Aktif` : '0 Aktif';
+    }
+
+    if (!categories.some((item) => item.open)) {
+      category.open = index === 0;
+    }
+  });
+}
+
+function resetAdminToolCategoryOpenState() {
+  document.querySelectorAll('#adminAccessForm .admin-tool-category').forEach((category, index) => {
+    category.open = index === 0;
+  });
+}
+
+function handleAdminInboxPresetChange(changedInput) {
+  const allInput = document.querySelector('#adminAccessForm input[name="inboxPresets"][value="all"]');
+
+  if (changedInput.value === 'all' && changedInput.checked) {
+    document.querySelectorAll('#adminAccessForm input[name="inboxPresets"]:not([value="all"])').forEach((input) => {
+      input.checked = false;
+    });
+    document.getElementById('adminAccessRules').value = '';
+  } else if (changedInput.value !== 'all' && changedInput.checked && allInput) {
+    allInput.checked = false;
+  }
+
+  updateInboxAccessVisibility();
+}
+
 function updateInboxAccessVisibility() {
   const inboxToolInput = document.querySelector('#adminAccessForm input[name="tools"][value="email-inbox"]');
   const inboxBlock = document.getElementById('adminInboxAccessBlock');
   const inboxRulesField = document.getElementById('adminInboxRulesField');
+  const allInboxInput = document.querySelector('#adminAccessForm input[name="inboxPresets"][value="all"]');
   const isVisible = Boolean(inboxToolInput && inboxToolInput.checked);
+  const showDetails = isVisible && !allInboxInput?.checked;
 
   if (!inboxBlock || !inboxRulesField) {
     return;
   }
 
   inboxBlock.classList.toggle('is-hidden', !isVisible);
-  inboxRulesField.classList.toggle('is-hidden', !isVisible);
+  document.querySelectorAll('#adminAccessForm [data-admin-inbox-detail]').forEach((element) => {
+    element.classList.toggle('is-hidden', !showDetails);
+  });
 
   if (!isVisible) {
     document.querySelectorAll('#adminAccessForm input[name="inboxPresets"]').forEach((input) => {
+      input.checked = false;
+    });
+    document.getElementById('adminAccessRules').value = '';
+  } else if (allInboxInput?.checked) {
+    document.querySelectorAll('#adminAccessForm input[name="inboxPresets"]:not([value="all"])').forEach((input) => {
       input.checked = false;
     });
     document.getElementById('adminAccessRules').value = '';
@@ -1851,90 +3027,146 @@ function updateInboxAccessVisibility() {
 
 function renderAdminAccountList() {
   const list = document.getElementById('adminAccountList');
+  const count = document.querySelector('[data-admin-count]');
 
   if (!list) {
     return;
   }
 
   const accounts = loadAdminAccounts();
-  const totalTools = CATSOFT_ADMIN_TOOLS.filter((tool) => !tool.ownerOnly).length;
-  const allInboxCount = accounts.filter((account) => account.inboxAccessAll).length;
-  const toolAccessCount = accounts.reduce((total, account) => total + (account.tools || []).length, 0);
+
+  if (count) {
+    count.textContent = String(accounts.length);
+  }
 
   if (!accounts.length) {
     list.innerHTML = `
-      <div class="admin-account-toolbar">
-        <div class="admin-account-stat"><span>Total admin</span><strong>0</strong></div>
-        <div class="admin-account-stat"><span>Tool access</span><strong>0</strong></div>
-        <div class="admin-account-stat"><span>Full inbox</span><strong>0</strong></div>
-      </div>
-      <div class="admin-account-card">
-        <div class="admin-account-main">
-          <h3>Belum ada admin tambahan</h3>
-          <span>Tambahkan admin baru dari form di sebelah kiri.</span>
+      <div class="admin-spectrum-empty">
+        <div>
+          <h3>Belum Ada Admin Tambahan</h3>
+          <span>Tambahkan Admin baru dari tombol Tambahkan Admin.</span>
         </div>
       </div>
     `;
     return;
   }
 
-  const rows = accounts.map((account) => {
-    const toolLabels = CATSOFT_ADMIN_TOOLS
-      .filter((tool) => (account.tools || []).includes(tool.id))
-      .map((tool) => tool.label);
-    const inboxRules = normalizeInboxRules(account);
-    const inboxSummary = account.inboxAccessAll
-      ? 'Semua email masuk'
-      : (inboxRules.length ? `${inboxRules.length} rule inbox` : 'Tidak ada email inbox');
-    const updatedText = formatAdminDateTime(account.updatedAt);
-    const loginToday = account.loginCountDate === new Date().toISOString().slice(0, 10) ? Number(account.loginCountToday || 0) : 0;
+  const visibleAccounts = accounts.slice(0, catsoftAdminPageSize);
+  const rows = visibleAccounts.map((account) => {
+    const toolCount = (account.tools || []).length;
+    const roleText = account.inboxAccessAll ? 'Sistem + Full Inbox' : 'Sistem';
 
     return `
-      <div class="admin-account-row">
-        <div class="admin-account-main">
-          <h3>${escapeAdminHtml(account.username)}</h3>
-          <span>Update: ${escapeAdminHtml(updatedText)} - ${escapeAdminHtml(getOnlineLabel(account.activeAt))}</span>
-        </div>
-        <div class="admin-account-meta">
-          ${toolLabels.slice(0, 3).map((label) => `<span class="admin-pill">${escapeAdminHtml(label)}</span>`).join('')}
-          ${toolLabels.length > 3 ? `<span class="admin-pill neutral">+${toolLabels.length - 3} tool</span>` : ''}
-          ${!toolLabels.length ? '<span class="admin-pill neutral">Tidak ada tool</span>' : ''}
-          <span class="admin-account-secret" title="Status password">${escapeAdminHtml(getPasswordStorageLabel(account))}</span>
-          <span class="admin-pill neutral">Login hari ini: ${escapeAdminHtml(loginToday)}</span>
-        </div>
-        <span class="admin-pill neutral" title="Last login: ${escapeAdminHtml(formatAdminDateTime(account.lastLoginAt))}">${escapeAdminHtml(inboxSummary)}</span>
-        <div class="admin-account-actions">
-          <button type="button" data-edit-admin="${escapeAdminHtml(account.username)}">Edit</button>
-          <button type="button" data-delete-admin="${escapeAdminHtml(account.username)}">Hapus</button>
-        </div>
+      <div class="admin-spectrum-row" data-edit-admin="${escapeAdminHtml(account.username)}" role="row">
+        <span class="admin-spectrum-check"><input type="checkbox" name="selectedAdmin" value="${escapeAdminHtml(account.username)}" aria-label="Pilih ${escapeAdminHtml(account.username)}" /></span>
+        <span class="admin-spectrum-name">
+          <span class="admin-spectrum-avatar" aria-hidden="true">${escapeAdminHtml(getAdminInitials(account.username))}</span>
+          <span><strong>${escapeAdminHtml(account.username)}</strong><small>${escapeAdminHtml(getOnlineLabel(account.activeAt))}</small></span>
+        </span>
+        <span class="admin-spectrum-row-actions">
+          <button class="admin-spectrum-open" type="button" data-open-admin="${escapeAdminHtml(account.username)}" aria-label="Buka Detail ${escapeAdminHtml(account.username)}"></button>
+          <button class="admin-spectrum-chat" type="button" data-chat-admin="${escapeAdminHtml(account.username)}" ${account.whatsappTarget ? '' : 'disabled'} aria-label="Chat WhatsApp ${escapeAdminHtml(account.username)}"></button>
+        </span>
+        <span>${escapeAdminHtml(account.username)}</span>
+        <span>${escapeAdminHtml(roleText)}<small>${escapeAdminHtml(toolCount)} Tools</small></span>
       </div>
     `;
   }).join('');
 
   list.innerHTML = `
-    <div class="admin-account-toolbar">
-      <div class="admin-account-stat"><span>Total admin</span><strong>${accounts.length}</strong></div>
-      <div class="admin-account-stat"><span>Tool access</span><strong>${toolAccessCount}/${accounts.length * totalTools}</strong></div>
-      <div class="admin-account-stat"><span>Full inbox</span><strong>${allInboxCount}</strong></div>
-    </div>
-    <div class="admin-account-table">
-      <div class="admin-account-row is-heading">
-        <span>Akun</span>
-        <span>Akses tool</span>
-        <span>Email inbox</span>
-        <span>Aksi</span>
+    <div class="admin-spectrum-table" role="grid" aria-label="Daftar Administrator">
+      <div class="admin-spectrum-row is-heading" role="row">
+        <span><input type="checkbox" id="adminSelectAll" aria-label="Pilih Semua Admin" /></span>
+        <span>Nama</span>
+        <span></span>
+        <span>Username</span>
+        <span>Peran Admin</span>
       </div>
       ${rows}
     </div>
+    <div class="admin-spectrum-pager">
+      <div class="admin-spectrum-page-buttons" aria-label="Navigasi Halaman Admin">
+        <button class="admin-spectrum-page-nav is-prev" type="button" disabled aria-label="Halaman Sebelumnya"><span>Sebelumnya</span></button>
+        <button class="admin-spectrum-page-nav is-next" type="button" disabled aria-label="Halaman Berikutnya"><span>Berikutnya</span></button>
+      </div>
+      <label class="admin-spectrum-page-size">
+        <span>Item Per Halaman</span>
+        <select id="adminPageSize">
+          ${[5, 10, 20, 50].map((size) => `<option value="${size}" ${catsoftAdminPageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
+        </select>
+      </label>
+      <span class="admin-spectrum-page-count">${visibleAccounts.length ? `1-${visibleAccounts.length}` : '0'} Dari ${accounts.length}</span>
+    </div>
   `;
 
-  list.querySelectorAll('[data-edit-admin]').forEach((button) => {
-    button.addEventListener('click', () => editAdminAccount(button.dataset.editAdmin));
+  list.querySelectorAll('[data-open-admin]').forEach((button) => {
+    button.addEventListener('click', () => editAdminAccount(button.dataset.openAdmin));
   });
 
-  list.querySelectorAll('[data-delete-admin]').forEach((button) => {
-    button.addEventListener('click', () => deleteAdminAccount(button.dataset.deleteAdmin));
+  list.querySelectorAll('[data-chat-admin]').forEach((button) => {
+    button.addEventListener('click', () => openAdminWhatsappChat(button.dataset.chatAdmin));
   });
+
+  list.querySelectorAll('input[name="selectedAdmin"]').forEach((input) => {
+    input.addEventListener('change', updateAdminDeleteSelectedState);
+  });
+
+  const selectAll = document.getElementById('adminSelectAll');
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      document.querySelectorAll('#adminAccountList input[name="selectedAdmin"]').forEach((input) => {
+        input.checked = selectAll.checked;
+      });
+      updateAdminDeleteSelectedState();
+    });
+  }
+
+  const search = document.getElementById('adminAccountSearch');
+  if (search) {
+    search.addEventListener('input', filterAdminAccountRows);
+    filterAdminAccountRows();
+  }
+
+  const pageSize = document.getElementById('adminPageSize');
+  if (pageSize) {
+    pageSize.addEventListener('change', () => {
+      catsoftAdminPageSize = Number(pageSize.value) || 10;
+      renderAdminAccountList();
+    });
+  }
+
+  updateAdminDeleteSelectedState();
+}
+
+function filterAdminAccountRows() {
+  const search = document.getElementById('adminAccountSearch');
+  const query = normalizeAdminValue(search ? search.value : '');
+
+  document.querySelectorAll('#adminAccountList .admin-spectrum-row[data-edit-admin]').forEach((row) => {
+    row.hidden = query ? !normalizeAdminValue(row.textContent).includes(query) : false;
+  });
+}
+
+function updateAdminDeleteSelectedState() {
+  const deleteButton = document.getElementById('adminDeleteSelected');
+
+  if (!deleteButton) {
+    return;
+  }
+
+  deleteButton.disabled = !document.querySelector('#adminAccountList input[name="selectedAdmin"]:checked');
+}
+
+function openAdminWhatsappChat(username) {
+  const account = getAccountByUsername(username);
+  const whatsappTarget = normalizeWhatsappTarget(account?.whatsappTarget || '');
+
+  if (!whatsappTarget) {
+    setAccessStatus('Nomor WhatsApp admin belum diisi.');
+    return;
+  }
+
+  window.open(`https://wa.me/${whatsappTarget}`, '_blank', 'noopener');
 }
 
 function renderSupplierAccessPanel() {
@@ -1949,71 +3181,103 @@ function renderSupplierAccessPanel() {
   panel.className = 'admin-access-panel admin-access-page-panel';
   panel.id = 'supplierAccessPanel';
   panel.innerHTML = `
-    <div class="admin-access-header">
-      <div>
-        <span class="admin-access-kicker">${escapeAdminHtml(admin.role === 'owner' ? 'OwnerCatsoft' : 'AdminCatsoft')}</span>
-        <h2>Kelola Supplier</h2>
+    <div class="admin-spectrum-page">
+      <div class="admin-spectrum-head">
+        <h2>Supplier</h2>
+        <dl>
+          <div>
+            <dt>Total Supplier</dt>
+            <dd data-supplier-count>0</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="admin-spectrum-rule"></div>
+      <div class="admin-spectrum-toolbar">
+        <label class="admin-spectrum-search">
+          <span>Cari Berdasarkan Email, Nama Supplier, Atau Domain</span>
+          <span class="admin-spectrum-search-field">
+            <input id="supplierAccountSearch" type="search" autocomplete="off" />
+          </span>
+        </label>
+        <div class="admin-spectrum-actions">
+          <button class="admin-spectrum-primary" type="button" id="supplierAddAccount">Tambahkan Supplier</button>
+          <button class="admin-spectrum-secondary" type="button" id="supplierDeleteSelected" disabled>Hapus Supplier</button>
+        </div>
       </div>
       <p class="admin-access-status" id="supplierAccessStatus" aria-live="polite"></p>
-    </div>
-    <div class="admin-access-grid">
-      <form class="admin-access-card admin-access-form" id="supplierAccessForm">
-        <input id="supplierAccessOriginalUsername" type="hidden" />
-        <label>
-          Username supplier
-          <input id="supplierAccessUsername" type="text" autocomplete="off" required />
-        </label>
-        <label>
-          Password supplier
-          <input id="supplierAccessPassword" type="text" autocomplete="off" required />
-        </label>
-        <div class="admin-access-field-block">
-          <span class="admin-access-label">Akses tool Supplier Center</span>
-          <div class="admin-access-checks" aria-label="Akses tool supplier">
-            ${CATSOFT_SUPPLIER_TOOLS.map((tool) => `
-              <label>
-                <input type="checkbox" name="supplierTools" value="${escapeAdminHtml(tool.id)}" checked />
-                <span class="admin-check-icon" aria-hidden="true">✓</span>
-                <span class="admin-check-text">${escapeAdminHtml(tool.label)}</span>
-              </label>
-            `).join('')}
-          </div>
-        </div>
-        <div class="admin-access-field-block" id="supplierInboxAccessBlock">
-          <span class="admin-access-label">Akses Email Temp Mail</span>
-          <div class="admin-access-checks admin-inbox-presets" aria-label="Preset akses email supplier">
-            ${CATSOFT_INBOX_PRESETS.map((preset) => `
-              <label>
-                <input type="checkbox" name="supplierInboxPresets" value="${escapeAdminHtml(preset.value)}" />
-                <span class="admin-check-icon" aria-hidden="true">✓</span>
-                <span class="admin-check-text">${escapeAdminHtml(preset.label)}</span>
-              </label>
-            `).join('')}
-          </div>
-        </div>
-        <label id="supplierInboxRulesField">
-          Rule custom
-          <textarea id="supplierAccessRules" placeholder="Contoh:&#10;supplier@catsoft.store&#10;openai&#10;catsoft.digital&#10;kode verifikasi"></textarea>
-        </label>
-        <div class="admin-access-field-block">
-          <span class="admin-access-label">Domain yang bisa dibuat supplier</span>
-          <div class="admin-access-checks admin-inbox-presets" aria-label="Domain temp mail supplier">
-            ${CATSOFT_SUPPLIER_DOMAINS.map((domain) => `
-              <label>
-                <input type="checkbox" name="supplierDomains" value="${escapeAdminHtml(domain)}" checked />
-                <span class="admin-check-icon" aria-hidden="true">✓</span>
-                <span class="admin-check-text">${escapeAdminHtml(domain)}</span>
-              </label>
-            `).join('')}
-          </div>
-        </div>
-        <div class="admin-form-actions">
-          <button type="submit">Simpan Supplier</button>
-          <button type="button" id="supplierAccessCancelEdit">Bersihkan</button>
-        </div>
-      </form>
       <div class="admin-account-list" id="supplierAccountList"></div>
     </div>
+    <div class="admin-detail-scrim" id="supplierAccessScrim" hidden></div>
+    <aside class="admin-detail-drawer" id="supplierAccessDrawer" aria-label="Edit Supplier" hidden>
+      <div class="admin-detail-head">
+        <span class="admin-detail-avatar" aria-hidden="true"></span>
+        <div>
+          <h3 id="supplierAccessDrawerTitle">Tambahkan Supplier</h3>
+          <span class="admin-detail-role">Akses Supplier</span>
+        </div>
+        <div class="admin-detail-actions">
+          <button class="admin-detail-save" type="submit" form="supplierAccessForm">Simpan</button>
+          <button class="admin-detail-close" type="button" id="supplierAccessDrawerClose" aria-label="Tutup">×</button>
+        </div>
+      </div>
+      <form class="admin-access-form admin-detail-form" id="supplierAccessForm">
+        <input id="supplierAccessOriginalUsername" type="hidden" />
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Profil Supplier</h4>
+          </div>
+          <label>
+            Username Supplier
+            <input id="supplierAccessUsername" type="text" autocomplete="off" required />
+          </label>
+          <label>
+            Password Supplier
+            <input id="supplierAccessPassword" type="text" autocomplete="off" required />
+          </label>
+        </section>
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Produk</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Akses Tool Supplier Center</span>
+            ${renderSupplierToolAccessCategories()}
+          </div>
+        </section>
+        <section class="admin-detail-section" id="supplierInboxAccessBlock">
+          <div class="admin-detail-section-head">
+            <h4>Email Temp Mail</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Akses Email Temp Mail</span>
+            <div class="admin-access-checks admin-inbox-presets" aria-label="Preset Akses Email Supplier">
+              ${renderInboxPresetChecks('supplierInboxPresets', 'data-supplier-inbox-detail')}
+            </div>
+          </div>
+          <label id="supplierInboxRulesField" data-supplier-inbox-detail>
+            Rule Custom
+            <textarea id="supplierAccessRules" placeholder="Satu Rule Per Baris:&#10;supplier@catsoft.store&#10;openai&#10;catsoft.digital"></textarea>
+          </label>
+        </section>
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Domain</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Domain Yang Bisa Dibuat Supplier</span>
+            <div class="admin-access-checks admin-inbox-presets" aria-label="Domain Temp Mail Supplier">
+              ${CATSOFT_SUPPLIER_DOMAINS.map((domain) => `
+                <label>
+                  <input type="checkbox" name="supplierDomains" value="${escapeAdminHtml(domain)}" checked />
+                  <span class="admin-check-icon" aria-hidden="true">✓</span>
+                  <span class="admin-check-text">${escapeAdminHtml(domain)}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        </section>
+      </form>
+    </aside>
   `;
 
   accessRoot.appendChild(panel);
@@ -2059,6 +3323,29 @@ function setSupplierAccessStatus(message, type = '') {
   status.classList.toggle('success', type === 'success');
 }
 
+function setSupplierAccessDrawerOpen(isOpen) {
+  const drawer = document.getElementById('supplierAccessDrawer');
+  const scrim = document.getElementById('supplierAccessScrim');
+
+  if (!drawer || !scrim) {
+    return;
+  }
+
+  drawer.hidden = !isOpen;
+  scrim.hidden = !isOpen;
+  document.body.classList.toggle('admin-drawer-open', isOpen);
+}
+
+function updateSupplierAccessDrawerTitle(label = 'Tambahkan Supplier') {
+  const username = document.getElementById('supplierAccessUsername');
+  const title = document.getElementById('supplierAccessDrawerTitle');
+  const avatar = document.querySelector('#supplierAccessDrawer .admin-detail-avatar');
+  const value = username && username.value.trim() ? username.value.trim() : label;
+
+  if (title) title.textContent = value;
+  if (avatar) avatar.textContent = getAdminInitials(value);
+}
+
 function resetSupplierAccessForm() {
   const form = document.getElementById('supplierAccessForm');
   if (!form) {
@@ -2077,14 +3364,56 @@ function resetSupplierAccessForm() {
     input.checked = true;
   });
   document.getElementById('supplierAccessRules').value = '';
+  updateSupplierInboxAccessVisibility();
+  updateSupplierToolCategoryState();
+  updateSupplierAccessDrawerTitle('Tambahkan Supplier');
 }
 
 function wireSupplierAccessPanel() {
   resetSupplierAccessForm();
 
-  document.getElementById('supplierAccessCancelEdit').addEventListener('click', () => {
+  document.getElementById('supplierAccessCancelEdit')?.addEventListener('click', () => {
     resetSupplierAccessForm();
+    setSupplierAccessDrawerOpen(false);
+    setSupplierAccessStatus('', 'success');
+  });
+
+  document.getElementById('supplierAccessDrawerClose').addEventListener('click', () => {
+    resetSupplierAccessForm();
+    setSupplierAccessDrawerOpen(false);
+  });
+
+  document.getElementById('supplierAccessScrim').addEventListener('click', () => {
+    resetSupplierAccessForm();
+    setSupplierAccessDrawerOpen(false);
+  });
+
+  document.getElementById('supplierAddAccount').addEventListener('click', () => {
+    resetSupplierAccessForm();
+    setSupplierAccessDrawerOpen(true);
     setSupplierAccessStatus('Form siap untuk supplier baru.', 'success');
+  });
+
+  document.getElementById('supplierDeleteSelected').addEventListener('click', async () => {
+    const selected = [...document.querySelectorAll('#supplierAccountList input[name="selectedSupplier"]:checked')]
+      .map((input) => input.value);
+
+    for (const username of selected) {
+      await deleteSupplierAccount(username);
+    }
+  });
+
+  document.getElementById('supplierAccessUsername').addEventListener('input', () => updateSupplierAccessDrawerTitle('Tambahkan Supplier'));
+
+  document.querySelectorAll('#supplierAccessForm input[name="supplierTools"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      updateSupplierInboxAccessVisibility();
+      updateSupplierToolCategoryState();
+    });
+  });
+
+  document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]').forEach((input) => {
+    input.addEventListener('change', () => handleSupplierInboxPresetChange(input));
   });
 
   document.getElementById('supplierAccessForm').addEventListener('submit', async (event) => {
@@ -2135,6 +3464,7 @@ function wireSupplierAccessPanel() {
 
     saveSupplierAccounts(nextAccounts);
     resetSupplierAccessForm();
+    setSupplierAccessDrawerOpen(false);
     renderSupplierAccountList();
     setSupplierAccessStatus('Akses supplier tersimpan lokal, mengirim sync...', 'success');
 
@@ -2147,92 +3477,189 @@ function wireSupplierAccessPanel() {
   });
 }
 
+function updateSupplierToolCategoryState() {
+  document.querySelectorAll('#supplierAccessForm .admin-tool-category').forEach((category) => {
+    const checkedCount = category.querySelectorAll('input[name="supplierTools"]:checked').length;
+    const totalCount = category.querySelectorAll('input[name="supplierTools"]').length;
+    const counter = category.querySelector('[data-supplier-tool-category-count]');
+
+    if (counter) {
+      counter.textContent = checkedCount ? `${checkedCount}/${totalCount} Aktif` : '0 Aktif';
+    }
+
+    category.open = true;
+  });
+}
+
+function handleSupplierInboxPresetChange(changedInput) {
+  const allInput = document.querySelector('#supplierAccessForm input[name="supplierInboxPresets"][value="all"]');
+
+  if (changedInput.value === 'all' && changedInput.checked) {
+    document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]:not([value="all"])').forEach((input) => {
+      input.checked = false;
+    });
+    document.getElementById('supplierAccessRules').value = '';
+  } else if (changedInput.value !== 'all' && changedInput.checked && allInput) {
+    allInput.checked = false;
+  }
+
+  updateSupplierInboxAccessVisibility();
+}
+
+function updateSupplierInboxAccessVisibility() {
+  const inboxToolInput = document.querySelector('#supplierAccessForm input[name="supplierTools"][value="supplier-email"]');
+  const inboxBlock = document.getElementById('supplierInboxAccessBlock');
+  const allInboxInput = document.querySelector('#supplierAccessForm input[name="supplierInboxPresets"][value="all"]');
+  const isVisible = Boolean(inboxToolInput && inboxToolInput.checked);
+  const showDetails = isVisible && !allInboxInput?.checked;
+
+  if (!inboxBlock) {
+    return;
+  }
+
+  inboxBlock.classList.toggle('is-hidden', !isVisible);
+  document.querySelectorAll('#supplierAccessForm [data-supplier-inbox-detail]').forEach((element) => {
+    element.classList.toggle('is-hidden', !showDetails);
+  });
+
+  if (!isVisible) {
+    document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]').forEach((input) => {
+      input.checked = false;
+    });
+    document.getElementById('supplierAccessRules').value = '';
+  } else if (allInboxInput?.checked) {
+    document.querySelectorAll('#supplierAccessForm input[name="supplierInboxPresets"]:not([value="all"])').forEach((input) => {
+      input.checked = false;
+    });
+    document.getElementById('supplierAccessRules').value = '';
+  }
+}
+
 function renderSupplierAccountList() {
   const list = document.getElementById('supplierAccountList');
+  const count = document.querySelector('[data-supplier-count]');
 
   if (!list) {
     return;
   }
 
   const accounts = loadSupplierAccounts();
-  const fullInboxCount = accounts.filter((account) => account.inboxAccessAll).length;
-  const emailToolCount = accounts.filter((account) => (account.tools || []).includes('supplier-email')).length;
+
+  if (count) {
+    count.textContent = String(accounts.length);
+  }
 
   if (!accounts.length) {
     list.innerHTML = `
-      <div class="admin-account-toolbar">
-        <div class="admin-account-stat"><span>Total supplier</span><strong>0</strong></div>
-        <div class="admin-account-stat"><span>Email tool</span><strong>0</strong></div>
-        <div class="admin-account-stat"><span>Full inbox</span><strong>0</strong></div>
-      </div>
-      <div class="admin-account-card">
-        <div class="admin-account-main">
-          <h3>Belum ada supplier</h3>
-          <span>Tambahkan akun supplier dari form di sebelah kiri.</span>
+      <div class="admin-spectrum-empty">
+        <div>
+          <h3>Belum Ada Supplier</h3>
+          <span>Tambahkan Supplier baru dari tombol Tambahkan Supplier.</span>
         </div>
       </div>
     `;
     return;
   }
 
-  const rows = accounts.map((account) => {
-    const inboxRules = normalizeInboxRules(account);
-    const inboxSummary = account.inboxAccessAll
-      ? 'Semua email masuk'
-      : (inboxRules.length ? `${inboxRules.length} rule email` : 'Tidak ada akses email');
+  const visibleAccounts = accounts.slice(0, catsoftSupplierPageSize);
+  const rows = visibleAccounts.map((account) => {
     const domainSummary = (account.allowedDomains || []).length
       ? (account.allowedDomains || []).join(', ')
-      : 'Tidak ada domain';
-    const toolLabels = CATSOFT_SUPPLIER_TOOLS
-      .filter((tool) => (account.tools || []).includes(tool.id))
-      .map((tool) => tool.label);
-    const updatedText = formatAdminDateTime(account.updatedAt);
-    const loginToday = account.loginCountDate === new Date().toISOString().slice(0, 10) ? Number(account.loginCountToday || 0) : 0;
+      : 'Tidak Ada Domain';
+    const roleText = account.inboxAccessAll ? 'Email Penuh' : 'Supplier';
 
     return `
-      <div class="admin-account-row">
-        <div class="admin-account-main">
-          <h3>${escapeAdminHtml(account.username)}</h3>
-          <span>Update: ${escapeAdminHtml(updatedText)} - ${escapeAdminHtml(getOnlineLabel(account.activeAt))}</span>
-        </div>
-        <div class="admin-account-meta">
-          ${toolLabels.map((label) => `<span class="admin-pill">${escapeAdminHtml(label)}</span>`).join('')}
-          ${!toolLabels.length ? '<span class="admin-pill neutral">Tidak ada tool</span>' : ''}
-          <span class="admin-account-secret" title="Status password">${escapeAdminHtml(getPasswordStorageLabel(account))}</span>
-          <span class="admin-pill neutral">Login hari ini: ${escapeAdminHtml(loginToday)}</span>
-        </div>
-        <span class="admin-pill neutral" title="${escapeAdminHtml(domainSummary)} | Last login: ${escapeAdminHtml(formatAdminDateTime(account.lastLoginAt))}">${escapeAdminHtml(inboxSummary)} - ${escapeAdminHtml((account.allowedDomains || []).length)} domain</span>
-        <div class="admin-account-actions">
-          <button type="button" data-edit-supplier="${escapeAdminHtml(account.username)}">Edit</button>
-          <button type="button" data-delete-supplier="${escapeAdminHtml(account.username)}">Hapus</button>
-        </div>
+      <div class="admin-spectrum-row" data-edit-supplier="${escapeAdminHtml(account.username)}" role="row">
+        <span class="admin-spectrum-check"><input type="checkbox" name="selectedSupplier" value="${escapeAdminHtml(account.username)}" aria-label="Pilih ${escapeAdminHtml(account.username)}" /></span>
+        <span class="admin-spectrum-name">
+          <span class="admin-spectrum-avatar supplier" aria-hidden="true">${escapeAdminHtml(getAdminInitials(account.username))}</span>
+          <span><strong>${escapeAdminHtml(account.username)}</strong><small>${escapeAdminHtml(getOnlineLabel(account.activeAt))}</small></span>
+        </span>
+        <button class="admin-spectrum-open" type="button" data-open-supplier="${escapeAdminHtml(account.username)}" aria-label="Buka Detail ${escapeAdminHtml(account.username)}"></button>
+        <span>${escapeAdminHtml(account.username)}</span>
+        <span>${escapeAdminHtml(roleText)}<small>${escapeAdminHtml(domainSummary)}</small></span>
       </div>
     `;
   }).join('');
 
   list.innerHTML = `
-    <div class="admin-account-toolbar">
-      <div class="admin-account-stat"><span>Total supplier</span><strong>${accounts.length}</strong></div>
-      <div class="admin-account-stat"><span>Email tool</span><strong>${emailToolCount}</strong></div>
-      <div class="admin-account-stat"><span>Full inbox</span><strong>${fullInboxCount}</strong></div>
-    </div>
-    <div class="admin-account-table">
-      <div class="admin-account-row is-heading">
-        <span>Akun</span>
-        <span>Akses tool</span>
-        <span>Email temp mail</span>
-        <span>Aksi</span>
+    <div class="admin-spectrum-table" role="grid" aria-label="Daftar Supplier">
+      <div class="admin-spectrum-row is-heading" role="row">
+        <span><input type="checkbox" id="supplierSelectAll" aria-label="Pilih Semua Supplier" /></span>
+        <span>Nama</span>
+        <span></span>
+        <span>Username</span>
+        <span>Peran Supplier</span>
       </div>
       ${rows}
     </div>
+    <div class="admin-spectrum-pager">
+      <div class="admin-spectrum-page-buttons" aria-label="Navigasi Halaman Supplier">
+        <button class="admin-spectrum-page-nav is-prev" type="button" disabled aria-label="Halaman Sebelumnya"><span>Sebelumnya</span></button>
+        <button class="admin-spectrum-page-nav is-next" type="button" disabled aria-label="Halaman Berikutnya"><span>Berikutnya</span></button>
+      </div>
+      <label class="admin-spectrum-page-size">
+        <span>Item Per Halaman</span>
+        <select id="supplierPageSize">
+          ${[5, 10, 20, 50].map((size) => `<option value="${size}" ${catsoftSupplierPageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
+        </select>
+      </label>
+      <span class="admin-spectrum-page-count">${visibleAccounts.length ? `1-${visibleAccounts.length}` : '0'} Dari ${accounts.length}</span>
+    </div>
   `;
 
-  list.querySelectorAll('[data-edit-supplier]').forEach((button) => {
-    button.addEventListener('click', () => editSupplierAccount(button.dataset.editSupplier));
+  list.querySelectorAll('[data-open-supplier]').forEach((button) => {
+    button.addEventListener('click', () => editSupplierAccount(button.dataset.openSupplier));
   });
-  list.querySelectorAll('[data-delete-supplier]').forEach((button) => {
-    button.addEventListener('click', () => deleteSupplierAccount(button.dataset.deleteSupplier));
+
+  list.querySelectorAll('input[name="selectedSupplier"]').forEach((input) => {
+    input.addEventListener('change', updateSupplierDeleteSelectedState);
   });
+
+  const selectAll = document.getElementById('supplierSelectAll');
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      document.querySelectorAll('#supplierAccountList input[name="selectedSupplier"]').forEach((input) => {
+        input.checked = selectAll.checked;
+      });
+      updateSupplierDeleteSelectedState();
+    });
+  }
+
+  const search = document.getElementById('supplierAccountSearch');
+  if (search) {
+    search.addEventListener('input', filterSupplierAccountRows);
+    filterSupplierAccountRows();
+  }
+
+  const pageSize = document.getElementById('supplierPageSize');
+  if (pageSize) {
+    pageSize.addEventListener('change', () => {
+      catsoftSupplierPageSize = Number(pageSize.value) || 10;
+      renderSupplierAccountList();
+    });
+  }
+
+  updateSupplierDeleteSelectedState();
+}
+
+function filterSupplierAccountRows() {
+  const search = document.getElementById('supplierAccountSearch');
+  const query = normalizeAdminValue(search ? search.value : '');
+
+  document.querySelectorAll('#supplierAccountList .admin-spectrum-row[data-edit-supplier]').forEach((row) => {
+    row.hidden = query ? !normalizeAdminValue(row.textContent).includes(query) : false;
+  });
+}
+
+function updateSupplierDeleteSelectedState() {
+  const deleteButton = document.getElementById('supplierDeleteSelected');
+
+  if (!deleteButton) {
+    return;
+  }
+
+  deleteButton.disabled = !document.querySelector('#supplierAccountList input[name="selectedSupplier"]:checked');
 }
 
 function editSupplierAccount(username) {
@@ -2260,7 +3687,11 @@ function editSupplierAccount(username) {
   document.getElementById('supplierAccessRules').value = inboxRules
     .filter((rule) => !presetValues.includes(rule))
     .join('\n');
-  setSupplierAccessStatus('Mode edit supplier.');
+  updateSupplierInboxAccessVisibility();
+  updateSupplierToolCategoryState();
+  updateSupplierAccessDrawerTitle(account.username);
+  setSupplierAccessDrawerOpen(true);
+  setSupplierAccessStatus('');
 }
 
 async function deleteSupplierAccount(username) {
@@ -2287,6 +3718,8 @@ function editAdminAccount(username) {
   document.getElementById('adminAccessOriginalUsername').value = account.username;
   document.getElementById('adminAccessUsername').value = account.username;
   document.getElementById('adminAccessPassword').value = account.password || '';
+  document.getElementById('adminAccessWhatsapp').value = account.whatsappTarget || '';
+  setAdminWhatsappStatus('');
   document.querySelectorAll('#adminAccessForm input[name="tools"]').forEach((input) => {
     input.checked = (account.tools || []).includes(input.value);
   });
@@ -2299,7 +3732,11 @@ function editAdminAccount(username) {
     .filter((rule) => !presetValues.includes(rule))
     .join('\n');
   updateInboxAccessVisibility();
-  setAccessStatus('Mode edit admin.');
+  resetAdminToolCategoryOpenState();
+  updateAdminToolCategoryState();
+  updateAdminAccessDrawerTitle(account.username);
+  setAdminAccessDrawerOpen(true);
+  setAccessStatus('');
 }
 
 async function deleteAdminAccount(username) {
@@ -2362,7 +3799,63 @@ function startAdminHeartbeat() {
   }, 60000);
 }
 
+function initSoftDateInputs(root = document) {
+  root.querySelectorAll?.('input[type="date"]').forEach((input) => {
+    if (!input.dataset.emptyLabel) {
+      input.dataset.emptyLabel = 'Pilih Tanggal';
+    }
+
+    const updateDateState = () => {
+      input.classList.toggle('has-date-value', Boolean(input.value));
+    };
+
+    input.classList.add('soft-date-input');
+    updateDateState();
+
+    if (input.dataset.softDateReady === 'true') {
+      return;
+    }
+
+    input.dataset.softDateReady = 'true';
+    input.addEventListener('input', updateDateState);
+    input.addEventListener('change', updateDateState);
+  });
+}
+
+function startSoftDateInputObserver() {
+  initSoftDateInputs();
+
+  if (window.catsoftSoftDateObserver) {
+    return;
+  }
+
+  window.catsoftSoftDateObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          initSoftDateInputs(node);
+        }
+      });
+    });
+  });
+
+  window.catsoftSoftDateObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+}
+
 function initAdminAuth() {
+  if (new URLSearchParams(window.location.search).get('embedded') === '1') {
+    document.body.classList.add('catsoft-embedded-tool');
+  }
+
+  startSoftDateInputObserver();
+
+  if (window.CATSOFT_SKIP_ADMIN_AUTH) {
+    return;
+  }
+
   injectAuthStyles();
 
   const currentToolId = getCurrentAdminToolId();
@@ -2373,7 +3866,7 @@ function initAdminAuth() {
     return;
   }
 
-  if (currentToolId && !adminHasToolAccess(currentToolId)) {
+  if (currentToolId && !(currentToolId === 'admin-access' ? adminCanUseAccessConsole(admin) : adminHasToolAccess(currentToolId))) {
     renderAccessDenied();
     return;
   }
@@ -2384,6 +3877,14 @@ function initAdminAuth() {
   enableAdminToolAccordions();
   renderOwnerAccessPanel();
   renderSupplierAccessPanel();
+  enableAdminConsoleViews();
+  if (document.body.classList.contains('admin-console-body')) {
+    const currentHash = String(window.location.hash || '').replace(/^#/, '');
+    const routePath = normalizeRoutePath(window.location.pathname);
+    if (currentHash === 'chat' || routePath === '/chat') {
+      window.setTimeout(openAdminChatPopup, 0);
+    }
+  }
   startAdminAccountsAutoRefresh();
   startAdminHeartbeat();
 }

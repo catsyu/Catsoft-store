@@ -1117,7 +1117,7 @@ section {
 
 .section-kicker {
   font-size: 12px;
-  text-transform: uppercase;
+  text-transform: none;
   font-weight: 800;
   color: #2563eb;
   letter-spacing: 0;
@@ -1170,7 +1170,7 @@ section {
   font-size: 12px;
   font-weight: 800;
   color: #1d4ed8;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0;
 }
 
@@ -1685,7 +1685,7 @@ footer {
   color: #2563eb;
   font-size: 12px;
   font-weight: 900;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0;
 }
 
@@ -2328,7 +2328,7 @@ footer {
   color: #2563eb;
   font-size: 9px;
   font-weight: 900;
-  text-transform: uppercase;
+  text-transform: none;
   line-height: 1.25;
   margin-bottom: 1px;
 }

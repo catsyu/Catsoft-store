@@ -1,6 +1,49 @@
 const faqItems = document.querySelectorAll('.faq-item');
 const whatsappNumber = '6282318082303';
 const trackingStorageKey = 'catsoftClickTracking';
+const catsoftSvgDataUriCache = new Map();
+
+function getCatsoftSvgDataUri(src) {
+  const absoluteSrc = new URL(src, window.location.href).href;
+
+  if (!absoluteSrc.split('?')[0].toLowerCase().endsWith('.svg')) {
+    return Promise.resolve('');
+  }
+
+  if (!catsoftSvgDataUriCache.has(absoluteSrc)) {
+    catsoftSvgDataUriCache.set(
+      absoluteSrc,
+      fetch(absoluteSrc, { cache: 'force-cache' })
+        .then((response) => response.ok ? response.text() : '')
+        .then((svgText) => {
+          const cleanSvg = svgText.trim();
+          return cleanSvg.startsWith('<svg')
+            ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanSvg)}`
+            : '';
+        })
+        .catch(() => '')
+    );
+  }
+
+  return catsoftSvgDataUriCache.get(absoluteSrc);
+}
+
+function initCatsoftSvgImageFallbacks() {
+  document.querySelectorAll('img[src$=".svg"], img[src*=".svg?"]').forEach((image) => {
+    const originalSrc = image.getAttribute('src') || '';
+
+    if (!originalSrc || image.dataset.svgMimeFixed === 'true') {
+      return;
+    }
+
+    image.dataset.svgMimeFixed = 'true';
+    getCatsoftSvgDataUri(originalSrc).then((dataUri) => {
+      if (dataUri && image.isConnected) {
+        image.src = dataUri;
+      }
+    });
+  });
+}
 
 const productPackages = {
   chatgpt: {
@@ -1064,17 +1107,17 @@ function buildPopupOrderMessage(productKey, planKey, formData) {
   ];
 
   if (productKey === 'canva') {
-    messageLines.push(`Email Canva untuk aktivasi: ${formData.canvaActivationEmail || '-'}`);
+    messageLines.push(`Email Canva Untuk Aktivasi: ${formData.canvaActivationEmail || '-'}`);
   }
 
   if (isSocialMediaProduct(productKey)) {
     messageLines.push(
       `Link target Instagram: ${formData.instagramPostLink || '-'}`,
-      `Status order: ${formData.likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`
+      `Status Order: ${formData.likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah Order Di Shopee' : 'Mau Beli'}`
     );
 
     if (formData.likeIgOrderStatus === 'sudah-order-shopee') {
-      messageLines.push(`Nomor pesanan Shopee: ${formData.shopeeOrderNumber || '-'}`);
+      messageLines.push(`Nomor Pesanan Shopee: ${formData.shopeeOrderNumber || '-'}`);
     }
   }
 
@@ -1122,7 +1165,7 @@ function validatePopupOrderData(productKey, form, data) {
   }
 
   if (productKey === 'canva' && !data.canvaActivationEmail) {
-    showPopupFormStatus(form, 'Email Canva untuk aktivasi wajib diisi.', true);
+    showPopupFormStatus(form, 'Email Canva Untuk Aktivasi wajib diisi.', true);
     return false;
   }
 
@@ -1132,7 +1175,7 @@ function validatePopupOrderData(productKey, form, data) {
   }
 
   if (isSocialMediaProduct(productKey) && data.likeIgOrderStatus === 'sudah-order-shopee' && !data.shopeeOrderNumber) {
-    showPopupFormStatus(form, 'Nomor pesanan Shopee wajib diisi.', true);
+    showPopupFormStatus(form, 'Nomor Pesanan Shopee wajib diisi.', true);
     return false;
   }
 
@@ -1157,53 +1200,53 @@ function renderPackageOrderForm(productKey, planKey) {
   packageFormWrap.innerHTML = `
     <form class="package-order-form" data-package-order-form>
       <div class="package-selected-plan">
-        <span>Paket dipilih</span>
+        <span>Paket Dipilih</span>
         <strong>${product.name} - ${plan.name}</strong>
         <em>${plan.price}</em>
       </div>
       <div class="form-grid">
         <div class="field-group">
-          <label for="packageCustomerName">Nama customer</label>
-          <input id="packageCustomerName" name="customerName" type="text" placeholder="Contoh: Joe Doe" autocomplete="name" required />
+          <label for="packageCustomerName">Nama Customer</label>
+          <input id="packageCustomerName" name="customerName" type="text" placeholder="Nama Lengkap" autocomplete="name" required />
         </div>
         <div class="field-group">
-          <label for="packageCustomerContact">Email atau nomor WhatsApp</label>
-          <input id="packageCustomerContact" name="customerContact" type="text" placeholder="Email/WhatsApp aktif" required />
+          <label for="packageCustomerContact">Email Atau Nomor WhatsApp</label>
+          <input id="packageCustomerContact" name="customerContact" type="text" placeholder="Email/WhatsApp Aktif" required />
         </div>
       </div>
       ${isCanvaOrder ? `
         <div class="field-group">
-          <label for="packageCanvaEmail">Email Canva untuk aktivasi</label>
-          <input id="packageCanvaEmail" name="canvaActivationEmail" type="email" inputmode="email" placeholder="Contoh: joedoe@email.com" autocomplete="email" required />
+          <label for="packageCanvaEmail">Email Canva Untuk Aktivasi</label>
+          <input id="packageCanvaEmail" name="canvaActivationEmail" type="email" inputmode="email" placeholder="Email Aktivasi" autocomplete="email" required />
         </div>
       ` : ''}
       ${isSocialMediaOrder ? `
         <div class="form-grid">
           <div class="field-group">
-            <label for="packageInstagramLink">Link target Instagram</label>
+            <label for="packageInstagramLink">Link Target Instagram</label>
             <input id="packageInstagramLink" name="instagramPostLink" type="text" inputmode="url" placeholder="instagram.com/p/DLwpiBExUYq/" autocomplete="off" required />
           </div>
           <div class="field-group">
-            <label for="packageOrderStatus">Status order</label>
+            <label for="packageOrderStatus">Status Order</label>
             <select id="packageOrderStatus" name="likeIgOrderStatus" required>
-              <option value="mau-beli">Mau beli</option>
-              <option value="sudah-order-shopee">Sudah order di Shopee</option>
+              <option value="mau-beli">Mau Beli</option>
+              <option value="sudah-order-shopee">Sudah Order Di Shopee</option>
             </select>
           </div>
         </div>
         <div class="field-group is-hidden" data-popup-shopee-field>
-          <label for="packageShopeeOrderNumber">Nomor pesanan Shopee</label>
-          <input id="packageShopeeOrderNumber" name="shopeeOrderNumber" type="text" placeholder="Contoh: 250101ABC123" autocomplete="off" />
+          <label for="packageShopeeOrderNumber">Nomor Pesanan Shopee</label>
+          <input id="packageShopeeOrderNumber" name="shopeeOrderNumber" type="text" placeholder="Nomor Pesanan Shopee" autocomplete="off" />
         </div>
       ` : ''}
       <div class="field-group">
-        <label for="packageOrderNote">Catatan atau kebutuhan</label>
-        <textarea id="packageOrderNote" name="orderNote" rows="3" placeholder="Contoh: Butuh aktivasi hari ini, atau kosongkan jika tidak ada catatan."></textarea>
+        <label for="packageOrderNote">Catatan Atau Kebutuhan</label>
+        <textarea id="packageOrderNote" name="orderNote" rows="3" placeholder="Catatan Tambahan Jika Ada."></textarea>
       </div>
       <div class="package-form-actions">
-        <button class="btn btn-secondary" type="button" data-package-back>Kembali ke paket</button>
-        <button class="btn btn-secondary" type="button" data-package-form-ask>Tanya dulu</button>
-        <button class="btn btn-primary" type="submit">Kirim Order ke WhatsApp</button>
+        <button class="btn btn-secondary" type="button" data-package-back>Kembali Ke Paket</button>
+        <button class="btn btn-secondary" type="button" data-package-form-ask>Tanya Dulu</button>
+        <button class="btn btn-primary" type="submit">Kirim Order Ke WhatsApp</button>
       </div>
       <p class="form-note" data-package-form-status>Pesan WhatsApp akan dibuat otomatis sesuai paket yang dipilih.</p>
     </form>
@@ -1310,7 +1353,7 @@ function createPackageOption(productKey, plan) {
   const chooseButton = document.createElement('button');
   chooseButton.className = 'btn btn-primary';
   chooseButton.type = 'button';
-  chooseButton.textContent = 'Pilih paket ini';
+  chooseButton.textContent = 'Pilih Paket Ini';
   chooseButton.addEventListener('click', () => {
     choosePackageForOrder(productKey, plan.value);
   });
@@ -1318,7 +1361,7 @@ function createPackageOption(productKey, plan) {
   const askButton = document.createElement('button');
   askButton.className = 'btn btn-secondary';
   askButton.type = 'button';
-  askButton.textContent = 'Tanya dulu';
+  askButton.textContent = 'Tanya Dulu';
   askButton.addEventListener('click', () => {
     openPackageQuestion(productKey, plan.value);
   });
@@ -1843,7 +1886,7 @@ const validationMessages = {
     valueMissing: 'Pilih produk.'
   },
   orderPlan: {
-    valueMissing: 'Pilih paket.'
+    valueMissing: 'Pilih Paket.'
   },
   canvaActivationEmail: {
     valueMissing: 'Email Canva wajib diisi.',
@@ -1857,7 +1900,7 @@ const validationMessages = {
     valueMissing: 'Pilih status order.'
   },
   shopeeOrderNumber: {
-    valueMissing: 'Nomor pesanan Shopee wajib diisi.'
+    valueMissing: 'Nomor Pesanan Shopee wajib diisi.'
   }
 };
 
@@ -2322,17 +2365,17 @@ function buildOrderMessage() {
   ];
 
   if (orderProductSelect.value === 'canva') {
-    messageLines.push(`Email Canva untuk aktivasi: ${canvaActivationEmail || '-'}`);
+    messageLines.push(`Email Canva Untuk Aktivasi: ${canvaActivationEmail || '-'}`);
   }
 
   if (isSocialMediaProduct(orderProductSelect.value)) {
     messageLines.push(
       `Link target Instagram: ${instagramPostLink || '-'}`,
-      `Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`
+      `Status Order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah Order Di Shopee' : 'Mau Beli'}`
     );
 
     if (likeIgOrderStatus === 'sudah-order-shopee') {
-      messageLines.push(`Nomor pesanan Shopee: ${shopeeOrderNumber || '-'}`);
+      messageLines.push(`Nomor Pesanan Shopee: ${shopeeOrderNumber || '-'}`);
     }
   }
 
@@ -2358,7 +2401,7 @@ function buildConsultationMessage() {
   const messageLines = [
     'Halo Min Catsoft, saya ingin konsultasi dulu sebelum order.',
     '',
-    `Produk yang ditanyakan: ${product.name}`,
+    `Produk Yang Ditanyakan: ${product.name}`,
     `Paket yang dipertanyakan: ${plan.name}`,
     `Harga paket: ${plan.price}`
   ];
@@ -2372,14 +2415,14 @@ function buildConsultationMessage() {
   }
 
   if (isSocialMediaProduct(orderProductSelect.value)) {
-    messageLines.push(`Status order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah order di Shopee' : 'Mau beli'}`);
+    messageLines.push(`Status Order: ${likeIgOrderStatus === 'sudah-order-shopee' ? 'Sudah Order Di Shopee' : 'Mau Beli'}`);
 
     if (instagramPostLink) {
       messageLines.push(`Link target Instagram: ${instagramPostLink}`);
     }
 
     if (likeIgOrderStatus === 'sudah-order-shopee' && shopeeOrderNumber) {
-      messageLines.push(`Nomor pesanan Shopee: ${shopeeOrderNumber}`);
+      messageLines.push(`Nomor Pesanan Shopee: ${shopeeOrderNumber}`);
     }
   }
 
@@ -2793,6 +2836,7 @@ if (emailAliasInput && emailDomainInput && emailPreviewValue && emailPreviewHint
 }
 
 window.addEventListener('DOMContentLoaded', initProductOrderButtons);
+window.addEventListener('DOMContentLoaded', initCatsoftSvgImageFallbacks);
 window.addEventListener('DOMContentLoaded', initProductFilters);
 window.addEventListener('DOMContentLoaded', syncProductCardsFromContent);
 window.addEventListener('DOMContentLoaded', initClickTracking);

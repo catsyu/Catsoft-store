@@ -12,7 +12,11 @@ API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN") or os.environ.get("CF_API_TOK
 ZONE_NAME = os.environ.get("CLOUDFLARE_ZONE_NAME", "catsoft.store")
 TARGET_WORKER = os.environ.get("TARGET_WORKER", "catsoft")
 DNS_TARGET = os.environ.get("CATSOFT_SUBDOMAIN_TARGET", "192.0.2.1")
-SUBDOMAINS = ("admin", "supplier")
+SUBDOMAINS = tuple(
+    item.strip()
+    for item in os.environ.get("CATSOFT_SUBDOMAINS", "admin,supplier,customer").split(",")
+    if item.strip()
+)
 
 
 def die(message):
@@ -138,7 +142,7 @@ def main():
         upsert_worker_route(zone_id, f"{hostname}/")
         upsert_worker_route(zone_id, f"{hostname}/*")
 
-    print("Done. Tunggu propagasi DNS Cloudflare beberapa menit, lalu buka admin/supplier subdomain.")
+    print("Done. Tunggu propagasi DNS Cloudflare beberapa menit, lalu buka admin/supplier/customer subdomain.")
 
 
 if __name__ == "__main__":

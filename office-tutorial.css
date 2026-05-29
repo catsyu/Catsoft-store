@@ -177,7 +177,7 @@ a {
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .hero-copy h1 {

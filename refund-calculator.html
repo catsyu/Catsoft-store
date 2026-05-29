@@ -7,8 +7,8 @@
   <title>Catsoft Refund Calculator</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="refund-calculator.css" />
-  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="refund-calculator.css?v=20260529-empty-refund-state" />
+  <link rel="stylesheet" href="form-standard.css?v=20260529-upload-icon-center" />
 </head>
 <body>
   <main class="refund-page">
@@ -29,14 +29,14 @@
     <section class="refund-layout">
       <form class="refund-form" id="refundForm">
         <div class="panel-heading">
-          <span class="section-kicker">Input data</span>
-          <h2>Hitung refund langganan</h2>
+          <span class="section-kicker">Input Data</span>
+          <h2>Hitung Refund Langganan</h2>
         </div>
 
         <div class="upload-panel" id="uploadPanel">
           <input id="screenshotInput" type="file" accept="image/*" />
           <label for="screenshotInput">
-            <strong>Upload screenshot rincian pesanan</strong>
+            <strong>Upload Screenshot Rincian Pesanan</strong>
             <span>OCR akan mencoba mengambil penghasilan akhir, paket, dan tanggal order.</span>
           </label>
           <div class="ocr-progress" id="ocrProgress" hidden>
@@ -51,60 +51,60 @@
 
         <div class="form-grid">
           <label class="field-group">
-            <span>Penghasilan akhir</span>
+            <span>Penghasilan Akhir</span>
             <input id="incomeAmount" type="text" inputmode="numeric" placeholder="Rp18.162" required />
           </label>
 
           <label class="field-group">
-            <span>Metode pembayaran</span>
+            <span>Metode Pembayaran</span>
             <select id="paymentMethod">
-              <option value="regular">Reguler / marketplace</option>
-              <option value="qris">QRIS / bukti bayar bank (MDR 0,3%)</option>
+              <option value="regular">Reguler / Marketplace</option>
+              <option value="qris">QRIS / Bukti Bayar Bank (MDR 0,3%)</option>
             </select>
           </label>
 
           <label class="field-group">
-            <span>Produk yang diorder</span>
-            <input id="productName" type="text" placeholder="Contoh: Canva Pro 1 Bulan" />
+            <span>Produk Yang Diorder</span>
+            <input id="productName" type="text" placeholder="Nama Produk" />
           </label>
 
           <label class="field-group">
             <span>Paket</span>
             <select id="packagePreset">
-              <option value="30">1 bulan (30 hari)</option>
-              <option value="90">3 bulan (90 hari)</option>
-              <option value="180">6 bulan (180 hari)</option>
-              <option value="365">1 tahun (365 hari)</option>
+              <option value="30">1 Bulan (30 Hari)</option>
+              <option value="90">3 Bulan (90 Hari)</option>
+              <option value="180">6 Bulan (180 Hari)</option>
+              <option value="365">1 Tahun (365 Hari)</option>
               <option value="custom">Custom</option>
             </select>
           </label>
 
           <label class="field-group is-hidden" id="durationDaysGroup">
-            <span>Durasi paket</span>
+            <span>Durasi Paket</span>
             <input id="durationDays" type="number" min="1" step="1" value="30" required />
           </label>
 
           <label class="field-group">
-            <span>Tanggal mulai/order</span>
-            <input id="startDate" type="date" required />
+            <span>Mulai Order</span>
+            <input id="startDate" type="date" data-empty-label="Pilih Tanggal" required />
           </label>
 
           <div class="field-group">
-            <label for="stopDate">Tanggal berhenti</label>
+            <label for="stopDate">Berhenti</label>
             <div class="date-inline">
-              <input id="stopDate" type="date" required />
-              <button class="mini-button" id="todayBtn" type="button">Hari ini</button>
+              <input id="stopDate" type="date" data-empty-label="Pilih Tanggal" required />
+              <button class="mini-button" id="todayBtn" type="button">Hari Ini</button>
             </div>
           </div>
 
           <label class="field-group">
-            <span>Potongan refund</span>
+            <span>Potongan Refund</span>
             <input id="refundCut" type="number" min="0" max="100" step="1" value="30" required />
           </label>
 
           <label class="field-group">
-            <span>No. pesanan</span>
-            <input id="orderNumber" type="text" placeholder="Opsional" />
+            <span>No. Pesanan</span>
+            <input id="orderNumber" type="text" placeholder="Jika Ada" />
           </label>
         </div>
 
@@ -117,25 +117,25 @@
       <aside class="result-panel" aria-live="polite">
         <div class="panel-heading">
           <span class="section-kicker">Output</span>
-          <h2>Hasil refund</h2>
+          <h2>Hasil Refund</h2>
         </div>
 
         <div class="result-cards">
           <div class="result-card primary">
-            <span>Refund customer</span>
+            <span>Refund Customer</span>
             <strong id="refundValue">Rp0</strong>
           </div>
           <div class="result-card">
-            <span>Sisa langganan</span>
-            <strong id="remainingValue">0 hari</strong>
+            <span>Sisa Langganan</span>
+            <strong id="remainingValue">0 Hari</strong>
           </div>
           <div class="result-card">
-            <span>Kapan habis</span>
+            <span>Kapan Habis</span>
             <strong id="expiryValue">-</strong>
           </div>
         </div>
 
-        <pre class="result-text" id="resultText">Isi data order untuk melihat rincian refund.</pre>
+        <pre class="result-text is-empty" id="resultText">Lengkapi data order untuk melihat rincian refund.</pre>
       </aside>
     </section>
   </main>

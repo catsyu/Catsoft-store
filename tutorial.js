@@ -1,4 +1,54 @@
 (function () {
+  const svgDataUriCache = new Map();
+
+  function getSvgDataUri(src) {
+    const absoluteSrc = new URL(src, window.location.href).href;
+
+    if (!absoluteSrc.split('?')[0].toLowerCase().endsWith('.svg')) {
+      return Promise.resolve('');
+    }
+
+    if (!svgDataUriCache.has(absoluteSrc)) {
+      svgDataUriCache.set(
+        absoluteSrc,
+        fetch(absoluteSrc, { cache: 'force-cache' })
+          .then((response) => response.ok ? response.text() : '')
+          .then((svgText) => {
+            const cleanSvg = svgText.trim();
+            return cleanSvg.startsWith('<svg')
+              ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanSvg)}`
+              : '';
+          })
+          .catch(() => '')
+      );
+    }
+
+    return svgDataUriCache.get(absoluteSrc);
+  }
+
+  function fixSvgImageMimeFallbacks() {
+    document.querySelectorAll('img[src$=".svg"], img[src*=".svg?"]').forEach((image) => {
+      const originalSrc = image.getAttribute('src') || '';
+
+      if (!originalSrc || image.dataset.svgMimeFixed === 'true') {
+        return;
+      }
+
+      image.dataset.svgMimeFixed = 'true';
+      getSvgDataUri(originalSrc).then((dataUri) => {
+        if (dataUri && image.isConnected) {
+          image.src = dataUri;
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixSvgImageMimeFallbacks);
+  } else {
+    fixSvgImageMimeFallbacks();
+  }
+
   const menuToggle = document.querySelector('.tutorial-menu-toggle');
   const headerActions = document.querySelector('.tutorial-header .header-actions');
 

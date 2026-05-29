@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS supplier_accounts (
   password TEXT NOT NULL,
   password_hash TEXT,
   tools TEXT NOT NULL DEFAULT '[]',
-  allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
+  allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]',
   inbox_access_all INTEGER NOT NULL DEFAULT 0,
   inbox_rules TEXT NOT NULL DEFAULT '[]',
   created_by TEXT,
@@ -108,6 +108,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
   ON customer_records (LOWER(order_number))
   WHERE order_number IS NOT NULL AND order_number != '';
 
+CREATE TABLE IF NOT EXISTS customer_accounts (
+  username TEXT PRIMARY KEY,
+  password TEXT NOT NULL,
+  password_hash TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  inbox_access_all INTEGER NOT NULL DEFAULT 0,
+  inbox_rules TEXT NOT NULL DEFAULT '[]',
+  source_record_id TEXT,
+  record_count INTEGER NOT NULL DEFAULT 0,
+  last_record_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_accounts_updated_at
+  ON customer_accounts (updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_customer_accounts_status
+  ON customer_accounts (status);
+
 CREATE TABLE IF NOT EXISTS tool_settings (
   tool_id TEXT PRIMARY KEY,
   settings TEXT NOT NULL DEFAULT '{}',
@@ -127,6 +147,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
   ON audit_logs (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS internal_chat_messages (
+  id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL DEFAULT 'all',
+  sender_username TEXT NOT NULL,
+  target_username TEXT,
+  message_text TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_internal_chat_room_created
+  ON internal_chat_messages (room_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_internal_chat_created
+  ON internal_chat_messages (created_at DESC);
 
 -- Run these if the table already existed before the full schema was added.
 -- D1 will error if a column already exists, so use the dashboard Console and
@@ -149,7 +185,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
 --   username TEXT PRIMARY KEY,
 --   password TEXT NOT NULL,
 --   tools TEXT NOT NULL DEFAULT '[]',
---   allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]',
+--   allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]',
 --   inbox_access_all INTEGER NOT NULL DEFAULT 0,
 --   inbox_rules TEXT NOT NULL DEFAULT '[]',
 --   created_at TEXT NOT NULL,
@@ -165,7 +201,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
 --   created_at TEXT NOT NULL,
 --   updated_at TEXT NOT NULL
 -- );
--- ALTER TABLE supplier_accounts ADD COLUMN allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online"]';
+-- ALTER TABLE supplier_accounts ADD COLUMN allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]';
 -- ALTER TABLE admin_accounts ADD COLUMN password_hash TEXT;
 -- ALTER TABLE supplier_accounts ADD COLUMN password_hash TEXT;
 -- ALTER TABLE admin_accounts ADD COLUMN last_login_at TEXT;

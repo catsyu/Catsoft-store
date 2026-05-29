@@ -7,8 +7,8 @@
   <title>Catsoft Customer Database</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="customer-database.css" />
-  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="form-standard.css?v=20260529-upload-icon-center" />
+  <link rel="stylesheet" href="customer-database.css?v=20260529-target-order-duplicate" />
 </head>
 <body>
   <main class="customer-page">
@@ -26,26 +26,42 @@
       </div>
     </header>
 
+    <nav class="customer-mode-switch" aria-label="Mode Customer Database">
+      <button class="is-active" type="button" data-customer-view-target="input" aria-controls="customerForm" aria-selected="true">
+        <span>Input Data</span>
+        <small>Tambah Order</small>
+      </button>
+      <button type="button" data-customer-view-target="database" aria-controls="customerDatabasePane" aria-selected="false">
+        <span>Cek Database</span>
+        <small>Cari Dan Kelola</small>
+      </button>
+    </nav>
+
     <section class="customer-layout">
-      <form class="customer-form" id="customerForm">
+      <form class="customer-form" id="customerForm" data-customer-view-panel="input">
         <input id="recordId" type="hidden" />
 
         <div class="panel-heading">
-          <span class="section-kicker">Input customer</span>
-          <h2>Data langganan</h2>
+          <span class="section-kicker">Input Customer</span>
+          <h2>Data Langganan</h2>
         </div>
 
         <button class="mobile-collapse-toggle" id="customerFormToggle" type="button" aria-expanded="false" aria-controls="customerFormFields">
-          <span>Form input customer</span>
+          <span>Form Input Customer</span>
           <strong>Tampilkan</strong>
         </button>
 
         <div class="mobile-collapsible-panel" id="customerFormFields">
           <div class="upload-panel">
             <input id="screenshotInput" type="file" accept="image/*" />
+            <input id="importDataFileInput" type="file" accept="application/json,.json,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
             <label for="screenshotInput">
-              <strong>Upload screenshot pesanan</strong>
-              <span>OCR akan mencoba mengambil user, produk singkat, durasi, tanggal, dan nomor pesanan/WA.</span>
+              <strong>Screenshot Pesanan</strong>
+              <span>OCR customer, produk, tanggal, dan nomor order.</span>
+            </label>
+            <label class="upload-file-control" for="importDataFileInput">
+              <strong>Upload File</strong>
+              <span>Import JSON atau XLSX Shopee.</span>
             </label>
             <div class="ocr-progress" id="ocrProgress" hidden>
               <div class="ocr-progress-bar" id="ocrProgressBar"></div>
@@ -59,20 +75,20 @@
 
           <div class="form-grid">
             <label class="field-group">
-              <span>Nama/User customer</span>
-              <input id="customerName" type="text" placeholder="Contoh: adhiesetiawan44" />
+              <span>Customer</span>
+              <input id="customerName" type="text" placeholder="Username Customer" />
             </label>
 
           <label class="field-group">
-            <span id="activationFieldLabel">Email aktivasi</span>
-            <input id="activatedEmail" type="text" inputmode="email" placeholder="email@customer.com" />
+            <span id="activationFieldLabel">Target</span>
+            <input id="activatedEmail" type="text" inputmode="text" placeholder="Email atau link target" />
           </label>
 
           <input id="whatsappNumber" type="hidden" />
           <input id="orderNumber" type="hidden" />
 
           <label class="field-group">
-            <span>Sumber order</span>
+            <span>Channel</span>
             <select id="orderSource">
               <option value="shopee">Shopee</option>
               <option value="whatsapp">WhatsApp</option>
@@ -80,19 +96,19 @@
           </label>
 
           <label class="field-group">
-            <span id="orderReferenceLabel">No. pesanan</span>
+            <span id="orderReferenceLabel">No. Pesanan</span>
             <input id="orderReference" type="text" placeholder="26052127RS304V" autocomplete="off" />
           </label>
 
           <label class="field-group wide-field product-field">
-            <span>Produk yang diorder</span>
-            <input id="productName" type="text" list="registeredProductList" placeholder="Pilih atau ketik produk" required />
+            <span>Produk</span>
+            <input id="productName" type="text" list="registeredProductList" placeholder="Pilih Produk" required />
             <datalist id="registeredProductList"></datalist>
-            <button class="text-link-button" id="editRegisteredProductsBtn" type="button">Edit produk terdaftar</button>
+            <button class="text-link-button" id="editRegisteredProductsBtn" type="button">Edit Produk Terdaftar</button>
             <div class="product-editor is-hidden" id="registeredProductsEditor">
               <textarea id="registeredProductsInput" rows="5"></textarea>
               <div class="product-editor-actions">
-                <span id="registeredProductsCount">0 produk</span>
+                <span id="registeredProductsCount">0 Produk</span>
                 <button class="secondary-button compact-button" id="cancelRegisteredProductsBtn" type="button">Batal</button>
                 <button class="secondary-button compact-button" id="saveRegisteredProductsBtn" type="button">Simpan</button>
               </div>
@@ -102,27 +118,27 @@
           <label class="field-group">
             <span>Paket</span>
             <select id="packagePreset">
-              <option value="30">1 bulan (30 hari)</option>
-              <option value="90">3 bulan (90 hari)</option>
-              <option value="180">6 bulan (180 hari)</option>
-              <option value="365">1 tahun (365 hari)</option>
+              <option value="30">1 Bulan (30 Hari)</option>
+              <option value="90">3 Bulan (90 Hari)</option>
+              <option value="180">6 Bulan (180 Hari)</option>
+              <option value="365">1 Tahun (365 Hari)</option>
               <option value="custom">Custom</option>
             </select>
           </label>
 
           <label class="field-group is-hidden" id="durationDaysGroup">
-            <span>Durasi hari</span>
+            <span>Durasi Hari</span>
             <input id="durationDays" type="number" min="1" step="1" value="30" required />
           </label>
 
           <label class="field-group">
-            <span>Tanggal mulai</span>
-            <input id="startDate" type="date" required />
+            <span>Mulai</span>
+            <input id="startDate" type="date" data-empty-label="Pilih Tanggal" required />
           </label>
 
           <label class="field-group">
-            <span>Tanggal expire</span>
-            <input id="expiryDate" type="date" required />
+            <span>Expire</span>
+            <input id="expiryDate" type="date" data-empty-label="Pilih Tanggal" required />
           </label>
 
           <label class="field-group">
@@ -137,8 +153,8 @@
           </label>
 
             <label class="field-group wide-field">
-              <span>Catatan admin</span>
-              <textarea id="adminNotes" rows="3" placeholder="Catatan akun, tim, kendala, atau follow up"></textarea>
+              <span>Catatan</span>
+              <textarea id="adminNotes" rows="3" placeholder="Catatan Follow Up"></textarea>
             </label>
           </div>
 
@@ -149,13 +165,13 @@
         </div>
       </form>
 
-      <aside class="database-panel">
+      <aside class="database-panel" id="customerDatabasePane" data-customer-view-panel="database" hidden>
         <div class="panel-heading">
           <span class="section-kicker">Database</span>
-          <h2>Customer aktif</h2>
+          <h2>Data Customer</h2>
         </div>
 
-        <div class="stats-grid" aria-label="Ringkasan customer">
+        <div class="stats-grid" aria-label="Ringkasan Customer">
           <div class="stat-card">
             <span>Total</span>
             <strong id="totalCount">0</strong>
@@ -169,80 +185,91 @@
             <strong id="expiredCount">0</strong>
           </div>
           <div class="stat-card urgent">
-            <span>Expire hari ini</span>
+            <span>Expire Hari Ini</span>
             <strong id="expireTodayCount">0</strong>
           </div>
           <div class="stat-card danger">
-            <span>Tidak lengkap</span>
+            <span>Tidak Lengkap</span>
             <strong id="incompleteCount">0</strong>
           </div>
           <div class="stat-card duplicate">
-            <span>Data ganda</span>
+            <span>Data Ganda</span>
             <strong id="duplicateCount">0</strong>
           </div>
         </div>
 
-        <div class="lookup-panel">
+        <details class="lookup-panel">
+          <summary class="lookup-summary">
+            <span>Lookup Email</span>
+            <small>OCR Atau Email Manual</small>
+          </summary>
+
           <div class="lookup-head">
-            <span class="section-kicker">Lookup</span>
+            <span class="section-kicker">Cek Cepat</span>
             <button class="secondary-button compact-button" id="clearLookupBtn" type="button">Bersihkan</button>
           </div>
 
           <div class="lookup-grid">
             <label class="field-group lookup-upload">
-              <span>Screenshot email</span>
+              <span>Screenshot Email</span>
               <input id="lookupScreenshotInput" type="file" accept="image/*" />
-              <span class="file-control">Pilih Screenshot</span>
+              <span class="file-control">Pilih File</span>
             </label>
 
             <label class="field-group lookup-email-field">
-              <span>Data email</span>
+              <span>Email</span>
               <textarea id="emailLookupInput" rows="3" placeholder="email@domain.com"></textarea>
             </label>
           </div>
 
           <div class="lookup-result-row">
-            <span class="lookup-status" id="lookupStatus">0 email</span>
+            <span class="lookup-status" id="lookupStatus">0 Email</span>
             <div class="lookup-chips" id="lookupChips" aria-live="polite"></div>
           </div>
-        </div>
+        </details>
 
-        <div class="filter-grid">
-          <label class="field-group">
-            <span>Search</span>
+        <div class="database-command-bar">
+          <label class="field-group database-search-field">
+            <span class="compact-field-label">Cari</span>
             <div class="search-controls">
-              <input id="searchInput" type="search" placeholder="Cari produk, email/link, WA, pesanan" />
-              <button class="secondary-button" id="searchBtn" type="button">Search</button>
+              <input id="searchInput" type="search" placeholder="Cari Data" />
+              <button class="secondary-button" id="searchBtn" type="button">Cari</button>
             </div>
           </label>
 
+          <details class="database-filter-panel">
+            <summary>
+              <span>Filter</span>
+              <small>Status, Tanggal, Urutan</small>
+            </summary>
+            <div class="database-filter-grid">
           <label class="field-group">
             <span>Expire</span>
-            <input id="dateFilter" type="date" placeholder="Pilih tanggal expire" />
+            <input id="dateFilter" type="date" data-empty-label="Tanggal Expire" />
           </label>
 
           <label class="field-group">
             <span>Status</span>
             <select id="statusFilter">
-              <option value="all">Semua status</option>
+              <option value="all">Semua Status</option>
               <option value="active">Aktif</option>
               <option value="expired">Expired</option>
               <option value="removed">Removed</option>
               <option value="refund">Refund</option>
               <option value="problem">Bermasalah</option>
-              <option value="incomplete">Data tidak lengkap</option>
-              <option value="duplicate">Data ganda</option>
+              <option value="incomplete">Data Tidak Lengkap</option>
+              <option value="duplicate">Data Ganda</option>
             </select>
           </label>
 
           <label class="field-group">
-            <span>Urutkan</span>
+            <span>Urut</span>
             <select id="sortBy">
-              <option value="updatedAt">Update</option>
+              <option value="updatedAt">Terbaru</option>
               <option value="expiryDate">Expire</option>
               <option value="startDate">Mulai</option>
               <option value="customerName">Nama</option>
-              <option value="activatedEmail">Email/Target</option>
+              <option value="activatedEmail">Target</option>
               <option value="productName">Produk</option>
               <option value="status">Status</option>
             </select>
@@ -255,45 +282,49 @@
               <option value="asc">Menaik</option>
             </select>
           </label>
+            </div>
+          </details>
+
+          <div class="database-action-menu">
+            <button class="secondary-button" id="exportMenuBtn" type="button" aria-expanded="false" aria-controls="exportMenuOptions">
+              Export
+            </button>
+            <div class="database-action-options" id="exportMenuOptions" hidden>
+              <button type="button" id="exportCsvBtn">Export CSV</button>
+              <button type="button" id="exportJsonBtn">Export JSON</button>
+            </div>
+          </div>
+          <span class="sync-status" id="syncStatus">Menghubungkan Web</span>
         </div>
 
-        <div class="database-actions">
-          <button class="secondary-button" id="syncRecordsBtn" type="button">Sync</button>
-          <button class="secondary-button" id="exportCsvBtn" type="button">Export CSV</button>
-          <button class="secondary-button" id="exportJsonBtn" type="button">Export JSON</button>
-          <button class="secondary-button" id="importJsonBtn" type="button">Import JSON</button>
-          <button class="secondary-button" id="importShopeeXlsxBtn" type="button">Update XLSX</button>
-          <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
-          <input id="importShopeeXlsxInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
-          <span class="sync-status" id="syncStatus">Menghubungkan web</span>
-        </div>
+        <div class="database-list-head">
+          <div class="results-bar">
+            <strong id="resultCount">0 Data</strong>
+            <span id="resultContext">Semua Data</span>
+          </div>
 
-        <div class="results-bar">
-          <strong id="resultCount">0 data</strong>
-          <span id="resultContext">Semua data</span>
-        </div>
+          <div class="bulk-toolbar" id="bulkToolbar">
+            <label class="bulk-select-all">
+              <input id="selectVisibleRecords" type="checkbox" />
+              <span>Pilih Hasil Tampil</span>
+            </label>
 
-        <div class="bulk-toolbar" id="bulkToolbar">
-          <label class="bulk-select-all">
-            <input id="selectVisibleRecords" type="checkbox" />
-            <span>Pilih hasil tampil</span>
-          </label>
+            <strong id="selectedCount">0 Dipilih</strong>
 
-          <strong id="selectedCount">0 dipilih</strong>
+            <select id="bulkStatusSelect" aria-label="Status Bulk">
+              <option value="">Ubah Status</option>
+              <option value="active">Aktif</option>
+              <option value="expired">Expired</option>
+              <option value="removed">Removed</option>
+              <option value="refund">Refund</option>
+              <option value="problem">Bermasalah</option>
+            </select>
 
-          <select id="bulkStatusSelect" aria-label="Status bulk">
-            <option value="">Ubah status</option>
-            <option value="active">Aktif</option>
-            <option value="expired">Expired</option>
-            <option value="removed">Removed</option>
-            <option value="refund">Refund</option>
-            <option value="problem">Bermasalah</option>
-          </select>
-
-          <button class="secondary-button" id="bulkApplyStatusBtn" type="button">Apply</button>
-          <button class="secondary-button" id="bulkExportCsvBtn" type="button">Export</button>
-          <button class="danger-button" id="bulkDeleteBtn" type="button">Hapus</button>
-          <button class="secondary-button" id="clearSelectionBtn" type="button">Clear</button>
+            <button class="secondary-button" id="bulkApplyStatusBtn" type="button">Apply</button>
+            <button class="secondary-button" id="bulkExportCsvBtn" type="button">Export</button>
+            <button class="danger-button" id="bulkDeleteBtn" type="button">Hapus</button>
+            <button class="secondary-button" id="clearSelectionBtn" type="button">Bersihkan</button>
+          </div>
         </div>
 
         <div class="records-list" id="recordsList" aria-live="polite">
@@ -306,14 +337,14 @@
   <div class="xlsx-import-overlay is-hidden" id="xlsxImportOverlay" role="alertdialog" aria-modal="true" aria-labelledby="xlsxImportTitle" aria-describedby="xlsxImportMessage">
     <section class="xlsx-import-card">
       <span class="section-kicker" id="operationOverlayKicker">Update XLSX Shopee</span>
-      <h2 id="xlsxImportTitle">Menyiapkan update</h2>
+      <h2 id="xlsxImportTitle">Menyiapkan Update</h2>
       <p id="xlsxImportMessage">Database dikunci sementara sampai proses update selesai.</p>
       <div class="xlsx-import-progress" aria-hidden="true">
         <div id="xlsxImportProgressBar"></div>
       </div>
       <div class="xlsx-import-meta">
         <strong id="xlsxImportProgressText">0%</strong>
-        <span id="xlsxImportSummary">Menunggu file...</span>
+        <span id="xlsxImportSummary">Menunggu File...</span>
       </div>
       <button class="secondary-button compact-button is-hidden" id="xlsxImportCloseBtn" type="button">Tutup</button>
     </section>
@@ -322,6 +353,6 @@
   <script src="admin-auth.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260526-product-target" defer></script>
+  <script src="customer-database.js?v=20260529-target-order-duplicate" defer></script>
 </body>
 </html>

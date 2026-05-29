@@ -1,6 +1,7 @@
 .git/
 .github/
 .wrangler/
+qa-screenshots/
 backups/
 scripts/
 cloudflare-email-schema.sql

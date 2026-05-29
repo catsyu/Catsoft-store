@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Customer Access</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260529-customer-email-access" />
+  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="customer-access.css?v=20260529-customer-email-access" />
+</head>
+<body class="customer-access-body">
+  <main class="customer-access-page" id="customerAccessRoot">
+    <section class="admin-access-panel admin-access-page-panel customer-access-panel" aria-labelledby="customerAccessTitle">
+      <div class="admin-spectrum-page">
+        <div class="admin-spectrum-head">
+          <h2 id="customerAccessTitle">Customer</h2>
+          <dl>
+            <div>
+              <dt>Total Customer</dt>
+              <dd data-customer-access-count>0</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="admin-spectrum-rule"></div>
+        <div class="admin-spectrum-toolbar">
+          <label class="admin-spectrum-search">
+            <span>Cari Berdasarkan Username, Password, Atau Akses Email</span>
+            <span class="admin-spectrum-search-field">
+              <input type="search" data-customer-access-search autocomplete="off" />
+            </span>
+          </label>
+          <div class="admin-spectrum-actions">
+            <button class="admin-spectrum-primary" type="button" data-customer-access-sync>Sync Dari Database</button>
+            <button class="admin-spectrum-secondary" type="button" data-customer-delete-selected disabled>Hapus Customer</button>
+          </div>
+        </div>
+        <p class="admin-access-status" data-customer-access-status aria-live="polite"></p>
+        <div class="admin-account-list" data-customer-access-list></div>
+      </div>
+    </section>
+
+    <div class="admin-detail-scrim" data-customer-access-scrim hidden></div>
+    <aside class="admin-detail-drawer" data-customer-access-drawer aria-label="Edit Customer" hidden>
+      <div class="admin-detail-head">
+        <span class="admin-detail-avatar" data-customer-drawer-avatar aria-hidden="true">CU</span>
+        <div>
+          <h3 data-customer-drawer-title>Edit Customer</h3>
+          <span class="admin-detail-role">Akses Customer</span>
+        </div>
+        <div class="admin-detail-actions">
+          <button class="admin-detail-save" type="submit" form="customerAccessForm">Simpan</button>
+          <button class="admin-detail-close" type="button" data-customer-drawer-close aria-label="Tutup">×</button>
+        </div>
+      </div>
+      <form class="admin-access-form admin-detail-form" id="customerAccessForm" data-customer-access-form>
+        <input type="hidden" data-customer-original-username />
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Profil Customer</h4>
+          </div>
+          <label>
+            Username Customer
+            <input type="text" data-customer-username autocomplete="off" required />
+          </label>
+          <label>
+            Password Customer
+            <input type="text" data-customer-password autocomplete="off" required />
+          </label>
+          <label>
+            Status
+            <select data-customer-status>
+              <option value="active">Aktif</option>
+              <option value="inactive">Nonaktif</option>
+            </select>
+          </label>
+          <div class="customer-drawer-meta">
+            <span data-customer-record-count>0 Data Customer</span>
+            <span data-customer-last-record>Belum Ada Aktivitas</span>
+          </div>
+        </section>
+        <section class="admin-detail-section">
+          <div class="admin-detail-section-head">
+            <h4>Produk</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Akses Dasar</span>
+            <div class="admin-tool-categories" aria-label="Akses Customer Center">
+              <details class="admin-tool-category" open>
+                <summary>
+                  <span>
+                    <strong>Customer Center</strong>
+                    <small>Riwayat Akses, Status Order, Dan Masa Berlaku</small>
+                  </span>
+                  <em>Aktif</em>
+                </summary>
+                <div class="admin-access-checks">
+                  <label>
+                    <input type="checkbox" checked disabled />
+                    <span class="admin-check-icon" aria-hidden="true">✓</span>
+                    <span class="admin-check-text">Akses Customer Center</span>
+                  </label>
+                </div>
+              </details>
+            </div>
+          </div>
+        </section>
+        <section class="admin-detail-section" id="customerInboxAccessBlock">
+          <div class="admin-detail-section-head">
+            <h4>Email Inbox</h4>
+          </div>
+          <div class="admin-access-field-block">
+            <span class="admin-access-label">Akses Email Customer</span>
+            <div class="admin-access-checks admin-inbox-presets" data-customer-inbox-presets aria-label="Preset Akses Email Customer"></div>
+          </div>
+          <label id="customerInboxRulesField" data-customer-inbox-detail>
+            Rule Custom
+            <textarea data-customer-inbox-rules placeholder="Satu Rule Per Baris:&#10;customer@catsoft.store&#10;openai&#10;adobe.com"></textarea>
+          </label>
+        </section>
+      </form>
+    </aside>
+  </main>
+  <script src="admin-auth.js?v=20260529-customer-email-access" defer></script>
+  <script src="customer-access.js?v=20260529-customer-email-access" defer></script>
+</body>
+</html>

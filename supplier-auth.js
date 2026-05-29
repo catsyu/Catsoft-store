@@ -11,7 +11,12 @@ const CATSOFT_SUPPLIER_TOOLS = [
 const CATSOFT_SUPPLIER_DOMAINS = [
   'catsoft.store',
   'catsoft.digital',
-  'catsoft.online'
+  'catsoft.online',
+  'ask1q2.uk',
+  'fadisa1.uk',
+  'gasddqw1.uk',
+  'kulamusic.us',
+  'wkwkksks.uk'
 ];
 
 function normalizeSupplierValue(value) {
@@ -547,7 +552,7 @@ function injectSupplierAuthStyles() {
       color: #2563eb;
       font-size: 12px;
       font-weight: 900;
-      text-transform: uppercase;
+      text-transform: none;
     }
 
     .admin-login-brand h1 {
@@ -680,7 +685,7 @@ function injectSupplierAuthStyles() {
       color: #64748b;
       font-size: 10px;
       font-weight: 900;
-      text-transform: uppercase;
+      text-transform: none;
     }
 
     .admin-profile-name {
@@ -932,6 +937,10 @@ function filterSupplierToolCards() {
   if (toolsSummary) {
     toolsSummary.textContent = `${visibleCount} Aktif`;
   }
+
+  document.querySelectorAll('[data-supplier-empty]').forEach((emptyState) => {
+    emptyState.hidden = visibleCount > 0;
+  });
 }
 
 function initSupplierAuth() {

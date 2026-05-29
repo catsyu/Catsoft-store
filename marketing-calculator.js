@@ -305,23 +305,23 @@ function renderSimulatorSuggestions(result) {
   if (result.costPrice > 0 && result.targetProfit >= 0 && result.suggestedPrice > 0) {
     const delta = result.suggestedPrice - result.salePrice;
     const targetLabel = result.targetMode === 'percent'
-      ? `target ${percent(result.targetPercent)} dari HPP`
-      : 'target profit';
+      ? `target ${percent(result.targetPercent)}`
+      : 'target untung';
     priceSuggestionText.textContent = delta > 0
-      ? `Saran harga jual ${money(result.suggestedPrice)} agar ${targetLabel} tercapai.`
-      : `Harga jual sudah aman. Minimal ${money(result.suggestedPrice)} untuk ${targetLabel}.`;
+      ? `Saran harga: ${money(result.suggestedPrice)} agar ${targetLabel} tercapai.`
+      : `Harga aman. Minimal ${money(result.suggestedPrice)}.`;
   } else {
-    priceSuggestionText.textContent = 'Isi HPP dan target profit untuk melihat saran harga.';
+    priceSuggestionText.textContent = 'Isi modal dan target untung untuk melihat saran harga.';
   }
 
   if (result.netRevenue > 0 && result.costPrice > 0) {
     const adsPercent = percent(result.suggestedAdsPercent);
     const roasText = result.suggestedRoas ? `${result.suggestedRoas.toFixed(2)}x` : '-';
     adsSuggestionText.textContent = result.canHitTargetBeforeAds
-      ? `Iklan aman: ${adsPercent} omset atau ROAS ${roasText}. Budget + PPN sekitar ${money(result.suggestedAdsBudget)}.`
-      : `Naikkan harga ke ${money(result.suggestedPrice)} dulu. Di harga sekarang belum ada ruang iklan aman.`;
+      ? `Batas iklan: ${adsPercent} / ROAS ${roasText}. Budget aman ${money(result.suggestedAdsBudget)}.`
+      : `Naikkan harga ke ${money(result.suggestedPrice)} dulu. Belum ada ruang iklan aman.`;
   } else {
-    adsSuggestionText.textContent = 'Isi harga jual dan HPP untuk melihat batas iklan yang aman.';
+    adsSuggestionText.textContent = 'Isi harga dan modal untuk melihat batas iklan.';
   }
 }
 
@@ -385,33 +385,33 @@ function renderCalculation() {
   adsVatBadge.hidden = adsMethod !== 'percent';
 
   const advice = [];
-  advice.push(`Harga aman: ${money(suggestedPrice || minimumPrice)}.`);
+  advice.push(`Harga aman ${money(suggestedPrice || minimumPrice)}.`);
   advice.push(canHitTargetBeforeAds
-    ? `Iklan aman: ${percent(suggestedAdsPercent)} atau ROAS ${suggestedRoas ? suggestedRoas.toFixed(2) : '-'}x.`
+    ? `Iklan ${percent(suggestedAdsPercent)} / ROAS ${suggestedRoas ? suggestedRoas.toFixed(2) : '-'}x.`
     : 'Naikkan harga dulu sebelum menambah iklan.');
-  advice.push(`Budget aman + PPN: ${money(canHitTargetBeforeAds ? adRecommendations.targetAdsBudget : 0)}.`);
+  advice.push(`Budget + PPN ${money(canHitTargetBeforeAds ? adRecommendations.targetAdsBudget : 0)}.`);
 
   document.getElementById('marketingAdvice').innerHTML = advice.map((item) => `<p>${item}</p>`).join('');
   const breakdownRows = [
     ['Omset', netRevenue],
-    ['HPP total', totalHpp],
+    ['HPP Total', totalHpp],
     ['Admin', adminFee],
     ['Program', programFee],
     ['Pemrosesan', settings.processingFee],
     [adsMethod === 'roas' ? `Iklan ROAS ${adsInputValue}x` : `Iklan ${percent(adsInputValue)}`, adsBaseBudget],
-    ['PPN iklan', adsVat],
+    ['PPN Iklan', adsVat],
     ['Iklan + PPN', adsBudget],
     ['Affiliate', affiliateFee],
     ['Cashback', cashbackFee],
-    ['Subsidi ongkir', settings.shippingSubsidy],
+    ['Subsidi Ongkir', settings.shippingSubsidy],
     ['Packing', settings.packingCost],
-    ['Biaya lain', settings.otherCost],
-    ['Risiko retur', riskCost]
+    ['Biaya Lain', settings.otherCost],
+    ['Risiko Retur', riskCost]
   ];
 
   document.getElementById('costBreakdown').innerHTML = `
     <div class="cost-line">
-      <span>Rincian biaya</span>
+      <span>Rincian Biaya</span>
       <strong>${money(platformCost + extraCost + totalHpp)}</strong>
     </div>
     ${breakdownRows.map(([label, value]) => `
@@ -531,35 +531,35 @@ function exportMarketingCsv() {
   const result = latestMarketingResult;
   const rows = [
     ['Metric', 'Value'],
-    ['Harga jual', result.salePrice],
+    ['Harga Jual', result.salePrice],
     ['Qty', result.quantity],
     ['HPP', result.costPrice],
-    ['Voucher toko / diskon', result.sellerDiscount],
-    ['Omset bersih', Math.round(result.netRevenue)],
-    ['Estimasi penghasilan Shopee', Math.round(result.shopeeIncome)],
-    ['Mode target profit', result.targetMode],
-    ['Target profit nominal', Math.round(result.targetProfit)],
-    ['Target profit persen HPP', result.targetMode === 'percent' ? result.targetPercent : ''],
-    ['Metode iklan', result.adsMethod],
-    ['Nilai iklan', result.adsInputValue],
-    ['ROAS iklan', result.effectiveRoas ? result.effectiveRoas.toFixed(2) : ''],
-    ['Persen iklan efektif', result.effectiveAdsRate.toFixed(2)],
-    ['Biaya admin', Math.round(result.adminFee)],
-    ['Biaya program', Math.round(result.programFee)],
-    ['Biaya pemrosesan', Math.round(result.processingFee)],
+    ['Voucher Toko / Diskon', result.sellerDiscount],
+    ['Omset Bersih', Math.round(result.netRevenue)],
+    ['Estimasi Penghasilan Shopee', Math.round(result.shopeeIncome)],
+    ['Mode Target Profit', result.targetMode],
+    ['Target Profit Nominal', Math.round(result.targetProfit)],
+    ['Target Profit Persen HPP', result.targetMode === 'percent' ? result.targetPercent : ''],
+    ['Metode Iklan', result.adsMethod],
+    ['Nilai Iklan', result.adsInputValue],
+    ['ROAS Iklan', result.effectiveRoas ? result.effectiveRoas.toFixed(2) : ''],
+    ['Persen Iklan Efektif', result.effectiveAdsRate.toFixed(2)],
+    ['Biaya Admin', Math.round(result.adminFee)],
+    ['Biaya Program', Math.round(result.programFee)],
+    ['Biaya Pemrosesan', Math.round(result.processingFee)],
     ['Iklan sebelum PPN', Math.round(result.adsBaseBudget)],
-    ['PPN iklan', Math.round(result.adsVat)],
+    ['PPN Iklan', Math.round(result.adsVat)],
     ['Affiliate', Math.round(result.affiliateFee)],
-    ['Cashback koin', Math.round(result.cashbackFee)],
-    ['Subsidi ongkir', Math.round(result.shippingSubsidy)],
-    ['Packing / operasional', Math.round(result.packingCost)],
-    ['Biaya lain', Math.round(result.otherCost)],
-    ['Risiko retur/problem', Math.round(result.riskCost)],
+    ['Cashback Koin', Math.round(result.cashbackFee)],
+    ['Subsidi Ongkir', Math.round(result.shippingSubsidy)],
+    ['Packing / Operasional', Math.round(result.packingCost)],
+    ['Biaya Lain', Math.round(result.otherCost)],
+    ['Risiko Retur/Problem', Math.round(result.riskCost)],
     ['Iklan + PPN', Math.round(result.adsBudget)],
-    ['Total biaya platform', Math.round(result.platformCost)],
-    ['Profit bersih', Math.round(result.netProfit)],
-    ['Margin bersih', result.netMargin.toFixed(2)],
-    ['Harga minimal', Math.round(result.minimumPrice)],
+    ['Total Biaya Platform', Math.round(result.platformCost)],
+    ['Profit Bersih', Math.round(result.netProfit)],
+    ['Margin Bersih', result.netMargin.toFixed(2)],
+    ['Harga Minimal', Math.round(result.minimumPrice)],
     ['Break even ROAS', result.breakEvenRoas ? result.breakEvenRoas.toFixed(2) : '']
   ];
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');

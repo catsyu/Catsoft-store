@@ -7,70 +7,63 @@
   <title>Catsoft Supplier Center</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css" />
-  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="supplier-center.css?v=20260529-customer-center" />
 </head>
-<body>
-  <main class="admin-page">
-    <header class="admin-header">
-      <div class="brand-mark">
+<body class="supplier-console-body">
+  <main class="supplier-console-page">
+    <header class="supplier-console-topbar">
+      <a class="supplier-console-brand" href="https://supplier.catsoft.store/" aria-label="Catsoft Supplier Center">
         <img src="logo.png" alt="Catsoft" />
-        <div>
-          <span>Catsoft Supplier</span>
-          <h1>Supplier Center</h1>
-        </div>
-      </div>
-      <nav class="admin-nav" aria-label="Navigasi supplier"></nav>
+      </a>
+      <nav class="supplier-console-tabs" aria-label="Navigasi Supplier">
+        <a class="is-active" href="https://supplier.catsoft.store/">Ikhtisar</a>
+        <a href="https://supplier.catsoft.store/mail">Email</a>
+      </nav>
+      <nav class="admin-nav supplier-console-actions" aria-label="Akun Supplier"></nav>
     </header>
 
-    <section class="overview-band" aria-labelledby="supplierTitle">
-      <div class="panel-heading">
-        <span class="section-kicker">Supplier workspace</span>
-        <h2 id="supplierTitle">Tools Supplier</h2>
-        <p>Area khusus supplier untuk membuka tool yang sudah diberikan oleh OwnerCatsoft atau AdminCatsoft.</p>
-      </div>
-      <div class="access-summary dashboard-summary" aria-label="Ringkasan supplier center">
+    <section class="supplier-console-shell">
+      <section class="supplier-hero" aria-labelledby="supplierTitle">
         <div>
-          <span>Tools</span>
+          <span>Supplier Center</span>
+          <h1 id="supplierTitle">Pusat Supplier Catsoft</h1>
+          <p>Buka tools supplier, pantau email yang diizinkan, dan kelola alamat penerima sesuai akses yang diberikan.</p>
+        </div>
+      </section>
+
+      <section class="supplier-metrics" aria-label="Ringkasan Supplier Center">
+        <article>
+          <span>Tools Aktif</span>
           <strong data-supplier-summary="tools">1 Aktif</strong>
-        </div>
-        <div>
-          <span>Access</span>
-          <strong>Supplier</strong>
-        </div>
-      </div>
-    </section>
-
-    <section class="tools-section" aria-labelledby="supplierToolsTitle">
-      <div class="section-title-row">
-        <div>
-          <span class="section-kicker">Tools aktif</span>
-          <h2 id="supplierToolsTitle">Pilih Tool</h2>
-        </div>
-      </div>
-
-      <div class="tools-grid">
-        <article class="tool-card" data-supplier-tool-card="supplier-email">
-          <div class="tool-card-content">
-            <div class="tool-card-top">
-              <span class="tool-status">Temp Mail</span>
-              <span class="tool-category">Email</span>
-            </div>
-            <h3>Email</h3>
-            <p>Buka email masuk sesuai alamat, domain, layanan, atau keyword yang diizinkan untuk akun supplier ini.</p>
-            <ul class="tool-features">
-              <li>Filter penerima dan domain email Catsoft.</li>
-              <li>Copy OTP, penerima, dan isi email dengan cepat.</li>
-              <li>Akses dibatasi dari Supplier Center Access.</li>
-            </ul>
-          </div>
-          <div class="tool-card-actions">
-            <a class="primary-button" href="https://supplier.catsoft.store/mail">Buka Email</a>
-          </div>
         </article>
-      </div>
+        <article>
+          <span>Akses</span>
+          <strong>Supplier</strong>
+        </article>
+      </section>
+
+      <section class="supplier-panel" aria-labelledby="supplierToolsTitle">
+        <div class="supplier-panel-head">
+          <h2 id="supplierToolsTitle">Tools Supplier</h2>
+        </div>
+        <div class="supplier-tool-table">
+          <a class="supplier-tool-row" data-supplier-tool-card="supplier-email" href="https://supplier.catsoft.store/mail">
+            <span class="supplier-tool-main">
+              <span class="supplier-tool-icon" aria-hidden="true"></span>
+              <span>
+                <strong>Email Center</strong>
+                <small>Temp mail dan inbox supplier</small>
+              </span>
+            </span>
+            <span class="supplier-tool-status">Aktif</span>
+          </a>
+          <div class="supplier-empty" data-supplier-empty hidden>
+            Akun ini belum memiliki tools aktif.
+          </div>
+        </div>
+      </section>
     </section>
   </main>
-  <script src="supplier-auth.js?v=20260527-1" defer></script>
+  <script src="supplier-auth.js?v=20260529-customer-center" defer></script>
 </body>
 </html>

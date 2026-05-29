@@ -23,6 +23,8 @@ const resetFormBtn = document.getElementById('resetFormBtn');
 const clearBtn = document.getElementById('clearBtn');
 const customerFormToggle = document.getElementById('customerFormToggle');
 const customerFormFields = document.getElementById('customerFormFields');
+const customerViewButtons = document.querySelectorAll('[data-customer-view-target]');
+const customerViewPanels = document.querySelectorAll('[data-customer-view-panel]');
 const recordIdInput = document.getElementById('recordId');
 const screenshotInput = document.getElementById('screenshotInput');
 const screenshotPreviewWrap = document.getElementById('screenshotPreviewWrap');
@@ -65,12 +67,11 @@ const dateFilter = document.getElementById('dateFilter');
 const statusFilter = document.getElementById('statusFilter');
 const sortBySelect = document.getElementById('sortBy');
 const sortDirectionSelect = document.getElementById('sortDirection');
+const exportMenuBtn = document.getElementById('exportMenuBtn');
+const exportMenuOptions = document.getElementById('exportMenuOptions');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
-const importJsonBtn = document.getElementById('importJsonBtn');
-const importJsonInput = document.getElementById('importJsonInput');
-const importShopeeXlsxBtn = document.getElementById('importShopeeXlsxBtn');
-const importShopeeXlsxInput = document.getElementById('importShopeeXlsxInput');
+const importDataFileInput = document.getElementById('importDataFileInput');
 const syncRecordsBtn = document.getElementById('syncRecordsBtn');
 const syncStatus = document.getElementById('syncStatus');
 const lookupScreenshotInput = document.getElementById('lookupScreenshotInput');
@@ -145,7 +146,7 @@ function setupMobileCollapse(toggle, panel) {
     }
   };
 
-  setOpen(false);
+  setOpen(true);
 
   toggle.addEventListener('click', () => {
     setOpen(!panel.classList.contains('is-open'));
@@ -153,6 +154,38 @@ function setupMobileCollapse(toggle, panel) {
 }
 
 setupMobileCollapse(customerFormToggle, customerFormFields);
+
+function refreshWorkspaceHeight() {
+  window.requestAnimationFrame(() => {
+    window.dispatchEvent(new Event('resize'));
+  });
+}
+
+function setCustomerWorkspaceMode(mode = 'input') {
+  const activeMode = mode === 'database' ? 'database' : 'input';
+
+  customerViewButtons.forEach((button) => {
+    const isActive = button.dataset.customerViewTarget === activeMode;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+  });
+
+  customerViewPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.customerViewPanel !== activeMode;
+  });
+
+  if (activeMode === 'database') {
+    renderRecords();
+  }
+
+  refreshWorkspaceHeight();
+}
+
+customerViewButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    setCustomerWorkspaceMode(button.dataset.customerViewTarget);
+  });
+});
 
 const monthNames = [
   'Januari',
@@ -175,14 +208,14 @@ const statusLabels = {
   removed: 'Removed',
   refund: 'Refund',
   problem: 'Bermasalah',
-  incomplete: 'Data tidak lengkap'
+  incomplete: 'Data Tidak Lengkap'
 };
 
 const statusOptions = ['active', 'expired', 'removed', 'refund', 'problem'];
 const protectedStatusOptions = new Set(['removed', 'refund', 'problem']);
 const statusFilterLabels = {
   ...statusLabels,
-  duplicate: 'Data ganda'
+  duplicate: 'Data Ganda'
 };
 
 const orderSourceLabels = {
@@ -362,7 +395,7 @@ function getRecordOrderSource(record) {
 }
 
 function getOrderReferenceLabel(source) {
-  return source === 'whatsapp' ? 'Nomor WhatsApp' : 'No. pesanan';
+  return source === 'whatsapp' ? 'Nomor WhatsApp' : 'No. Pesanan';
 }
 
 function getOrderReferencePlaceholder(source) {
@@ -417,7 +450,7 @@ function renderStatusMenu(currentStatus) {
         </span>
         <span class="status-chevron" aria-hidden="true"></span>
       </button>
-      <div class="status-options" role="listbox" aria-label="Pilih status langganan">
+      <div class="status-options" role="listbox" aria-label="Pilih Status Langganan">
         ${statusOptions.map((optionStatus) => `
           <button class="status-option ${optionStatus === status ? 'is-selected' : ''}" type="button" data-action="set-status" data-status="${escapeHtml(optionStatus)}" role="option" aria-selected="${optionStatus === status}">
             <span class="status-dot" aria-hidden="true"></span>
@@ -466,7 +499,7 @@ function loadBackupRecords() {
     const backupRecords = Array.isArray(parsedBackup) ? parsedBackup : parsedBackup.records;
     return normalizeRecordList(Array.isArray(backupRecords) ? backupRecords : []);
   } catch (error) {
-    localStorageWarning = 'Cache lokal tidak terbaca.';
+    localStorageWarning = 'Cache Lokal tidak terbaca.';
     return [];
   }
 }
@@ -482,7 +515,7 @@ function saveRecords(nextRecords = records) {
     localStorage.setItem(storageKey, JSON.stringify(nextRecords));
     return true;
   } catch (error) {
-    setSyncStatus('Cache lokal gagal', 'warning');
+    setSyncStatus('Cache Lokal Gagal', 'warning');
     syncStatus.title = error.message;
     return false;
   }
@@ -587,7 +620,7 @@ function renderProductOptions() {
   }
 
   if (registeredProductsCount) {
-    registeredProductsCount.textContent = `${products.length} produk`;
+    registeredProductsCount.textContent = `${products.length} Produk`;
   }
 }
 
@@ -612,7 +645,7 @@ function renderActivationValue(record) {
     return '-';
   }
 
-  if (!isTargetLinkProduct(record)) {
+  if (!/^https?:\/\//i.test(value) && !/^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(value)) {
     return escapeHtml(value);
   }
 
@@ -772,7 +805,9 @@ function applyDatabaseLockState() {
   });
 
   if (!isDatabaseLocked) {
-    syncRecordsBtn.disabled = isSyncingRecords;
+    if (syncRecordsBtn) {
+      syncRecordsBtn.disabled = isSyncingRecords;
+    }
     renderBulkState();
   }
 }
@@ -1100,17 +1135,21 @@ async function syncRecordsWithApi(options = {}) {
     setSyncStatus('Sinkron web...');
   }
 
-  syncRecordsBtn.disabled = true;
+  if (syncRecordsBtn) {
+    syncRecordsBtn.disabled = true;
+  }
 
   try {
     await replaceRecordsFromApi({ expectedMutationVersion: syncMutationVersion });
-    setSyncStatus(`Live web (${records.length})`, 'success');
+    setSyncStatus(`Live Web (${records.length})`, 'success');
     syncStatus.title = 'Cloudflare D1 menjadi database pusat. Cache lokal hanya dipakai saat offline.';
   } catch (error) {
-    setSyncStatus(records.length ? 'Cache lokal' : 'Web offline', 'warning');
+    setSyncStatus(records.length ? 'Cache Lokal' : 'Web Offline', 'warning');
     syncStatus.title = error.message;
   } finally {
-    syncRecordsBtn.disabled = isDatabaseLocked;
+    if (syncRecordsBtn) {
+      syncRecordsBtn.disabled = isDatabaseLocked;
+    }
     isSyncingRecords = false;
   }
 }
@@ -1169,7 +1208,7 @@ function renderLookupState(filteredRecords = []) {
       .filter((email) => emailSet.has(email))
   );
 
-  lookupStatus.textContent = emailSet.size ? `${matchedEmails.size}/${emailSet.size} email cocok` : '0 email';
+  lookupStatus.textContent = emailSet.size ? `${matchedEmails.size}/${emailSet.size} Email Cocok` : '0 Email';
 
   if (!emails.length) {
     lookupChips.innerHTML = '';
@@ -1191,23 +1230,23 @@ function renderResultSummary(filteredRecords) {
   const filters = [];
 
   if (lookupCount) {
-    filters.push(`${lookupCount} email`);
+    filters.push(`${lookupCount} Email`);
   }
 
   if (searchInput.value.trim()) {
-    filters.push('search');
+    filters.push('Cari');
   }
 
   if (dateFilter.value) {
-    filters.push('expire');
+    filters.push('Expire');
   }
 
   if (statusFilter.value !== 'all') {
     filters.push(statusFilterLabels[statusFilter.value] || statusFilter.value);
   }
 
-  resultCount.textContent = `${total} data`;
-  resultContext.textContent = filters.length ? filters.join(' / ') : 'Semua data';
+  resultCount.textContent = `${total} Data`;
+  resultContext.textContent = filters.length ? filters.join(' / ') : 'Semua Data';
 }
 
 function getRecordSortValue(record, sortBy, duplicateIndex = getDuplicateIndex(records)) {
@@ -1275,7 +1314,7 @@ function renderBulkState() {
   const hasSelection = selectedRecords.length > 0;
   const isLocked = isDatabaseLocked || isImportingShopeeXlsx;
 
-  selectedCount.textContent = `${selectedRecords.length} dipilih`;
+  selectedCount.textContent = `${selectedRecords.length} Dipilih`;
   bulkToolbar.classList.toggle('has-selection', hasSelection);
   selectVisibleRecords.checked = hasVisibleRecords && visibleSelectedCount === lastRenderedRecordIds.length;
   selectVisibleRecords.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < lastRenderedRecordIds.length;
@@ -1312,7 +1351,7 @@ async function bulkApplyStatus() {
   const selectedRecords = getSelectedRecords();
 
   if (!nextStatus || !statusLabels[nextStatus] || !selectedRecords.length) {
-    setSyncStatus('Pilih data & status', 'warning');
+    setSyncStatus('Pilih Data & Status', 'warning');
     syncStatus.title = 'Pilih data yang tampil dan status tujuan sebelum Apply.';
     return;
   }
@@ -1340,43 +1379,43 @@ async function bulkApplyStatus() {
     setDatabaseLock(true);
     showXlsxImportOverlay();
     updateXlsxImportOverlay({
-      kicker: 'Bulk action',
-      title: 'Mengubah status',
+      kicker: 'Bulk Action',
+      title: 'Mengubah Status',
       message: `Mengubah ${selectedIds.length} data menjadi ${statusLabels[nextStatus]}.`,
       progress: 5,
-      summary: `0/${selectedIds.length} status tersimpan`
+      summary: `0/${selectedIds.length} Status Tersimpan`
     });
     await updateBulkStatusWithFallback(selectedIds, nextStatus, now, (updated, total, mode = '') => {
       updateXlsxImportOverlay({
-        kicker: 'Bulk action',
-        title: 'Mengubah status',
+        kicker: 'Bulk Action',
+        title: 'Mengubah Status',
         message: mode || `Mengubah ${total} data menjadi ${statusLabels[nextStatus]}.`,
         progress: 5 + ((updated / total) * 88),
-        summary: `${updated}/${total} status tersimpan`
+        summary: `${updated}/${total} Status Tersimpan`
       });
     });
     records = sortRecords(nextRecords);
     selectedRecordIds.clear();
     saveRecords();
     renderRecords();
-    setSyncStatus(`${updatedRecords.length} status tersimpan`, 'success');
+    setSyncStatus(`${updatedRecords.length} Status Tersimpan`, 'success');
     syncStatus.title = 'Update status bulk tersimpan di Cloudflare D1.';
     updateXlsxImportOverlay({
-      kicker: 'Bulk action',
-      title: 'Status tersimpan',
+      kicker: 'Bulk Action',
+      title: 'Status Tersimpan',
       message: `${updatedRecords.length} data berhasil diubah menjadi ${statusLabels[nextStatus]}.`,
       progress: 100,
-      summary: `${updatedRecords.length} status tersimpan`,
+      summary: `${updatedRecords.length} Status Tersimpan`,
       mode: 'success'
     });
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1200);
     window.setTimeout(() => syncRecordsWithApi({ silent: true }), 1300);
   } catch (error) {
-    setSyncStatus('Gagal bulk web', 'warning');
+    setSyncStatus('Gagal Bulk Web', 'warning');
     syncStatus.title = error.message;
     updateXlsxImportOverlay({
-      kicker: 'Bulk action',
-      title: 'Status gagal',
+      kicker: 'Bulk Action',
+      title: 'Status Gagal',
       message: 'Status belum tersimpan ke database pusat.',
       progress: 100,
       summary: error.message,
@@ -1457,7 +1496,7 @@ async function updateRecordsStatusOneByOne(ids, status, updatedAt, onProgress) {
     updated += chunk.length;
 
     if (onProgress) {
-      onProgress(updated, ids.length, 'Mode kompatibilitas: status disimpan paralel.');
+      onProgress(updated, ids.length, 'Mode Kompatibilitas: status disimpan paralel.');
     }
   }
 }
@@ -1466,7 +1505,7 @@ function getRecordsCsv(recordList) {
   const duplicateIndex = getDuplicateIndex(records);
   const header = [
     'Nama/User',
-    'Email/Link Target',
+    'Target',
     'Sumber Order',
     'WhatsApp',
     'No Pesanan',
@@ -1524,19 +1563,19 @@ async function bulkDeleteSelected() {
     setDatabaseLock(true);
     showXlsxImportOverlay();
     updateXlsxImportOverlay({
-      kicker: 'Bulk action',
-      title: 'Menghapus data',
+      kicker: 'Bulk Action',
+      title: 'Menghapus Data',
       message: 'Data terpilih sedang dihapus dari database pusat.',
       progress: 4,
-      summary: `0/${selectedTotal} data terhapus`
+      summary: `0/${selectedTotal} Data Terhapus`
     });
     await deleteRecordsInChunks([...idsToDelete], (deleted, total) => {
       updateXlsxImportOverlay({
-        kicker: 'Bulk action',
-        title: 'Menghapus data',
+        kicker: 'Bulk Action',
+        title: 'Menghapus Data',
         message: 'Data terpilih sedang dihapus dari database pusat.',
         progress: 4 + ((deleted / total) * 90),
-        summary: `${deleted}/${total} data terhapus`
+        summary: `${deleted}/${total} Data Terhapus`
       });
     });
 
@@ -1544,14 +1583,14 @@ async function bulkDeleteSelected() {
     selectedRecordIds.clear();
     saveRecords();
     renderRecords();
-    setSyncStatus(`${selectedTotal} data terhapus`, 'success');
+    setSyncStatus(`${selectedTotal} Data Terhapus`, 'success');
     syncStatus.title = 'Hapus bulk sudah dikirim ke Cloudflare D1.';
     updateXlsxImportOverlay({
-      kicker: 'Bulk action',
-      title: 'Hapus selesai',
+      kicker: 'Bulk Action',
+      title: 'Hapus Selesai',
       message: 'Data terpilih sudah dihapus. Tampilan mengikuti filter aktif.',
       progress: 100,
-      summary: `${selectedTotal} data terhapus`,
+      summary: `${selectedTotal} Data Terhapus`,
       mode: 'success'
     });
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1200);
@@ -1560,8 +1599,8 @@ async function bulkDeleteSelected() {
     setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
     updateXlsxImportOverlay({
-      kicker: 'Bulk action',
-      title: 'Hapus gagal',
+      kicker: 'Bulk Action',
+      title: 'Hapus Gagal',
       message: 'Sebagian data belum terhapus dari database pusat.',
       progress: 100,
       summary: error.message,
@@ -1651,22 +1690,22 @@ function getDurationLabel(days) {
   const duration = Number(days) || 0;
 
   if (duration === 30) {
-    return '1 bulan';
+    return '1 Bulan';
   }
 
   if (duration === 90) {
-    return '3 bulan';
+    return '3 Bulan';
   }
 
   if (duration === 180) {
-    return '6 bulan';
+    return '6 Bulan';
   }
 
   if (duration === 365) {
-    return '1 tahun';
+    return '1 Tahun';
   }
 
-  return `${duration} hari`;
+  return `${duration} Hari`;
 }
 
 function syncPackagePreset() {
@@ -1716,19 +1755,19 @@ function getIncompleteFields(record) {
   }
 
   if (!record.orderNumber && !record.whatsappNumber) {
-    missingFields.push('nomor pesanan/WA');
+    missingFields.push('Nomor Pesanan/WA');
   }
 
   if (!record.productName) {
-    missingFields.push('produk');
+    missingFields.push('Produk');
   }
 
   if (!record.startDate) {
-    missingFields.push('tanggal mulai');
+    missingFields.push('Tanggal Mulai');
   }
 
   if (!record.expiryDate) {
-    missingFields.push('tanggal expire');
+    missingFields.push('Tanggal Expire');
   }
 
   return missingFields;
@@ -1853,7 +1892,7 @@ function renderInlineEditForm(record, status) {
         <input data-edit-field="activatedEmail" type="${escapeHtml(activationConfig.type)}" inputmode="${escapeHtml(activationConfig.inputMode)}" placeholder="${escapeHtml(activationConfig.placeholder)}" value="${escapeHtml(record.activatedEmail || '')}" />
       </label>
       <label class="field-group">
-        <span>Sumber order</span>
+        <span>Channel</span>
         <select data-edit-field="orderSource">
           <option value="shopee" ${orderSource === 'shopee' ? 'selected' : ''}>Shopee</option>
           <option value="whatsapp" ${orderSource === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
@@ -1868,16 +1907,16 @@ function renderInlineEditForm(record, status) {
         <input data-edit-field="productName" type="text" list="registeredProductList" value="${escapeHtml(record.productName || '')}" />
       </label>
       <label class="field-group">
-        <span>Durasi hari</span>
+        <span>Durasi</span>
         <input data-edit-field="durationDays" type="number" min="1" step="1" value="${escapeHtml(record.durationDays || 30)}" />
       </label>
       <label class="field-group">
-        <span>Tanggal mulai</span>
-        <input data-edit-field="startDate" type="date" value="${escapeHtml(record.startDate || '')}" />
+        <span>Mulai</span>
+        <input data-edit-field="startDate" type="date" data-empty-label="Pilih Tanggal" value="${escapeHtml(record.startDate || '')}" />
       </label>
       <label class="field-group">
-        <span>Tanggal expire</span>
-        <input data-edit-field="expiryDate" type="date" value="${escapeHtml(record.expiryDate || '')}" />
+        <span>Expire</span>
+        <input data-edit-field="expiryDate" type="date" data-empty-label="Pilih Tanggal" value="${escapeHtml(record.expiryDate || '')}" />
       </label>
       <label class="field-group">
         <span>Status</span>
@@ -2065,50 +2104,30 @@ function findDuplicateRecord(recordToCheck, recordList = records) {
       return true;
     }
 
-    return shouldBlockActivationEmailDuplicate(recordToCheck, record);
+    return false;
   });
 }
 
 function getDuplicateIndex(recordList = records) {
-  const emailRecords = new Map();
   const orderCounts = new Map();
 
   recordList.forEach((record) => {
-    const activatedEmail = normalizeUniqueEmail(record.activatedEmail);
     const orderNumber = normalizeUniqueOrderNumber(record.orderNumber);
-
-    if (activatedEmail && shouldCheckActivationEmailDuplicate(record)) {
-      const matchingRecords = emailRecords.get(activatedEmail) || [];
-      matchingRecords.push(record);
-      emailRecords.set(activatedEmail, matchingRecords);
-    }
 
     if (orderNumber) {
       orderCounts.set(orderNumber, (orderCounts.get(orderNumber) || 0) + 1);
     }
   });
 
-  return { emailRecords, orderCounts };
+  return { orderCounts };
 }
 
 function getDuplicateFields(record, duplicateIndex = getDuplicateIndex(records)) {
   const duplicateFields = [];
-  const activatedEmail = normalizeUniqueEmail(record.activatedEmail);
   const orderNumber = normalizeUniqueOrderNumber(record.orderNumber);
 
-  if (activatedEmail && shouldCheckActivationEmailDuplicate(record)) {
-    const matchingEmailRecords = duplicateIndex.emailRecords.get(activatedEmail) || [];
-    const hasOverlappingEmailRecord = matchingEmailRecords.some((matchingRecord) => {
-      return matchingRecord.id !== record.id && shouldBlockActivationEmailDuplicate(record, matchingRecord);
-    });
-
-    if (hasOverlappingEmailRecord) {
-      duplicateFields.push(`Email periode bentrok: ${record.activatedEmail}`);
-    }
-  }
-
   if (orderNumber && (duplicateIndex.orderCounts.get(orderNumber) || 0) > 1) {
-    duplicateFields.push(`No. pesanan: ${record.orderNumber}`);
+    duplicateFields.push(`No. Pesanan: ${record.orderNumber}`);
   }
 
   return duplicateFields;
@@ -2126,10 +2145,6 @@ function getDuplicateMessage(recordToCheck, duplicateRecord) {
   if (recordToCheck.orderNumber &&
     normalizeUniqueOrderNumber(recordToCheck.orderNumber) === normalizeUniqueOrderNumber(duplicateRecord.orderNumber)) {
     return `Nomor pesanan ${recordToCheck.orderNumber} sudah ada di database.`;
-  }
-
-  if (shouldBlockActivationEmailDuplicate(recordToCheck, duplicateRecord)) {
-    return `Email aktivasi ${recordToCheck.activatedEmail} sudah dipakai pada periode langganan yang bentrok.`;
   }
 
   return 'Data sudah ada di database.';
@@ -2152,14 +2167,7 @@ async function submitRecord(event) {
 
   if (duplicateRecord) {
     ocrStatus.textContent = getDuplicateMessage(nextRecord, duplicateRecord);
-
-    if (nextRecord.orderNumber &&
-      normalizeUniqueOrderNumber(nextRecord.orderNumber) === normalizeUniqueOrderNumber(duplicateRecord.orderNumber)) {
-      orderReferenceInput.focus();
-    } else {
-      activatedEmailInput.focus();
-    }
-
+    orderReferenceInput.focus();
     return;
   }
 
@@ -2172,11 +2180,7 @@ async function submitRecord(event) {
       setSyncStatus('Data duplikat', 'warning');
       syncStatus.title = error.message;
 
-      if (normalizeUniqueEmail(nextRecord.activatedEmail) && error.message.toLowerCase().includes('email')) {
-        activatedEmailInput.focus();
-      } else {
-        orderReferenceInput.focus();
-      }
+      orderReferenceInput.focus();
 
       return;
     }
@@ -2204,6 +2208,7 @@ async function submitRecord(event) {
   saveRecords();
   renderRecords();
   resetForm();
+  setCustomerWorkspaceMode('database');
   ocrStatus.textContent = 'Data customer berhasil disimpan.';
   setSyncStatus('Tersimpan web', 'success');
   syncStatus.title = 'Data tersimpan di Cloudflare D1.';
@@ -2300,7 +2305,7 @@ function renderRecords() {
     const status = getLifecycleStatus(record);
     const orderSource = getRecordOrderSource(record);
     const orderReference = getOrderReferenceValue(record);
-    const orderReferenceTitle = orderSource === 'shopee' ? 'No. pesanan' : 'WA';
+    const orderReferenceTitle = orderSource === 'shopee' ? 'No. Pesanan' : 'WA';
     const whatsapp = normalizeWhatsapp(record.whatsappNumber);
     const whatsappLink = whatsapp ? `https://wa.me/${whatsapp}` : '';
 	    const isLookupMatch = lookupEmails.has(normalizeUniqueEmail(record.activatedEmail));
@@ -2313,13 +2318,13 @@ function renderRecords() {
     return `
       <article class="record-card status-${escapeHtml(status)} ${missingFields.length ? 'status-incomplete' : ''} ${duplicateFields.length ? 'status-duplicate' : ''} ${isLookupMatch ? 'is-lookup-match' : ''} ${isSelected ? 'is-selected' : ''} ${isEditing ? 'is-editing' : ''}" data-id="${escapeHtml(record.id)}">
         <div class="record-top">
-          <label class="record-select" aria-label="Pilih data customer">
+          <label class="record-select" aria-label="Pilih Data Customer">
             <input type="checkbox" data-select-record="${escapeHtml(record.id)}" ${isSelected ? 'checked' : ''} />
           </label>
           <div class="record-title">
             <div class="record-title-row">
               <h3>${escapeHtml(record.productName || '-')}</h3>
-	              ${isLookupMatch ? `<span class="match-pill">${escapeHtml(activationConfig.sortLabel)} match</span>` : ''}
+              ${isLookupMatch ? `<span class="match-pill">${escapeHtml(activationConfig.sortLabel)} Match</span>` : ''}
             </div>
             <p>${escapeHtml(record.customerName || record.activatedEmail || record.whatsappNumber || 'Customer')}</p>
           </div>
@@ -2335,7 +2340,7 @@ function renderRecords() {
           <div><span>Durasi</span>${escapeHtml(getDurationLabel(record.durationDays))}</div>
 	          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
-          <div><span>Last update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
+          <div><span>Last Update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
           ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
           ${duplicateFields.length ? `<div class="record-duplicate"><span>Ganda</span>${escapeHtml(duplicateFields.join(', '))}</div>` : ''}
         </div>
@@ -2518,24 +2523,13 @@ function isTargetLinkProduct(recordOrProductName) {
 }
 
 function getActivationFieldConfig(recordOrProductName) {
-  if (isTargetLinkProduct(recordOrProductName)) {
-    return {
-      label: 'Link target',
-      placeholder: 'https://instagram.com/p/...',
-      inputMode: 'url',
-      type: 'text',
-      missingLabel: 'link target',
-      sortLabel: 'Target'
-    };
-  }
-
   return {
-    label: 'Email aktivasi',
-    placeholder: 'email@customer.com',
-    inputMode: 'email',
+    label: 'Target',
+    placeholder: 'Email atau link target',
+    inputMode: 'text',
     type: 'text',
-    missingLabel: 'email aktivasi',
-    sortLabel: 'Email'
+    missingLabel: 'Target',
+    sortLabel: 'Target'
   };
 }
 
@@ -2552,9 +2546,7 @@ function updateActivationFieldMode(productName = productNameInput.value) {
 }
 
 function shouldCheckActivationEmailDuplicate(record) {
-  return Boolean(normalizeUniqueEmail(record.activatedEmail)) &&
-    !isSharedActivationEmailProduct(record) &&
-    !isTargetLinkProduct(record);
+  return false;
 }
 
 function doSubscriptionPeriodsOverlap(firstRecord, secondRecord) {
@@ -2850,13 +2842,13 @@ async function readLookupScreenshot(file) {
     const emails = extractEmails(result.data.text || '');
 
     if (!emails.length) {
-      lookupStatus.textContent = '0 email';
+      lookupStatus.textContent = '0 Email';
       lookupStatus.title = 'Email tidak ditemukan dari screenshot.';
       renderRecords();
       return;
     }
 
-    setLookupEmails(emails, `${emails.length} email dari screenshot.`);
+    setLookupEmails(emails, `${emails.length} Email Dari Screenshot.`);
   } catch (error) {
     lookupStatus.textContent = 'OCR gagal';
     lookupStatus.title = error.message;
@@ -3070,24 +3062,24 @@ async function importShopeeXlsx(file) {
   setDatabaseLock(true);
   showXlsxImportOverlay();
   updateXlsxImportOverlay({
-    title: 'Membaca file XLSX',
+    title: 'Membaca File XLSX',
     message: 'Database dikunci sementara. Jangan tutup halaman sampai proses selesai.',
     progress: 5,
     summary: file.name || 'File Shopee'
   });
 
   try {
-    ocrStatus.textContent = 'Membaca file Shopee XLSX...';
+    ocrStatus.textContent = 'Membaca File Shopee XLSX...';
 
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
     updateXlsxImportOverlay({
-      title: 'Mengambil data pusat',
+      title: 'Mengambil Data Pusat',
       message: 'Menyamakan data terbaru dari Cloudflare D1 sebelum import.',
       progress: 18,
-      summary: `${rows.length} baris XLSX terbaca`
+      summary: `${rows.length} Baris XLSX Terbaca`
     });
     await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
 
@@ -3137,23 +3129,23 @@ async function importShopeeXlsx(file) {
     });
 
     const uploadRecords = uniqueRecordsById(changedRecords);
-    const importSummary = `${updatedCount} update, ${createdCount} baru${unchangedRows ? `, ${unchangedRows} sama dilewati` : ''}, ${incompleteRows} tidak lengkap${canceledRows ? `, ${canceledRows} batal dilewati` : ''}${skippedRows ? `, ${skippedRows} tanpa nomor dilewati` : ''}.`;
+    const importSummary = `${updatedCount} Update, ${createdCount} Baru${unchangedRows ? `, ${unchangedRows} Sama Dilewati` : ''}, ${incompleteRows} Tidak Lengkap${canceledRows ? `, ${canceledRows} Batal Dilewati` : ''}${skippedRows ? `, ${skippedRows} Tanpa Nomor Dilewati` : ''}.`;
 
     if (uploadRecords.length) {
       updateXlsxImportOverlay({
-        title: 'Mengirim update ke web',
+        title: 'Mengirim Update Ke Web',
         message: 'Data besar dikirim lewat jalur bulk import. Edit, hapus, dan bulk action dikunci sementara.',
         progress: 35,
-        summary: `0/${uploadRecords.length} data dikirim`
+        summary: `0/${uploadRecords.length} Data Dikirim`
       });
 
       try {
         await pushRecordsToBulkImportInChunks(uploadRecords, (sent, total) => {
           updateXlsxImportOverlay({
-            title: 'Mengirim update ke web',
+            title: 'Mengirim Update Ke Web',
             message: 'Data besar dikirim lewat jalur bulk import. Edit, hapus, dan bulk action dikunci sementara.',
             progress: 35 + ((sent / total) * 55),
-            summary: `${sent}/${total} data dikirim`
+            summary: `${sent}/${total} Data Dikirim`
           });
         });
       } catch (error) {
@@ -3162,24 +3154,24 @@ async function importShopeeXlsx(file) {
         }
 
         updateXlsxImportOverlay({
-          title: 'Mode kompatibilitas',
+          title: 'Mode Kompatibilitas',
           message: 'Endpoint bulk import belum aktif. Data dikirim dengan mode lama yang lebih pelan.',
           progress: 35,
-          summary: `0/${uploadRecords.length} data dikirim`
+          summary: `0/${uploadRecords.length} Data Dikirim`
         });
         await pushRecordsToApiInBatches(uploadRecords, (sent, total) => {
           updateXlsxImportOverlay({
-            title: 'Mode kompatibilitas',
+            title: 'Mode Kompatibilitas',
             message: 'Endpoint bulk import belum aktif. Data dikirim dengan mode lama yang lebih pelan.',
             progress: 35 + ((sent / total) * 55),
-            summary: `${sent}/${total} data dikirim`
+            summary: `${sent}/${total} Data Dikirim`
           });
         }, { timeoutMs: xlsxApiTimeoutMs });
       }
     }
 
 	    updateXlsxImportOverlay({
-	      title: 'Final sync',
+	      title: 'Final Sync',
 	      message: 'Memastikan tampilan memakai data terakhir dari database pusat.',
 	      progress: 94,
 	      summary: importSummary
@@ -3198,10 +3190,10 @@ async function importShopeeXlsx(file) {
     }
 
     ocrStatus.textContent = `XLSX Shopee diproses. ${importSummary}${finalSyncMessage}`;
-    setSyncStatus(`Update XLSX selesai (${records.length})`, finalSyncMessage ? 'warning' : 'success');
+    setSyncStatus(`Update XLSX Selesai (${records.length})`, finalSyncMessage ? 'warning' : 'success');
     syncStatus.title = finalSyncMessage || 'Import XLSX selesai. Tidak ada proses update XLSX yang berjalan di latar belakang.';
     updateXlsxImportOverlay({
-      title: 'Update selesai',
+      title: 'Update Selesai',
       message: finalSyncMessage || 'Database sudah bisa diedit lagi. File XLSX tidak akan diproses ulang otomatis.',
       progress: 100,
       summary: `${importSummary}${finalSyncMessage}`,
@@ -3211,10 +3203,10 @@ async function importShopeeXlsx(file) {
   } catch (error) {
     const errorMessage = getFriendlyErrorMessage(error);
     ocrStatus.textContent = `Import XLSX Shopee gagal: ${errorMessage}`;
-    setSyncStatus('Gagal import web', 'warning');
+    setSyncStatus('Gagal Import Web', 'warning');
     syncStatus.title = errorMessage;
     updateXlsxImportOverlay({
-      title: 'Update gagal',
+      title: 'Update Gagal',
       message: 'Proses sudah dihentikan. Klik Tutup sebelum mencoba import ulang.',
       progress: 100,
       summary: errorMessage,
@@ -3225,7 +3217,9 @@ async function importShopeeXlsx(file) {
     isImportingShopeeXlsx = false;
     endRecordsMutation();
     setDatabaseLock(false);
-    importShopeeXlsxInput.value = '';
+    if (importDataFileInput) {
+      importDataFileInput.value = '';
+    }
   }
 }
 
@@ -3259,7 +3253,9 @@ function importJson(file) {
   }
 
   if (guardDatabaseMutation()) {
-    importJsonInput.value = '';
+    if (importDataFileInput) {
+      importDataFileInput.value = '';
+    }
     return;
   }
 
@@ -3323,19 +3319,64 @@ function importJson(file) {
       ocrStatus.textContent = skippedDuplicates ? `Import JSON berhasil. ${skippedDuplicates} data duplikat dilewati.` : 'Import JSON berhasil.';
     } catch (error) {
       ocrStatus.textContent = `Import JSON gagal: ${error.message}`;
-      setSyncStatus('Gagal import web', 'warning');
+      setSyncStatus('Gagal Import Web', 'warning');
       syncStatus.title = error.message;
     } finally {
       endRecordsMutation();
-      importJsonInput.value = '';
+      if (importDataFileInput) {
+        importDataFileInput.value = '';
+      }
     }
   };
 
   reader.readAsText(file);
 }
 
+function toggleExportMenu(forceOpen) {
+  if (!exportMenuBtn || !exportMenuOptions) {
+    return;
+  }
+
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : exportMenuOptions.hidden;
+  exportMenuOptions.hidden = !shouldOpen;
+  exportMenuBtn.setAttribute('aria-expanded', String(shouldOpen));
+}
+
+function closeExportMenu() {
+  toggleExportMenu(false);
+}
+
+function handleImportDataFile(file) {
+  if (!file) {
+    return;
+  }
+
+  const fileName = String(file.name || '').toLowerCase();
+
+  if (fileName.endsWith('.json') || file.type === 'application/json') {
+    importJson(file);
+    return;
+  }
+
+  if (
+    fileName.endsWith('.xlsx')
+    || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ) {
+    importShopeeXlsx(file);
+    return;
+  }
+
+  ocrStatus.textContent = 'Format file belum didukung. Gunakan JSON atau XLSX Shopee.';
+  setSyncStatus('Format file salah', 'warning');
+  syncStatus.title = file.name || 'File tidak dikenali';
+  importDataFileInput.value = '';
+}
+
 form.addEventListener('submit', submitRecord);
-resetFormBtn.addEventListener('click', resetForm);
+resetFormBtn.addEventListener('click', () => {
+  resetForm();
+  setCustomerWorkspaceMode('input');
+});
 clearBtn.addEventListener('click', resetForm);
 screenshotInput.addEventListener('change', (event) => {
   readScreenshot(event.target.files[0]);
@@ -3370,28 +3411,35 @@ dateFilter.addEventListener('change', renderRecords);
 statusFilter.addEventListener('change', renderRecords);
 sortBySelect.addEventListener('change', renderRecords);
 sortDirectionSelect.addEventListener('change', renderRecords);
-exportCsvBtn.addEventListener('click', exportCsv);
-exportJsonBtn.addEventListener('click', exportJson);
-importJsonBtn.addEventListener('click', () => {
-  if (!guardDatabaseMutation()) {
-    importJsonInput.click();
+exportMenuBtn?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  toggleExportMenu();
+});
+exportCsvBtn.addEventListener('click', () => {
+  closeExportMenu();
+  exportCsv();
+});
+exportJsonBtn.addEventListener('click', () => {
+  closeExportMenu();
+  exportJson();
+});
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.database-action-menu')) {
+    closeExportMenu();
   }
 });
-importShopeeXlsxBtn.addEventListener('click', () => {
-  if (!guardDatabaseMutation()) {
-    importShopeeXlsxInput.click();
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeExportMenu();
   }
 });
-syncRecordsBtn.addEventListener('click', () => {
+syncRecordsBtn?.addEventListener('click', () => {
   if (!guardDatabaseMutation()) {
     syncRecordsWithApi();
   }
 });
-importJsonInput.addEventListener('change', (event) => {
-  importJson(event.target.files[0]);
-});
-importShopeeXlsxInput.addEventListener('change', (event) => {
-  importShopeeXlsx(event.target.files[0]);
+importDataFileInput.addEventListener('change', (event) => {
+  handleImportDataFile(event.target.files[0]);
 });
 selectVisibleRecords.addEventListener('change', (event) => {
   if (guardDatabaseMutation()) {
@@ -3609,6 +3657,7 @@ syncPackagePreset();
 updateActivationFieldMode('');
 registerProductsFromRecords(records);
 renderRecords();
-setSyncStatus(localStorageWarning || (records.length ? 'Cache lokal' : 'Menghubungkan web'), localStorageWarning || records.length ? 'warning' : '');
+setCustomerWorkspaceMode('input');
+setSyncStatus(localStorageWarning || (records.length ? 'Cache Lokal' : 'Menghubungkan Web'), localStorageWarning || records.length ? 'warning' : '');
 syncRecordsWithApi();
 startAutoRefresh();

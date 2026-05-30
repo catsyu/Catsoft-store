@@ -25,6 +25,7 @@ const CATSOFT_ADMIN_TOOLS = [
   { id: 'office-activation', label: 'Office Activation', path: 'office-activation.html', route: '/office' },
   { id: 'marketing-calculator', label: 'Marketing Calculator', path: 'marketing-calculator.html', route: '/marketing' },
   { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html', route: '/content' },
+  { id: 'product-stock', label: 'Product Stock', path: 'product-stock.html', route: '/stock' },
   { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html', route: '/supplier-access' },
   { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', route: '/access', ownerOnly: true }
 ];
@@ -53,6 +54,12 @@ const CATSOFT_ADMIN_ACCESS_TOOL_CATEGORIES = [
     label: 'Marketing',
     note: 'Simulasi Dan Konten',
     tools: ['marketing-calculator', 'content-editor']
+  },
+  {
+    id: 'stock',
+    label: 'Stok',
+    note: 'Akun Stok Dan Customer Join',
+    tools: ['product-stock']
   },
   {
     id: 'access',
@@ -2037,10 +2044,11 @@ function getCurrentAdminConsoleState() {
     '/mail': { view: 'email' },
     '/chat': { view: 'overview' },
     '/marketing': { view: 'marketing', consoleToolPane: 'marketing-calculator' },
-    '/content': { view: 'marketing', consoleToolPane: 'content-editor' }
+    '/content': { view: 'marketing', consoleToolPane: 'content-editor' },
+    '/stock': { view: 'stock' }
   };
   const normalizedHash = viewAliases[hash] || hash;
-  const allowedViews = ['overview', 'admin', 'customer', 'email', 'marketing'];
+  const allowedViews = ['overview', 'admin', 'customer', 'email', 'marketing', 'stock'];
   if (allowedViews.includes(normalizedHash)) {
     return {
       view: normalizedHash,
@@ -2101,6 +2109,10 @@ function getAdminConsoleHashForState(viewName) {
     return '#email';
   }
 
+  if (viewName === 'stock') {
+    return '#stock';
+  }
+
   return '#overview';
 }
 
@@ -2136,6 +2148,14 @@ function resizeConsoleToolFrame(frame) {
 
   const bodyRect = doc.body.getBoundingClientRect();
   const childContentHeight = Array.from(doc.body.children).reduce((height, child) => {
+    const childStyle = frame.contentWindow?.getComputedStyle
+      ? frame.contentWindow.getComputedStyle(child)
+      : null;
+
+    if (childStyle?.position === 'fixed') {
+      return height;
+    }
+
     const childRect = child.getBoundingClientRect();
     return Math.max(height, childRect.bottom - bodyRect.top);
   }, 0);
@@ -2146,7 +2166,9 @@ function resizeConsoleToolFrame(frame) {
     doc.body.offsetHeight
   );
   const contentHeight = childContentHeight > 0
-    ? Math.max(childContentHeight, Math.min(measuredScrollHeight, childContentHeight + 120))
+    ? frame.classList.contains('is-stock-frame')
+      ? childContentHeight
+      : Math.max(childContentHeight, Math.min(measuredScrollHeight, childContentHeight + 120))
     : measuredScrollHeight;
   const minHeight = getConsoleFrameMinimumHeight(frame);
   const nextHeight = Math.ceil(Math.max(minHeight, contentHeight + 12));

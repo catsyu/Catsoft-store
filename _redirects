@@ -22,5 +22,6 @@
 /admin/office /admin-tools.html 200
 /admin/marketing /admin-tools.html 200
 /admin/content /admin-tools.html 200
+/admin/stock /admin-tools.html 200
 /supplier /supplier-center.html 200
 /supplier/mail /supplier-email.html 200

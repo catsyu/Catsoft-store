@@ -35,6 +35,8 @@ const ocrProgressBar = document.getElementById('ocrProgressBar');
 const customerNameInput = document.getElementById('customerName');
 const activationFieldLabel = document.getElementById('activationFieldLabel');
 const activatedEmailInput = document.getElementById('activatedEmail');
+const stockAccountInput = document.getElementById('stockAccount');
+const stockAccountList = document.getElementById('stockAccountList');
 const whatsappNumberInput = document.getElementById('whatsappNumber');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderSourceSelect = document.getElementById('orderSource');
@@ -98,6 +100,12 @@ const xlsxImportProgressBar = document.getElementById('xlsxImportProgressBar');
 const xlsxImportProgressText = document.getElementById('xlsxImportProgressText');
 const xlsxImportSummary = document.getElementById('xlsxImportSummary');
 const xlsxImportCloseBtn = document.getElementById('xlsxImportCloseBtn');
+const importPreview = document.getElementById('importPreview');
+const importPreviewStats = document.getElementById('importPreviewStats');
+const importPreviewRows = document.getElementById('importPreviewRows');
+const importPreviewActions = document.getElementById('importPreviewActions');
+const importPreviewCancelBtn = document.getElementById('importPreviewCancelBtn');
+const importPreviewConfirmBtn = document.getElementById('importPreviewConfirmBtn');
 
 const monthMap = {
   januari: 0,
@@ -247,6 +255,7 @@ const defaultRegisteredProducts = [
 let localStorageWarning = '';
 let records = loadRecords();
 let registeredProducts = loadRegisteredProducts();
+let stockAccountOptions = [];
 let activeOrderSource = 'shopee';
 let isSyncingRecords = false;
 let isMutatingRecords = false;
@@ -254,6 +263,7 @@ let isDatabaseLocked = false;
 let isImportingShopeeXlsx = false;
 let autoRefreshTimerId = null;
 let xlsxImportHideTimerId = null;
+let pendingImportJob = null;
 let recordsMutationVersion = 0;
 let selectedRecordIds = new Set();
 let lastRenderedRecordIds = [];
@@ -380,6 +390,21 @@ function getDefaultApiEndpoint() {
   }
 
   return '/api/customer-records';
+}
+
+function getProductStockApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.CATSOFT_PRODUCT_STOCK_API) {
+    return window.CATSOFT_PRODUCT_STOCK_API;
+  }
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/product-stock';
+  }
+
+  return '/api/product-stock';
 }
 
 function getSelectedOrderSource() {
@@ -624,6 +649,68 @@ function renderProductOptions() {
   }
 }
 
+function getStockAccountOptionLabel(account) {
+  return String(account.accountName || account.account_name || account.loginUsername || account.login_username || '').trim();
+}
+
+function getStockAccountOptions() {
+  const options = new Map();
+
+  stockAccountOptions.forEach((account) => {
+    [
+      getStockAccountOptionLabel(account),
+      account.loginUsername || account.login_username,
+      account.accountTarget || account.account_target
+    ].forEach((value) => {
+      const text = String(value || '').trim();
+      if (text) options.set(text.toLowerCase(), text);
+    });
+  });
+
+  records.forEach((record) => {
+    const text = String(record.stockAccount || '').trim();
+    if (text) options.set(text.toLowerCase(), text);
+  });
+
+  return [...options.values()].sort((first, second) => first.localeCompare(second, 'id'));
+}
+
+function renderStockAccountOptions() {
+  if (!stockAccountList) {
+    return;
+  }
+
+  stockAccountList.innerHTML = getStockAccountOptions()
+    .map((stockName) => `<option value="${escapeHtml(stockName)}"></option>`)
+    .join('');
+}
+
+async function syncStockAccountOptions() {
+  if (!stockAccountList) {
+    return;
+  }
+
+  try {
+    const response = await fetchWithTimeout(getProductStockApiEndpoint(), {
+      cache: 'no-store',
+      timeoutMs: 10000,
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    stockAccountOptions = Array.isArray(payload.accounts) ? payload.accounts : [];
+    renderStockAccountOptions();
+  } catch (error) {
+    renderStockAccountOptions();
+  }
+}
+
 function normalizeExternalUrl(value) {
   const text = String(value || '').trim();
 
@@ -705,6 +792,7 @@ function normalizeStoredRecord(record) {
     id: String(record.id || createId()),
     customerName: String(record.customerName ?? record.customer_name ?? '').trim(),
     activatedEmail: String(record.activatedEmail ?? record.activated_email ?? '').trim(),
+    stockAccount: String(record.stockAccount ?? record.stock_account ?? '').trim(),
     whatsappNumber: String(record.whatsappNumber ?? record.whatsapp_number ?? '').trim(),
     orderNumber: String(record.orderNumber ?? record.order_number ?? '').trim(),
     orderSource,
@@ -825,10 +913,35 @@ function showXlsxImportOverlay() {
 
   window.clearTimeout(xlsxImportHideTimerId);
   xlsxImportOverlay.classList.remove('is-hidden', 'is-error', 'is-success', 'is-finished');
+  xlsxImportOverlay.scrollTop = 0;
   xlsxImportCloseBtn.classList.add('is-hidden');
+  importPreview?.classList.add('is-hidden');
+  importPreviewActions?.classList.add('is-hidden');
+  window.requestAnimationFrame(keepImportOverlayInView);
 }
 
-function updateXlsxImportOverlay({ kicker = 'Update XLSX Shopee', title, message, progress, summary, mode = '', canClose = false }) {
+function keepImportOverlayInView() {
+  if (window.parent === window) {
+    return;
+  }
+
+  try {
+    const frames = Array.from(window.parent.document.querySelectorAll('[data-console-frame]'));
+    const frame = frames.find((candidate) => candidate.contentWindow === window);
+
+    if (!frame) {
+      return;
+    }
+
+    const headerOffset = 110;
+    const frameTop = frame.getBoundingClientRect().top + window.parent.scrollY - headerOffset;
+    window.parent.scrollTo({ top: Math.max(0, frameTop), behavior: 'smooth' });
+  } catch (error) {
+    // Cross-window access may fail outside the admin console; the modal still works locally.
+  }
+}
+
+function updateXlsxImportOverlay({ kicker = 'Upload Database', title, message, progress, summary, mode = '', canClose = false, canConfirm = false }) {
   if (!xlsxImportOverlay) {
     return;
   }
@@ -843,8 +956,10 @@ function updateXlsxImportOverlay({ kicker = 'Update XLSX Shopee', title, message
   xlsxImportSummary.textContent = summary;
   xlsxImportOverlay.classList.toggle('is-error', mode === 'error');
   xlsxImportOverlay.classList.toggle('is-success', mode === 'success');
+  xlsxImportOverlay.classList.toggle('is-preview', mode === 'preview');
   xlsxImportOverlay.classList.toggle('is-finished', mode === 'success');
   xlsxImportCloseBtn.classList.toggle('is-hidden', !canClose);
+  importPreviewActions?.classList.toggle('is-hidden', !canConfirm);
 }
 
 function hideXlsxImportOverlay() {
@@ -854,7 +969,9 @@ function hideXlsxImportOverlay() {
 
   window.clearTimeout(xlsxImportHideTimerId);
   xlsxImportOverlay.classList.add('is-hidden');
-  xlsxImportOverlay.classList.remove('is-error', 'is-success', 'is-finished');
+  xlsxImportOverlay.classList.remove('is-error', 'is-success', 'is-preview', 'is-finished');
+  importPreview?.classList.add('is-hidden');
+  importPreviewActions?.classList.add('is-hidden');
 }
 
 function guardDatabaseMutation(message = 'Tunggu update XLSX selesai, database sedang dikunci sementara.') {
@@ -1118,6 +1235,7 @@ async function replaceRecordsFromApi(options = {}) {
 
   records = sortRecords(normalizeRecordList(apiRecords));
   registerProductsFromRecords(records);
+  renderStockAccountOptions();
   saveRecords();
   renderRecords();
   return records;
@@ -1506,6 +1624,7 @@ function getRecordsCsv(recordList) {
   const header = [
     'Nama/User',
     'Target',
+    'Stok',
     'Sumber Order',
     'WhatsApp',
     'No Pesanan',
@@ -1520,6 +1639,7 @@ function getRecordsCsv(recordList) {
   const rows = recordList.map((record) => [
     record.customerName,
     record.activatedEmail,
+    record.stockAccount,
     orderSourceLabels[getRecordOrderSource(record)] || '',
     record.whatsappNumber,
     record.orderNumber,
@@ -1835,6 +1955,7 @@ function getFormRecord() {
     id: recordIdInput.value || createId(),
     customerName: customerNameInput.value.trim(),
     activatedEmail: activatedEmailInput.value.trim(),
+    stockAccount: stockAccountInput?.value.trim() || '',
     whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
     orderNumber: orderSource === 'shopee' ? orderReference : '',
     orderSource,
@@ -1855,6 +1976,7 @@ function fillForm(record) {
   recordIdInput.value = record.id;
   customerNameInput.value = record.customerName || '';
   activatedEmailInput.value = record.activatedEmail || '';
+  if (stockAccountInput) stockAccountInput.value = record.stockAccount || '';
   whatsappNumberInput.value = record.whatsappNumber || '';
   orderNumberInput.value = record.orderNumber || '';
   updateOrderReferenceField(getRecordOrderSource(record), getOrderReferenceValue(record) || '');
@@ -1890,6 +2012,10 @@ function renderInlineEditForm(record, status) {
       <label class="field-group">
         <span data-inline-activation-label>${escapeHtml(activationConfig.label)}</span>
         <input data-edit-field="activatedEmail" type="${escapeHtml(activationConfig.type)}" inputmode="${escapeHtml(activationConfig.inputMode)}" placeholder="${escapeHtml(activationConfig.placeholder)}" value="${escapeHtml(record.activatedEmail || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Stok</span>
+        <input data-edit-field="stockAccount" type="text" list="stockAccountList" placeholder="Pilih akun stok" value="${escapeHtml(record.stockAccount || '')}" />
       </label>
       <label class="field-group">
         <span>Channel</span>
@@ -2019,6 +2145,7 @@ function getInlineEditRecord(recordCard, previousRecord) {
     id: previousRecord.id,
     customerName: getInlineEditField(editor, 'customerName')?.value.trim() || '',
     activatedEmail: getInlineEditField(editor, 'activatedEmail')?.value.trim() || '',
+    stockAccount: getInlineEditField(editor, 'stockAccount')?.value.trim() || '',
     whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
     orderNumber: orderSource === 'shopee' ? orderReference : '',
     orderSource,
@@ -2060,6 +2187,7 @@ async function saveInlineEdit(recordCard, previousRecord) {
     await pushRecordToApi(nextRecord);
     addRegisteredProduct(nextRecord.productName);
     records = sortRecords(records.map((record) => record.id === nextRecord.id ? nextRecord : record));
+    renderStockAccountOptions();
     editingRecordId = '';
     saveRecords();
     renderRecords();
@@ -2205,6 +2333,7 @@ async function submitRecord(event) {
 
   addRegisteredProduct(nextRecord.productName);
   records = sortRecords(records);
+  renderStockAccountOptions();
   saveRecords();
   renderRecords();
   resetForm();
@@ -2224,6 +2353,7 @@ function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
     const haystack = normalizeSearch([
       record.customerName,
       record.activatedEmail,
+      record.stockAccount,
       record.whatsappNumber,
       record.orderNumber,
       record.productName,
@@ -2338,7 +2468,8 @@ function renderRecords() {
           <div><span>Expire</span>${escapeHtml(formatDate(record.expiryDate))}</div>
           <div><span>Mulai</span>${escapeHtml(formatDate(record.startDate))}</div>
           <div><span>Durasi</span>${escapeHtml(getDurationLabel(record.durationDays))}</div>
-	          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
+		          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
+          <div><span>Stok</span>${escapeHtml(record.stockAccount || '-')}</div>
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
           <div><span>Last Update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
           ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
@@ -2499,7 +2630,7 @@ function normalizeStoredProductName(productText) {
 }
 
 function isActivationEmailRequired(record) {
-  return !isSharedActivationEmailProduct(record);
+  return true;
 }
 
 function isSharedActivationEmailProduct(record) {
@@ -2916,6 +3047,7 @@ function buildShopeeRecord(row, existingRecord = {}) {
     id: existingRecord.id || createId(),
     customerName: username || existingRecord.customerName || receiverName,
     activatedEmail: existingRecord.activatedEmail || '',
+    stockAccount: existingRecord.stockAccount || '',
     whatsappNumber: phone || existingRecord.whatsappNumber || '',
     orderNumber: orderNumber || existingRecord.orderNumber || '',
     orderSource: 'shopee',
@@ -2935,6 +3067,7 @@ function buildShopeeRecord(row, existingRecord = {}) {
 const shopeeImportCompareFields = [
   'customerName',
   'activatedEmail',
+  'stockAccount',
   'whatsappNumber',
   'orderNumber',
   'orderSource',
@@ -3038,13 +3171,241 @@ async function pushXlsxBatchWithFallback(batch, options = {}) {
   }
 }
 
-async function importShopeeXlsx(file) {
+function getImportSummaryText(job) {
+  if (!job) {
+    return '';
+  }
+
+  const parts = [
+    `${job.updatedCount || 0} Update`,
+    `${job.createdCount || 0} Baru`
+  ];
+
+  if (job.unchangedRows) {
+    parts.push(`${job.unchangedRows} Sama Dilewati`);
+  }
+
+  if (job.skippedDuplicates) {
+    parts.push(`${job.skippedDuplicates} Ganda Dilewati`);
+  }
+
+  if (job.incompleteRows) {
+    parts.push(`${job.incompleteRows} Tidak Lengkap`);
+  }
+
+  if (job.canceledRows) {
+    parts.push(`${job.canceledRows} Batal Dilewati`);
+  }
+
+  if (job.skippedRows) {
+    parts.push(`${job.skippedRows} Tanpa Nomor Dilewati`);
+  }
+
+  if (job.invalidRows) {
+    parts.push(`${job.invalidRows} Tidak Valid`);
+  }
+
+  return `${parts.join(', ')}.`;
+}
+
+function getImportPreviewLabel(record, job) {
+  if (!record || !job) {
+    return 'Preview';
+  }
+
+  if (isRecordIncomplete(record)) {
+    return statusLabels.incomplete;
+  }
+
+  const idKey = String(record.id || '');
+  const orderKey = normalizeUniqueOrderNumber(record.orderNumber);
+
+  if (job.createdIds?.has(idKey) || (orderKey && job.createdOrderNumbers?.has(orderKey))) {
+    return 'Baru';
+  }
+
+  if (job.updatedIds?.has(idKey) || (orderKey && job.updatedOrderNumbers?.has(orderKey))) {
+    return 'Update';
+  }
+
+  return 'Cek';
+}
+
+function renderImportPreview(job) {
+  if (!importPreview || !importPreviewStats || !importPreviewRows || !importPreviewConfirmBtn) {
+    return;
+  }
+
+  const previewRows = job.uploadRecords.slice(0, 8);
+  const summaryItems = [
+    ['Akan Diupload', job.uploadRecords.length],
+    ['Baru', job.createdCount || 0],
+    ['Update', job.updatedCount || 0],
+    ['Tidak Lengkap', job.incompleteRows || 0],
+    ['Dilewati', (job.unchangedRows || 0) + (job.skippedRows || 0) + (job.canceledRows || 0) + (job.skippedDuplicates || 0)]
+  ];
+
+  importPreviewStats.innerHTML = summaryItems.map(([label, value]) => `
+    <span><strong>${escapeHtml(value)}</strong>${escapeHtml(label)}</span>
+  `).join('');
+
+  importPreviewRows.innerHTML = previewRows.length
+    ? previewRows.map((record) => `
+      <tr>
+        <td>${escapeHtml(record.customerName || '-')}</td>
+        <td>${escapeHtml(record.productName || '-')}</td>
+        <td>${escapeHtml(record.orderNumber || '-')}</td>
+        <td><span>${escapeHtml(getImportPreviewLabel(record, job))}</span></td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="4">Tidak ada data baru atau update dari file ini.</td></tr>';
+
+  importPreviewConfirmBtn.disabled = !job.uploadRecords.length;
+  importPreview.classList.remove('is-hidden');
+}
+
+function buildShopeeImportPlan(rows, baseRecords, file) {
+  const stagedRecords = [...baseRecords];
+  const changedRecords = [];
+  const createdOrderNumbers = new Set();
+  const updatedOrderNumbers = new Set();
+  let createdCount = 0;
+  let updatedCount = 0;
+  let incompleteRows = 0;
+  let skippedRows = 0;
+  let canceledRows = 0;
+  let unchangedRows = 0;
+
+  rows.forEach((row) => {
+    if (isShopeeCanceledRow(row)) {
+      canceledRows += 1;
+      return;
+    }
+
+    const orderNumber = getShopeeCell(row, ['No. Pesanan', 'Nomor Pesanan', 'Order ID']);
+    const normalizedOrder = normalizeUniqueOrderNumber(orderNumber);
+
+    if (!normalizedOrder) {
+      skippedRows += 1;
+      return;
+    }
+
+    const existingIndex = stagedRecords.findIndex((record) => normalizeUniqueOrderNumber(record.orderNumber) === normalizedOrder);
+    const existingRecord = existingIndex >= 0 ? stagedRecords[existingIndex] : {};
+    const nextRecord = buildShopeeRecord(row, existingRecord);
+
+    if (isRecordIncomplete(nextRecord)) {
+      incompleteRows += 1;
+    }
+
+    if (existingIndex >= 0) {
+      if (hasShopeeRecordChanged(existingRecord, nextRecord)) {
+        stagedRecords[existingIndex] = nextRecord;
+        updatedCount += 1;
+        updatedOrderNumbers.add(normalizedOrder);
+        changedRecords.push(nextRecord);
+      } else {
+        unchangedRows += 1;
+      }
+    } else {
+      stagedRecords.push(nextRecord);
+      createdCount += 1;
+      createdOrderNumbers.add(normalizedOrder);
+      changedRecords.push(nextRecord);
+    }
+  });
+
+  const uploadRecords = uniqueRecordsById(changedRecords);
+
+  return {
+    type: 'xlsx',
+    kicker: 'Preview XLSX Shopee',
+    fileName: file?.name || 'File XLSX',
+    rowCount: rows.length,
+    stagedRecords,
+    uploadRecords,
+    createdCount,
+    updatedCount,
+    incompleteRows,
+    skippedRows,
+    canceledRows,
+    unchangedRows,
+    createdOrderNumbers,
+    updatedOrderNumbers
+  };
+}
+
+function buildJsonImportPlan(importedRecords, baseRecords, file) {
+  const stagedRecords = [...baseRecords];
+  const changedRecords = [];
+  const createdIds = new Set();
+  const updatedIds = new Set();
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedDuplicates = 0;
+  let invalidRows = 0;
+
+  importedRecords.forEach((record) => {
+    const normalizedRecord = normalizeStoredRecord({
+      ...record,
+      id: record.id || createId(),
+      orderSource: record.orderSource || getRecordOrderSource(record),
+      updatedAt: record.updatedAt || new Date().toISOString(),
+      createdAt: record.createdAt || new Date().toISOString()
+    });
+
+    if (!normalizedRecord) {
+      invalidRows += 1;
+      return;
+    }
+
+    const duplicateRecord = findDuplicateRecord(normalizedRecord, stagedRecords);
+
+    if (duplicateRecord) {
+      skippedDuplicates += 1;
+      return;
+    }
+
+    const existingIndex = stagedRecords.findIndex((item) => item.id === normalizedRecord.id);
+
+    if (existingIndex >= 0) {
+      stagedRecords[existingIndex] = { ...stagedRecords[existingIndex], ...normalizedRecord };
+      updatedIds.add(normalizedRecord.id);
+      updatedCount += 1;
+      changedRecords.push(stagedRecords[existingIndex]);
+    } else {
+      stagedRecords.push(normalizedRecord);
+      createdIds.add(normalizedRecord.id);
+      createdCount += 1;
+      changedRecords.push(normalizedRecord);
+    }
+  });
+
+  const uploadRecords = uniqueRecordsById(changedRecords);
+
+  return {
+    type: 'json',
+    kicker: 'Preview JSON',
+    fileName: file?.name || 'File JSON',
+    rowCount: importedRecords.length,
+    stagedRecords,
+    uploadRecords,
+    createdCount,
+    updatedCount,
+    skippedDuplicates,
+    invalidRows,
+    createdIds,
+    updatedIds
+  };
+}
+
+async function prepareImportPreview(file) {
   if (!file) {
     return;
   }
 
   if (isImportingShopeeXlsx) {
-    ocrStatus.textContent = 'Update XLSX masih berjalan. Tunggu sampai selesai.';
+    ocrStatus.textContent = 'Import file masih terbuka. Selesaikan atau batalkan dulu.';
     return;
   }
 
@@ -3052,99 +3413,123 @@ async function importShopeeXlsx(file) {
     return;
   }
 
-  if (!window.XLSX) {
-    ocrStatus.textContent = 'Reader XLSX belum tersedia. Cek koneksi CDN SheetJS.';
-    return;
-  }
-
   isImportingShopeeXlsx = true;
-  beginRecordsMutation();
-  setDatabaseLock(true);
+  pendingImportJob = null;
   showXlsxImportOverlay();
   updateXlsxImportOverlay({
-    title: 'Membaca File XLSX',
-    message: 'Database dikunci sementara. Jangan tutup halaman sampai proses selesai.',
-    progress: 5,
-    summary: file.name || 'File Shopee'
+    title: 'Membaca File',
+    message: 'File dibaca dulu untuk preview. Database belum berubah.',
+    progress: 8,
+    summary: file.name || 'File'
   });
 
   try {
-    ocrStatus.textContent = 'Membaca File Shopee XLSX...';
+    const fileName = String(file.name || '').toLowerCase();
+    let importJob;
 
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
-    updateXlsxImportOverlay({
-      title: 'Mengambil Data Pusat',
-      message: 'Menyamakan data terbaru dari Cloudflare D1 sebelum import.',
-      progress: 18,
-      summary: `${rows.length} Baris XLSX Terbaca`
-    });
-    await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
+    if (fileName.endsWith('.json') || file.type === 'application/json') {
+      const importedRecords = JSON.parse(await file.text());
 
-    const stagedRecords = [...records];
-    const changedRecords = [];
-    let createdCount = 0;
-    let updatedCount = 0;
-    let incompleteRows = 0;
-    let skippedRows = 0;
-    let canceledRows = 0;
-    let unchangedRows = 0;
-
-    rows.forEach((row) => {
-      if (isShopeeCanceledRow(row)) {
-        canceledRows += 1;
-        return;
+      if (!Array.isArray(importedRecords)) {
+        throw new Error('Format JSON harus berupa daftar data customer.');
       }
 
-      const orderNumber = getShopeeCell(row, ['No. Pesanan', 'Nomor Pesanan', 'Order ID']);
-
-      if (!orderNumber) {
-        skippedRows += 1;
-        return;
-      }
-
-      const existingIndex = stagedRecords.findIndex((record) => normalizeUniqueOrderNumber(record.orderNumber) === normalizeUniqueOrderNumber(orderNumber));
-      const existingRecord = existingIndex >= 0 ? stagedRecords[existingIndex] : {};
-      const nextRecord = buildShopeeRecord(row, existingRecord);
-
-      if (isRecordIncomplete(nextRecord)) {
-        incompleteRows += 1;
-      }
-
-      if (existingIndex >= 0) {
-        if (hasShopeeRecordChanged(existingRecord, nextRecord)) {
-          stagedRecords[existingIndex] = nextRecord;
-          updatedCount += 1;
-          changedRecords.push(nextRecord);
-        } else {
-          unchangedRows += 1;
-        }
-      } else {
-        stagedRecords.push(nextRecord);
-        createdCount += 1;
-        changedRecords.push(nextRecord);
-      }
-    });
-
-    const uploadRecords = uniqueRecordsById(changedRecords);
-    const importSummary = `${updatedCount} Update, ${createdCount} Baru${unchangedRows ? `, ${unchangedRows} Sama Dilewati` : ''}, ${incompleteRows} Tidak Lengkap${canceledRows ? `, ${canceledRows} Batal Dilewati` : ''}${skippedRows ? `, ${skippedRows} Tanpa Nomor Dilewati` : ''}.`;
-
-    if (uploadRecords.length) {
       updateXlsxImportOverlay({
-        title: 'Mengirim Update Ke Web',
-        message: 'Data besar dikirim lewat jalur bulk import. Edit, hapus, dan bulk action dikunci sementara.',
-        progress: 35,
-        summary: `0/${uploadRecords.length} Data Dikirim`
+        kicker: 'Preview JSON',
+        title: 'Membandingkan Data',
+        message: 'Mengambil data web terbaru untuk mengecek data baru dan update.',
+        progress: 32,
+        summary: `${importedRecords.length} Data Terbaca`
       });
+      const baseRecords = normalizeRecordList(await fetchApiRecords({ timeoutMs: xlsxApiTimeoutMs }));
+      importJob = buildJsonImportPlan(importedRecords, baseRecords, file);
+    } else if (
+      fileName.endsWith('.xlsx')
+      || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ) {
+      if (!window.XLSX) {
+        throw new Error('Reader XLSX belum tersedia. Cek koneksi CDN SheetJS.');
+      }
 
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+      updateXlsxImportOverlay({
+        kicker: 'Preview XLSX Shopee',
+        title: 'Membandingkan Data',
+        message: 'Mengambil data web terbaru untuk mengecek order baru dan update.',
+        progress: 32,
+        summary: `${rows.length} Baris Terbaca`
+      });
+      const baseRecords = normalizeRecordList(await fetchApiRecords({ timeoutMs: xlsxApiTimeoutMs }));
+      importJob = buildShopeeImportPlan(rows, baseRecords, file);
+    } else {
+      throw new Error('Format file belum didukung. Gunakan JSON atau XLSX Shopee.');
+    }
+
+    pendingImportJob = importJob;
+    const summaryText = getImportSummaryText(importJob);
+    renderImportPreview(importJob);
+    updateXlsxImportOverlay({
+      kicker: importJob.kicker,
+      title: 'Preview Siap',
+      message: 'Cek ringkasan dan contoh data. Klik Upload kalau sudah sesuai.',
+      progress: 100,
+      summary: `${importJob.fileName} - ${summaryText}`,
+      mode: 'preview',
+      canConfirm: true
+    });
+    ocrStatus.textContent = `Preview siap. ${summaryText}`;
+  } catch (error) {
+    pendingImportJob = null;
+    isImportingShopeeXlsx = false;
+    const errorMessage = getFriendlyErrorMessage(error);
+    ocrStatus.textContent = `Import file gagal: ${errorMessage}`;
+    setSyncStatus('Gagal Baca File', 'warning');
+    syncStatus.title = errorMessage;
+    updateXlsxImportOverlay({
+      title: 'File Tidak Bisa Dibaca',
+      message: 'Periksa format file, lalu coba upload lagi.',
+      progress: 100,
+      summary: errorMessage,
+      mode: 'error',
+      canClose: true
+    });
+    if (importDataFileInput) {
+      importDataFileInput.value = '';
+    }
+  }
+}
+
+async function executePendingImportJob() {
+  const job = pendingImportJob;
+
+  if (!job) {
+    return;
+  }
+
+  importPreviewConfirmBtn.disabled = true;
+  importPreviewCancelBtn.disabled = true;
+  beginRecordsMutation();
+  setDatabaseLock(true);
+  updateXlsxImportOverlay({
+    kicker: job.type === 'xlsx' ? 'Upload XLSX Shopee' : 'Upload JSON',
+    title: 'Mengirim Ke Database',
+    message: 'Data sedang dikirim ke Cloudflare D1. Jangan tutup halaman dulu.',
+    progress: job.uploadRecords.length ? 28 : 90,
+    summary: `0/${job.uploadRecords.length} Data Dikirim`
+  });
+
+  try {
+    if (job.uploadRecords.length) {
       try {
-        await pushRecordsToBulkImportInChunks(uploadRecords, (sent, total) => {
+        await pushRecordsToBulkImportInChunks(job.uploadRecords, (sent, total) => {
           updateXlsxImportOverlay({
-            title: 'Mengirim Update Ke Web',
-            message: 'Data besar dikirim lewat jalur bulk import. Edit, hapus, dan bulk action dikunci sementara.',
-            progress: 35 + ((sent / total) * 55),
+            kicker: job.type === 'xlsx' ? 'Upload XLSX Shopee' : 'Upload JSON',
+            title: 'Mengirim Ke Database',
+            message: 'Data dikirim bertahap agar stabil untuk file besar.',
+            progress: 28 + ((sent / total) * 60),
             summary: `${sent}/${total} Data Dikirim`
           });
         });
@@ -3153,48 +3538,45 @@ async function importShopeeXlsx(file) {
           throw error;
         }
 
-        updateXlsxImportOverlay({
-          title: 'Mode Kompatibilitas',
-          message: 'Endpoint bulk import belum aktif. Data dikirim dengan mode lama yang lebih pelan.',
-          progress: 35,
-          summary: `0/${uploadRecords.length} Data Dikirim`
-        });
-        await pushRecordsToApiInBatches(uploadRecords, (sent, total) => {
+        await pushRecordsToApiInBatches(job.uploadRecords, (sent, total) => {
           updateXlsxImportOverlay({
-            title: 'Mode Kompatibilitas',
-            message: 'Endpoint bulk import belum aktif. Data dikirim dengan mode lama yang lebih pelan.',
-            progress: 35 + ((sent / total) * 55),
+            kicker: job.type === 'xlsx' ? 'Upload XLSX Shopee' : 'Upload JSON',
+            title: 'Mengirim Ke Database',
+            message: 'Mode kompatibilitas aktif. Data tetap dikirim bertahap.',
+            progress: 28 + ((sent / total) * 60),
             summary: `${sent}/${total} Data Dikirim`
           });
         }, { timeoutMs: xlsxApiTimeoutMs });
       }
     }
 
-	    updateXlsxImportOverlay({
-	      title: 'Final Sync',
-	      message: 'Memastikan tampilan memakai data terakhir dari database pusat.',
-	      progress: 94,
-	      summary: importSummary
-	    });
-	    records = sortRecords(stagedRecords);
-	    registerProductsFromRecords(records);
-	    saveRecords();
+    const importSummary = getImportSummaryText(job);
+    updateXlsxImportOverlay({
+      title: 'Final Sync',
+      message: 'Memastikan tampilan memakai data terakhir dari database.',
+      progress: 94,
+      summary: importSummary
+    });
+    records = sortRecords(job.stagedRecords);
+    registerProductsFromRecords(records);
+    renderStockAccountOptions();
+    saveRecords();
     renderRecords();
     let finalSyncMessage = '';
 
     try {
       await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
     } catch (finalSyncError) {
-      finalSyncMessage = ' Final sync dilewati karena koneksi lambat; data upload tetap sudah selesai.';
+      finalSyncMessage = ' Final sync dilewati karena koneksi lambat; upload tetap selesai.';
       syncStatus.title = finalSyncError.message;
     }
 
-    ocrStatus.textContent = `XLSX Shopee diproses. ${importSummary}${finalSyncMessage}`;
-    setSyncStatus(`Update XLSX Selesai (${records.length})`, finalSyncMessage ? 'warning' : 'success');
-    syncStatus.title = finalSyncMessage || 'Import XLSX selesai. Tidak ada proses update XLSX yang berjalan di latar belakang.';
+    ocrStatus.textContent = `Upload file selesai. ${importSummary}${finalSyncMessage}`;
+    setSyncStatus(`Upload Selesai (${records.length})`, finalSyncMessage ? 'warning' : 'success');
+    syncStatus.title = finalSyncMessage || 'Import selesai. Database sudah memakai data terbaru.';
     updateXlsxImportOverlay({
-      title: 'Update Selesai',
-      message: finalSyncMessage || 'Database sudah bisa diedit lagi. File XLSX tidak akan diproses ulang otomatis.',
+      title: 'Upload Selesai',
+      message: finalSyncMessage || 'Database sudah bisa diedit lagi.',
       progress: 100,
       summary: `${importSummary}${finalSyncMessage}`,
       mode: 'success'
@@ -3202,25 +3584,46 @@ async function importShopeeXlsx(file) {
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1100);
   } catch (error) {
     const errorMessage = getFriendlyErrorMessage(error);
-    ocrStatus.textContent = `Import XLSX Shopee gagal: ${errorMessage}`;
-    setSyncStatus('Gagal Import Web', 'warning');
+    ocrStatus.textContent = `Upload file gagal: ${errorMessage}`;
+    setSyncStatus('Gagal Upload File', 'warning');
     syncStatus.title = errorMessage;
     updateXlsxImportOverlay({
-      title: 'Update Gagal',
-      message: 'Proses sudah dihentikan. Klik Tutup sebelum mencoba import ulang.',
+      title: 'Upload Gagal',
+      message: 'Data belum selesai dikirim. Tutup pesan ini lalu coba lagi.',
       progress: 100,
       summary: errorMessage,
       mode: 'error',
       canClose: true
     });
   } finally {
+    pendingImportJob = null;
     isImportingShopeeXlsx = false;
     endRecordsMutation();
     setDatabaseLock(false);
+    if (importPreviewConfirmBtn) {
+      importPreviewConfirmBtn.disabled = false;
+    }
+    if (importPreviewCancelBtn) {
+      importPreviewCancelBtn.disabled = false;
+    }
     if (importDataFileInput) {
       importDataFileInput.value = '';
     }
   }
+}
+
+function cancelImportPreview() {
+  pendingImportJob = null;
+  isImportingShopeeXlsx = false;
+  hideXlsxImportOverlay();
+  ocrStatus.textContent = 'Upload file dibatalkan. Database belum berubah.';
+  if (importDataFileInput) {
+    importDataFileInput.value = '';
+  }
+}
+
+function importShopeeXlsx(file) {
+  prepareImportPreview(file);
 }
 
 function downloadFile(filename, content, type) {
@@ -3248,88 +3651,7 @@ function exportJson() {
 }
 
 function importJson(file) {
-  if (!file) {
-    return;
-  }
-
-  if (guardDatabaseMutation()) {
-    if (importDataFileInput) {
-      importDataFileInput.value = '';
-    }
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = async () => {
-    try {
-      const importedRecords = JSON.parse(reader.result);
-
-      if (!Array.isArray(importedRecords)) {
-        throw new Error('Invalid JSON');
-      }
-
-      await replaceRecordsFromApi();
-
-      const stagedRecords = [...records];
-      const changedRecords = [];
-      let skippedDuplicates = 0;
-
-      importedRecords.forEach((record) => {
-        const normalizedRecord = normalizeStoredRecord({
-          ...record,
-          id: record.id || createId(),
-          orderSource: record.orderSource || getRecordOrderSource(record),
-          updatedAt: record.updatedAt || new Date().toISOString(),
-          createdAt: record.createdAt || new Date().toISOString()
-        });
-
-        if (!normalizedRecord) {
-          return;
-        }
-
-        const duplicateRecord = findDuplicateRecord(normalizedRecord, stagedRecords);
-
-        if (duplicateRecord) {
-          skippedDuplicates += 1;
-          return;
-        }
-
-        const existingIndex = stagedRecords.findIndex((item) => item.id === normalizedRecord.id);
-
-        if (existingIndex >= 0) {
-          stagedRecords[existingIndex] = { ...stagedRecords[existingIndex], ...normalizedRecord };
-          changedRecords.push(stagedRecords[existingIndex]);
-        } else {
-          stagedRecords.push(normalizedRecord);
-          changedRecords.push(normalizedRecord);
-        }
-      });
-
-      if (changedRecords.length) {
-        beginRecordsMutation();
-        await pushRecordsToApi(changedRecords);
-      }
-
-	      records = sortRecords(stagedRecords);
-	      registerProductsFromRecords(records);
-	      saveRecords();
-      renderRecords();
-      syncRecordsWithApi({ silent: true });
-      ocrStatus.textContent = skippedDuplicates ? `Import JSON berhasil. ${skippedDuplicates} data duplikat dilewati.` : 'Import JSON berhasil.';
-    } catch (error) {
-      ocrStatus.textContent = `Import JSON gagal: ${error.message}`;
-      setSyncStatus('Gagal Import Web', 'warning');
-      syncStatus.title = error.message;
-    } finally {
-      endRecordsMutation();
-      if (importDataFileInput) {
-        importDataFileInput.value = '';
-      }
-    }
-  };
-
-  reader.readAsText(file);
+  prepareImportPreview(file);
 }
 
 function toggleExportMenu(forceOpen) {
@@ -3453,6 +3775,8 @@ bulkApplyStatusBtn.addEventListener('click', bulkApplyStatus);
 bulkExportCsvBtn.addEventListener('click', exportSelectedCsv);
 bulkDeleteBtn.addEventListener('click', bulkDeleteSelected);
 clearSelectionBtn.addEventListener('click', clearSelection);
+importPreviewConfirmBtn?.addEventListener('click', executePendingImportJob);
+importPreviewCancelBtn?.addEventListener('click', cancelImportPreview);
 xlsxImportCloseBtn.addEventListener('click', hideXlsxImportOverlay);
 window.addEventListener('focus', autoRefreshRecords);
 document.addEventListener('visibilitychange', autoRefreshRecords);
@@ -3656,8 +3980,10 @@ updateOrderReferenceField('shopee', '');
 syncPackagePreset();
 updateActivationFieldMode('');
 registerProductsFromRecords(records);
+renderStockAccountOptions();
 renderRecords();
 setCustomerWorkspaceMode('input');
 setSyncStatus(localStorageWarning || (records.length ? 'Cache Lokal' : 'Menghubungkan Web'), localStorageWarning || records.length ? 'warning' : '');
+syncStockAccountOptions();
 syncRecordsWithApi();
 startAutoRefresh();

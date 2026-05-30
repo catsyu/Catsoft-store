@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS customer_records (
   id TEXT PRIMARY KEY,
   customer_name TEXT,
   activated_email TEXT,
+  stock_account TEXT,
   whatsapp_number TEXT,
   order_number TEXT,
   order_source TEXT NOT NULL DEFAULT 'shopee',
@@ -104,9 +105,43 @@ CREATE INDEX IF NOT EXISTS idx_customer_records_activated_email
   ON customer_records (LOWER(activated_email))
   WHERE activated_email IS NOT NULL AND activated_email != '';
 
+CREATE INDEX IF NOT EXISTS idx_customer_records_product_target
+  ON customer_records (LOWER(product_name), LOWER(activated_email));
+
+CREATE INDEX IF NOT EXISTS idx_customer_records_stock_account
+  ON customer_records (LOWER(stock_account))
+  WHERE stock_account IS NOT NULL AND stock_account != '';
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
   ON customer_records (LOWER(order_number))
   WHERE order_number IS NOT NULL AND order_number != '';
+
+CREATE TABLE IF NOT EXISTS product_stock_accounts (
+  id TEXT PRIMARY KEY,
+  product_name TEXT NOT NULL,
+  account_name TEXT NOT NULL,
+  account_target TEXT,
+  login_username TEXT,
+  login_password TEXT,
+  capacity INTEGER NOT NULL DEFAULT 7,
+  status TEXT NOT NULL DEFAULT 'active',
+  reset_at TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_product
+  ON product_stock_accounts (LOWER(product_name));
+
+CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_target
+  ON product_stock_accounts (LOWER(account_target));
+
+CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_status
+  ON product_stock_accounts (status);
+
+CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_reset_at
+  ON product_stock_accounts (reset_at);
 
 CREATE TABLE IF NOT EXISTS customer_accounts (
   username TEXT PRIMARY KEY,

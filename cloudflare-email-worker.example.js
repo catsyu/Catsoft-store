@@ -9,6 +9,7 @@ const customerImportBatchSize = 25;
 const customerImportLookupSize = 50;
 const customerBulkMutationSize = 100;
 const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
+const productStockStatusValues = new Set(['active', 'full', 'reset', 'paused']);
 
 const categoryRules = [
   {
@@ -172,12 +173,25 @@ export default {
       return customerRecordsHealthCheck(request, env);
     }
 
+    if (url.pathname === '/api/product-stock' && request.method === 'GET') {
+      return listProductStockAccounts(request, env);
+    }
+
+    if (url.pathname === '/api/product-stock' && request.method === 'POST') {
+      return saveProductStockAccounts(request, env);
+    }
+
+    if (url.pathname === '/api/product-stock/health' && request.method === 'GET') {
+      return productStockHealthCheck(request, env);
+    }
+
     if (url.pathname === '/api/office-confirmation' && request.method === 'POST') {
       return generateOfficeConfirmation(request, env);
     }
 
     const internalChatDetailMatch = url.pathname.match(/^\/api\/internal-chat\/messages\/([^/]+)$/);
     const customerDetailMatch = url.pathname.match(/^\/api\/customer-records\/([^/]+)$/);
+    const productStockDetailMatch = url.pathname.match(/^\/api\/product-stock\/([^/]+)$/);
     const detailMatch = url.pathname.match(/^\/api\/email-messages\/([^/]+)$/);
 
     if (internalChatDetailMatch && request.method === 'DELETE') {
@@ -190,6 +204,10 @@ export default {
 
     if (customerDetailMatch && request.method === 'DELETE') {
       return deleteCustomerRecord(request, env, customerDetailMatch[1]);
+    }
+
+    if (productStockDetailMatch && request.method === 'DELETE') {
+      return deleteProductStockAccount(request, env, productStockDetailMatch[1]);
     }
 
     if (detailMatch && request.method === 'GET') {
@@ -241,6 +259,7 @@ const adminHostRouteFallbacks = new Map([
   ['/office', '/admin-tools.html'],
   ['/marketing', '/admin-tools.html'],
   ['/content', '/admin-tools.html'],
+  ['/stock', '/admin-tools.html'],
   ['/tool/customer-database', '/customer-database.html'],
   ['/tool/customer-access', '/customer-access.html'],
   ['/tool/refund-calculator', '/refund-calculator.html'],
@@ -248,7 +267,8 @@ const adminHostRouteFallbacks = new Map([
   ['/tool/email-inbox', '/email-inbox.html'],
   ['/tool/internal-chat', '/internal-chat.html'],
   ['/tool/marketing-calculator', '/marketing-calculator.html'],
-  ['/tool/content-editor', '/content-editor.html']
+  ['/tool/content-editor', '/content-editor.html'],
+  ['/tool/product-stock', '/product-stock.html']
 ]);
 
 const supplierHostRouteFallbacks = new Map([
@@ -363,7 +383,9 @@ async function withToolsStaticHeaders(response, toolsHost, pathname = '', source
     '/marketing-calculator',
     '/marketing-calculator.html',
     '/content-editor',
-    '/content-editor.html'
+    '/content-editor.html',
+    '/product-stock',
+    '/product-stock.html'
   ]);
   const normalizedPathname = String(pathname || '').split('?')[0].replace(/\/+$/, '');
   const shouldInjectBaseHref = toolsHost
@@ -502,6 +524,7 @@ function getStaticContentType(pathname) {
     'internal-chat',
     'marketing-calculator',
     'content-editor',
+    'product-stock',
     'supplier-center',
     'supplier-email'
   ]);
@@ -1836,6 +1859,307 @@ async function saveToolSetting(request, env, toolId) {
   return json({ ok: true, toolId, settings, updatedAt }, 200, request);
 }
 
+async function ensureProductStockTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS product_stock_accounts (
+      id TEXT PRIMARY KEY,
+      product_name TEXT NOT NULL,
+      account_name TEXT NOT NULL,
+      account_target TEXT,
+      login_username TEXT,
+      login_password TEXT,
+      capacity INTEGER NOT NULL DEFAULT 7,
+      status TEXT NOT NULL DEFAULT 'active',
+      reset_at TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_product
+    ON product_stock_accounts (LOWER(product_name))
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_target
+    ON product_stock_accounts (LOWER(account_target))
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_status
+    ON product_stock_accounts (status)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_reset_at
+    ON product_stock_accounts (reset_at)
+  `).run();
+}
+
+function normalizeProductStockStatus(value) {
+  const status = cleanValue(value, 40).toLowerCase();
+  return productStockStatusValues.has(status) ? status : 'active';
+}
+
+function normalizeProductStockAccount(account) {
+  if (!account || typeof account !== 'object') {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const productName = normalizeCustomerProductName(account.productName ?? account.product_name);
+  const accountName = cleanValue(account.accountName ?? account.account_name, 240)
+    || (productName ? `${productName} sharing` : '');
+
+  return {
+    id: cleanValue(account.id, 120) || crypto.randomUUID(),
+    productName,
+    accountName,
+    accountTarget: cleanValue(account.accountTarget ?? account.account_target, 240),
+    loginUsername: cleanValue(account.loginUsername ?? account.login_username, 240),
+    loginPassword: cleanValue(account.loginPassword ?? account.login_password, 240),
+    capacity: clampNumber(account.capacity, 7, 1, 500),
+    status: normalizeProductStockStatus(account.status),
+    resetAt: cleanDate(account.resetAt ?? account.reset_at),
+    notes: cleanValue(account.notes, 2000),
+    createdAt: cleanValue(account.createdAt ?? account.created_at, 80) || now,
+    updatedAt: cleanValue(account.updatedAt ?? account.updated_at, 80) || now
+  };
+}
+
+function mapProductStockRow(row) {
+  return {
+    id: row.id,
+    productName: row.product_name || '',
+    accountName: row.account_name || '',
+    accountTarget: row.account_target || '',
+    loginUsername: row.login_username || '',
+    loginPassword: row.login_password || '',
+    capacity: row.capacity || 7,
+    status: row.status || 'active',
+    resetAt: row.reset_at || '',
+    notes: row.notes || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || row.created_at || ''
+  };
+}
+
+function isCustomerRecordExpired(record, today = new Date().toISOString().slice(0, 10)) {
+  return record.status === 'expired'
+    || Boolean(record.expiryDate && cleanDate(record.expiryDate) && cleanDate(record.expiryDate) < today);
+}
+
+async function getProductStockJoinedCustomers(customerDb, account) {
+  const productName = normalizeCustomerProductName(account.productName);
+  const stockKeys = uniqueValues([
+    account.id,
+    account.accountName,
+    account.loginUsername,
+    account.accountTarget
+  ].map(normalizeCustomerUniqueEmail).filter(Boolean));
+
+  if (!productName || !stockKeys.length) {
+    return [];
+  }
+
+  await ensureCustomerRecordsSchema(customerDb);
+  const placeholders = stockKeys.map(() => '?').join(', ');
+  const result = await customerDb.prepare(`
+    SELECT id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
+      order_source, product_name, duration_days, start_date, expiry_date,
+      status, notes, created_at, updated_at
+    FROM customer_records
+    WHERE LOWER(product_name) = ?
+      AND (
+        LOWER(COALESCE(stock_account, '')) IN (${placeholders})
+        OR (
+          (stock_account IS NULL OR TRIM(stock_account) = '')
+          AND LOWER(COALESCE(activated_email, '')) IN (${placeholders})
+        )
+      )
+      AND status NOT IN ('removed', 'refund')
+    ORDER BY
+      CASE WHEN expiry_date IS NULL OR expiry_date = '' THEN 1 ELSE 0 END,
+      expiry_date ASC,
+      updated_at DESC
+    LIMIT 120
+  `).bind(productName.toLowerCase(), ...stockKeys, ...stockKeys).all();
+
+  return (result.results || []).map(mapCustomerRecordRow);
+}
+
+async function hydrateProductStockAccount(customerDb, account) {
+  const joinedCustomers = await getProductStockJoinedCustomers(customerDb, account);
+  const today = new Date().toISOString().slice(0, 10);
+  const activeCustomers = joinedCustomers.filter((record) => record.status === 'active' && !isCustomerRecordExpired(record, today));
+  const expiredCustomers = joinedCustomers.filter((record) => isCustomerRecordExpired(record, today));
+  const problemCustomers = joinedCustomers.filter((record) => record.status === 'problem');
+
+  return {
+    ...account,
+    joinedTotal: joinedCustomers.length,
+    joinedActive: activeCustomers.length,
+    joinedExpired: expiredCustomers.length,
+    joinedProblem: problemCustomers.length,
+    openSlots: Math.max((Number(account.capacity) || 0) - activeCustomers.length, 0),
+    joinedCustomers: joinedCustomers.map((record) => ({
+      ...record,
+      isExpired: isCustomerRecordExpired(record, today)
+    }))
+  };
+}
+
+async function listProductStockAccounts(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureProductStockTable(customerDb);
+
+  const url = new URL(request.url);
+  const limit = clampNumber(url.searchParams.get('limit'), 80, 1, 300);
+  const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
+  const search = normalizeCustomerUniqueEmail(url.searchParams.get('q') || url.searchParams.get('search'));
+  const whereClause = search
+    ? `WHERE LOWER(product_name || ' ' || account_name || ' ' || COALESCE(account_target, '') || ' ' || COALESCE(login_username, '')) LIKE ?`
+    : '';
+  const bindings = search ? [`%${search}%`, limit, offset] : [limit, offset];
+  const result = await customerDb.prepare(`
+    SELECT id, product_name, account_name, account_target, login_username, login_password,
+      capacity, status, reset_at, notes, created_at, updated_at
+    FROM product_stock_accounts
+    ${whereClause}
+    ORDER BY updated_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(...bindings).all();
+
+  const accounts = [];
+  for (const row of result.results || []) {
+    accounts.push(await hydrateProductStockAccount(customerDb, mapProductStockRow(row)));
+  }
+
+  return json({ accounts }, 200, request);
+}
+
+async function productStockHealthCheck(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ ok: false, error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureProductStockTable(customerDb);
+  const row = await customerDb.prepare('SELECT COUNT(*) AS total FROM product_stock_accounts').first();
+
+  return json({
+    ok: true,
+    database: 'connected',
+    total: row ? row.total : 0
+  }, 200, request);
+}
+
+async function saveProductStockAccounts(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureProductStockTable(customerDb);
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const inputAccounts = Array.isArray(payload.accounts)
+    ? payload.accounts
+    : Array.isArray(payload)
+      ? payload
+      : [payload.account || payload];
+
+  const savedAccounts = [];
+  const deletedIds = [];
+
+  for (const rawAccount of inputAccounts) {
+    const id = cleanValue(rawAccount && rawAccount.id, 120);
+
+    if (rawAccount && rawAccount.deleted) {
+      if (id) {
+        await customerDb.prepare('DELETE FROM product_stock_accounts WHERE id = ?').bind(id).run();
+        deletedIds.push(id);
+      }
+      continue;
+    }
+
+    const account = normalizeProductStockAccount(rawAccount);
+
+    if (!account || !account.productName || !account.accountName) {
+      return json({ ok: false, error: 'Produk dan nama akun stok wajib diisi.' }, 400, request);
+    }
+
+    await customerDb.prepare(`
+      INSERT INTO product_stock_accounts (
+        id, product_name, account_name, account_target, login_username, login_password,
+        capacity, status, reset_at, notes, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        product_name = excluded.product_name,
+        account_name = excluded.account_name,
+        account_target = excluded.account_target,
+        login_username = excluded.login_username,
+        login_password = excluded.login_password,
+        capacity = excluded.capacity,
+        status = excluded.status,
+        reset_at = excluded.reset_at,
+        notes = excluded.notes,
+        updated_at = excluded.updated_at
+    `).bind(
+      account.id,
+      account.productName,
+      account.accountName,
+      account.accountTarget,
+      account.loginUsername,
+      account.loginPassword,
+      account.capacity,
+      account.status,
+      account.resetAt,
+      account.notes,
+      account.createdAt,
+      account.updatedAt
+    ).run();
+
+    savedAccounts.push(account);
+  }
+
+  return json({
+    ok: true,
+    saved: savedAccounts,
+    deletedIds
+  }, 200, request);
+}
+
+async function deleteProductStockAccount(request, env, id) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureProductStockTable(customerDb);
+  await customerDb.prepare('DELETE FROM product_stock_accounts WHERE id = ?').bind(cleanValue(id, 120)).run();
+
+  return json({ ok: true }, 200, request);
+}
+
 async function listCustomerRecords(request, env) {
   const customerDb = getCustomerDb(env);
 
@@ -1843,6 +2167,7 @@ async function listCustomerRecords(request, env) {
     return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
   }
 
+  await ensureCustomerRecordsSchema(customerDb);
   const url = new URL(request.url);
   const limit = clampNumber(url.searchParams.get('limit'), DEFAULT_LIMIT, 1, MAX_LIMIT);
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
@@ -1850,7 +2175,7 @@ async function listCustomerRecords(request, env) {
   const whereClause = customerFilter ? 'WHERE LOWER(customer_name) = ?' : '';
   const bindings = customerFilter ? [customerFilter, limit, offset] : [limit, offset];
   const result = await customerDb.prepare(`
-    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+    SELECT id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
       status, notes, created_at, updated_at
     FROM customer_records
@@ -1875,6 +2200,7 @@ async function customerRecordsHealthCheck(request, env) {
   }
 
   try {
+    await ensureCustomerRecordsSchema(customerDb);
     const row = await customerDb.prepare('SELECT COUNT(*) AS total FROM customer_records').first();
     const columns = await customerDb.prepare('PRAGMA table_info(customer_records)').all();
 
@@ -1910,6 +2236,8 @@ async function upsertCustomerRecords(request, env) {
   const inputRecords = Array.isArray(payload.records) ? payload.records : (Array.isArray(payload) ? payload : [payload]);
   const records = inputRecords.map(normalizeCustomerRecord).filter(Boolean);
   const batchConflict = findCustomerRecordBatchConflict(records);
+
+  await ensureCustomerRecordsSchema(customerDb);
 
   if (batchConflict) {
     return customerRecordConflictResponse(batchConflict, request);
@@ -1952,6 +2280,8 @@ async function bulkImportCustomerRecords(request, env) {
   const inputRecords = Array.isArray(payload.records) ? payload.records : (Array.isArray(payload) ? payload : []);
   const records = inputRecords.map(normalizeCustomerRecord).filter(Boolean);
   const batchConflict = findCustomerRecordBatchConflict(records);
+
+  await ensureCustomerRecordsSchema(customerDb);
 
   if (batchConflict) {
     return customerRecordConflictResponse(batchConflict, request);
@@ -2003,6 +2333,7 @@ async function bulkUpdateCustomerRecordStatus(request, env) {
     return json({ ok: false, error: 'Tidak ada data yang dipilih.' }, 400, request);
   }
 
+  await ensureCustomerRecordsSchema(customerDb);
   const updated = await updateCustomerRecordsStatusBatch(customerDb, ids, status, updatedAt);
 
   return json({
@@ -2037,6 +2368,7 @@ async function bulkDeleteCustomerRecords(request, env) {
     return json({ ok: false, error: 'Tidak ada data yang dipilih.' }, 400, request);
   }
 
+  await ensureCustomerRecordsSchema(customerDb);
   const deleted = await deleteCustomerRecordsBatch(customerDb, ids);
 
   return json({
@@ -2061,8 +2393,9 @@ async function patchCustomerRecord(request, env, id) {
     return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
   }
 
+  await ensureCustomerRecordsSchema(customerDb);
   const existingRow = await customerDb.prepare(`
-    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+    SELECT id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
       status, notes, created_at, updated_at
     FROM customer_records
@@ -2097,6 +2430,7 @@ async function deleteCustomerRecord(request, env, id) {
     return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
   }
 
+  await ensureCustomerRecordsSchema(customerDb);
   await customerDb.prepare('DELETE FROM customer_records WHERE id = ?').bind(id).run();
 
   return json({ ok: true }, 200, request);
@@ -2104,6 +2438,35 @@ async function deleteCustomerRecord(request, env, id) {
 
 function getCustomerDb(env) {
   return env.CUSTOMER_DB || env.EMAIL_DB;
+}
+
+async function ensureCustomerRecordsSchema(customerDb) {
+  await customerDb.prepare(`
+    CREATE TABLE IF NOT EXISTS customer_records (
+      id TEXT PRIMARY KEY,
+      customer_name TEXT,
+      activated_email TEXT,
+      stock_account TEXT,
+      whatsapp_number TEXT,
+      order_number TEXT,
+      order_source TEXT NOT NULL DEFAULT 'shopee',
+      product_name TEXT NOT NULL,
+      duration_days INTEGER NOT NULL DEFAULT 30,
+      start_date TEXT,
+      expiry_date TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await addColumnIfMissing(customerDb, 'customer_records', 'stock_account', 'TEXT');
+  await customerDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_records_stock_account
+    ON customer_records (LOWER(stock_account))
+    WHERE stock_account IS NOT NULL AND stock_account != ''
+  `).run();
 }
 
 function findCustomerRecordBatchConflict(records) {
@@ -2135,7 +2498,7 @@ async function findCustomerRecordConflict(customerDb, record) {
 
   if (orderNumber) {
     const orderRow = await customerDb.prepare(`
-    SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+    SELECT id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
       status, notes, created_at, updated_at
     FROM customer_records
@@ -2186,6 +2549,7 @@ async function mergeCustomerImportRecords(customerDb, records) {
       id: existingRecord.id || record.id,
       customerName: record.customerName || existingRecord.customerName,
       activatedEmail: record.activatedEmail || existingRecord.activatedEmail,
+      stockAccount: record.stockAccount || existingRecord.stockAccount,
       whatsappNumber: record.whatsappNumber || existingRecord.whatsappNumber,
       status: customerProtectedStatuses.has(existingRecord.status) ? existingRecord.status : record.status,
       notes: record.notes || existingRecord.notes,
@@ -2250,7 +2614,7 @@ async function findCustomerRecordBulkEmailConflict(customerDb, recordsByEmail) {
   for (const chunk of chunkArray(values, customerImportLookupSize)) {
     const placeholders = chunk.map(() => '?').join(', ');
     const result = await customerDb.prepare(`
-      SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+      SELECT id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
         order_source, product_name, duration_days, start_date, expiry_date,
         status, notes, created_at, updated_at
       FROM customer_records
@@ -2284,7 +2648,7 @@ async function getCustomerRecordsByOrderNumbers(customerDb, orderNumbers) {
   for (const chunk of chunkArray(orderNumbers, customerImportLookupSize)) {
     const placeholders = chunk.map(() => '?').join(', ');
     const result = await customerDb.prepare(`
-      SELECT id, customer_name, activated_email, whatsapp_number, order_number,
+      SELECT id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
         order_source, product_name, duration_days, start_date, expiry_date,
         status, notes, created_at, updated_at
       FROM customer_records
@@ -2304,6 +2668,7 @@ function mapCustomerRecordRow(row) {
     id: row.id,
     customerName: row.customer_name || '',
     activatedEmail: row.activated_email || '',
+    stockAccount: row.stock_account || '',
     whatsappNumber: row.whatsapp_number || '',
     orderNumber: row.order_number || '',
     orderSource: row.order_source || (row.whatsapp_number ? 'whatsapp' : 'shopee'),
@@ -2334,6 +2699,7 @@ function normalizeCustomerRecord(record) {
     id: cleanValue(record.id, 120) || crypto.randomUUID(),
     customerName: cleanValue(record.customerName ?? record.customer_name, 240),
     activatedEmail: cleanValue(record.activatedEmail ?? record.activated_email, 240),
+    stockAccount: cleanValue(record.stockAccount ?? record.stock_account, 240),
     whatsappNumber: cleanValue(record.whatsappNumber ?? record.whatsapp_number, 80),
     orderNumber: cleanValue(record.orderNumber ?? record.order_number, 120),
     orderSource,
@@ -2351,14 +2717,15 @@ function normalizeCustomerRecord(record) {
 async function saveCustomerRecord(customerDb, record) {
   await customerDb.prepare(`
     INSERT INTO customer_records (
-      id, customer_name, activated_email, whatsapp_number, order_number,
+      id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
       status, notes, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       customer_name = excluded.customer_name,
       activated_email = excluded.activated_email,
+      stock_account = excluded.stock_account,
       whatsapp_number = excluded.whatsapp_number,
       order_number = excluded.order_number,
       order_source = excluded.order_source,
@@ -2373,6 +2740,7 @@ async function saveCustomerRecord(customerDb, record) {
     record.id,
     record.customerName,
     record.activatedEmail,
+    record.stockAccount,
     record.whatsappNumber,
     record.orderNumber,
     record.orderSource,
@@ -2394,14 +2762,15 @@ async function saveCustomerRecordsBatch(customerDb, records) {
 
   const statement = customerDb.prepare(`
     INSERT INTO customer_records (
-      id, customer_name, activated_email, whatsapp_number, order_number,
+      id, customer_name, activated_email, stock_account, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
       status, notes, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       customer_name = excluded.customer_name,
       activated_email = excluded.activated_email,
+      stock_account = excluded.stock_account,
       whatsapp_number = excluded.whatsapp_number,
       order_number = excluded.order_number,
       order_source = excluded.order_source,
@@ -2419,6 +2788,7 @@ async function saveCustomerRecordsBatch(customerDb, records) {
       record.id,
       record.customerName,
       record.activatedEmail,
+      record.stockAccount,
       record.whatsappNumber,
       record.orderNumber,
       record.orderSource,

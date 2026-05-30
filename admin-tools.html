@@ -7,7 +7,7 @@
   <title>Catsoft Admin Console</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260529-chat-popup" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260530-stock-join-toggle" />
   <link rel="stylesheet" href="form-standard.css" />
 </head>
 <body class="admin-console-body">
@@ -22,6 +22,7 @@
         <a href="#customer" data-console-target="customer" data-admin-tool-link="customer-suite">Customer</a>
         <a href="#email" data-console-target="email" data-admin-tool-link="email-inbox">Email</a>
         <a href="#marketing" data-console-target="marketing" data-admin-tool-link="marketing-suite">Marketing</a>
+        <a href="#stock" data-console-target="stock" data-admin-tool-link="product-stock">Stok</a>
       </nav>
       <nav class="admin-nav console-actions" aria-label="Akun Admin">
         <span class="console-site-link">Profil</span>
@@ -122,6 +123,13 @@
                   <span class="console-product-copy"><strong>Content Editor</strong><small>Konten Website Catsoft</small></span>
                 </span>
                 <span class="console-product-status" role="gridcell"><b>Konten</b><small>Website</small></span>
+              </a>
+              <a class="console-product-row" href="#stock" data-console-target="stock" data-admin-tool-link="product-stock" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-stock" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Product Stock</strong><small>Akun Stok Dan Customer Join</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Stok</b><small>Akun</small></span>
               </a>
             </div>
           </article>
@@ -241,6 +249,17 @@
             </div>
           </div>
         </section>
+
+        <section class="console-module-view" data-console-view="stock" data-admin-tool-module="product-stock" hidden>
+          <div class="console-module-head">
+            <div>
+              <span class="section-kicker">Stok</span>
+              <h2>Stok Produk</h2>
+              <p>Pantau akun stok, kapasitas sharing, customer yang join, dan jadwal reset dari satu database.</p>
+            </div>
+          </div>
+          <iframe class="console-tool-frame is-compact-tool is-stock-frame" title="Product Stock" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/product-stock?embedded=1"></iframe>
+        </section>
       </div>
 
       <aside class="console-quick-panel" aria-label="Tautan Cepat">
@@ -282,6 +301,10 @@
             <span class="console-quick-icon is-content" aria-hidden="true"></span>
             Content Editor
           </a>
+          <a href="#stock" data-console-target="stock" data-admin-tool-link="product-stock">
+            <span class="console-quick-icon is-stock" aria-hidden="true"></span>
+            Product Stock
+          </a>
         </div>
       </aside>
     </section>
@@ -292,6 +315,6 @@
       <span>2026 Catsoft Digital</span>
     </footer>
   </main>
-  <script src="admin-auth.js?v=20260529-chat-popup" defer></script>
+  <script src="admin-auth.js?v=20260530-stock-join-toggle" defer></script>
 </body>
 </html>

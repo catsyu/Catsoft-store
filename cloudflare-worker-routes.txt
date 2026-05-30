@@ -4,6 +4,8 @@ catsoft.store/api/customer-records*
 www.catsoft.store/api/customer-records*
 catsoft.store/api/customer-accounts*
 www.catsoft.store/api/customer-accounts*
+catsoft.store/api/product-stock*
+www.catsoft.store/api/product-stock*
 catsoft.store/api/office-confirmation*
 www.catsoft.store/api/office-confirmation*
 catsoft.store/api/admin-accounts*
@@ -85,6 +87,8 @@ catsoft.digital/api/customer-records*
 www.catsoft.digital/api/customer-records*
 catsoft.digital/api/customer-accounts*
 www.catsoft.digital/api/customer-accounts*
+catsoft.digital/api/product-stock*
+www.catsoft.digital/api/product-stock*
 catsoft.digital/api/office-confirmation*
 www.catsoft.digital/api/office-confirmation*
 catsoft.digital/api/admin-accounts*
@@ -105,6 +109,8 @@ catsoft.online/api/customer-records*
 www.catsoft.online/api/customer-records*
 catsoft.online/api/customer-accounts*
 www.catsoft.online/api/customer-accounts*
+catsoft.online/api/product-stock*
+www.catsoft.online/api/product-stock*
 catsoft.online/api/office-confirmation*
 www.catsoft.online/api/office-confirmation*
 catsoft.online/api/admin-accounts*

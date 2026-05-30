@@ -303,12 +303,18 @@ a {
   color: #475569;
 }
 
+.download-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .download-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 38px;
-  margin-top: 12px;
   border-radius: 999px;
   background: #e0f2fe;
   color: #075985;

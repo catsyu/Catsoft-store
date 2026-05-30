@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="form-standard.css?v=20260529-upload-icon-center" />
-  <link rel="stylesheet" href="customer-database.css?v=20260529-target-order-duplicate" />
+  <link rel="stylesheet" href="customer-database.css?v=20260530-stock-field" />
 </head>
 <body>
   <main class="customer-page">
@@ -79,21 +79,27 @@
               <input id="customerName" type="text" placeholder="Username Customer" />
             </label>
 
-          <label class="field-group">
-            <span id="activationFieldLabel">Target</span>
-            <input id="activatedEmail" type="text" inputmode="text" placeholder="Email atau link target" />
-          </label>
+            <label class="field-group">
+              <span id="activationFieldLabel">Target</span>
+              <input id="activatedEmail" type="text" inputmode="text" placeholder="Email atau link target" />
+            </label>
 
-          <input id="whatsappNumber" type="hidden" />
-          <input id="orderNumber" type="hidden" />
+            <label class="field-group">
+              <span>Stok</span>
+              <input id="stockAccount" type="text" list="stockAccountList" placeholder="Pilih akun stok" autocomplete="off" />
+              <datalist id="stockAccountList"></datalist>
+            </label>
 
-          <label class="field-group">
-            <span>Channel</span>
-            <select id="orderSource">
-              <option value="shopee">Shopee</option>
-              <option value="whatsapp">WhatsApp</option>
-            </select>
-          </label>
+            <input id="whatsappNumber" type="hidden" />
+            <input id="orderNumber" type="hidden" />
+
+            <label class="field-group">
+              <span>Channel</span>
+              <select id="orderSource">
+                <option value="shopee">Shopee</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </label>
 
           <label class="field-group">
             <span id="orderReferenceLabel">No. Pesanan</span>
@@ -270,6 +276,7 @@
               <option value="startDate">Mulai</option>
               <option value="customerName">Nama</option>
               <option value="activatedEmail">Target</option>
+              <option value="stockAccount">Stok</option>
               <option value="productName">Produk</option>
               <option value="status">Status</option>
             </select>
@@ -346,13 +353,33 @@
         <strong id="xlsxImportProgressText">0%</strong>
         <span id="xlsxImportSummary">Menunggu File...</span>
       </div>
+      <div class="import-preview is-hidden" id="importPreview" aria-live="polite">
+        <div class="import-preview-stats" id="importPreviewStats"></div>
+        <div class="import-preview-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Produk</th>
+                <th>No. Pesanan</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="importPreviewRows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="xlsx-import-actions is-hidden" id="importPreviewActions">
+        <button class="secondary-button compact-button" id="importPreviewCancelBtn" type="button">Batal</button>
+        <button class="primary-button compact-button" id="importPreviewConfirmBtn" type="button">Upload Ke Database</button>
+      </div>
       <button class="secondary-button compact-button is-hidden" id="xlsxImportCloseBtn" type="button">Tutup</button>
     </section>
   </div>
 
-  <script src="admin-auth.js" defer></script>
+  <script src="admin-auth.js?v=20260530-stock-field" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260529-target-order-duplicate" defer></script>
+  <script src="customer-database.js?v=20260530-stock-field" defer></script>
 </body>
 </html>

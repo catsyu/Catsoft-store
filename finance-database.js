@@ -5,11 +5,14 @@ if (!window.CATSOFT_ADMIN_AUTHORIZED) {
 const FINANCE_API = window.CATSOFT_FINANCE_API || getDefaultFinanceApiEndpoint();
 const FINANCE_STOCK_API = window.CATSOFT_PRODUCT_STOCK_API || getDefaultFinanceStockApiEndpoint();
 const financeStorageKey = 'catsoftFinanceTransactions';
-const financeFetchLimit = 1000;
+const financeFetchLimit = 500;
+const financeFetchMaxPages = 120;
+const financeAutoRefreshMs = 10000;
 let financeRecords = [];
 let financeStockAccounts = [];
 let stagedFinanceImport = null;
 let isFinanceBusy = false;
+let financeAutoRefreshTimerId = null;
 
 const financeEls = {
   total: document.querySelector('[data-finance-total]'),
@@ -231,10 +234,12 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
 
   try {
     const response = await fetch(url, {
+      cache: 'no-store',
       ...options,
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
+        'Cache-Control': 'no-cache',
         ...(options.headers || {})
       }
     });
@@ -251,11 +256,40 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
   }
 }
 
+function buildFinanceApiUrl(params = {}) {
+  const url = new URL(FINANCE_API, window.location.href);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
+    }
+  });
+  url.searchParams.set('_', String(Date.now()));
+  return url.toString();
+}
+
+async function fetchFinanceRecordsPage(offset = 0, limit = financeFetchLimit) {
+  const payload = await fetchJsonWithTimeout(buildFinanceApiUrl({ limit, offset }));
+  return Array.isArray(payload.records) ? payload.records.map(normalizeFinanceRecord) : [];
+}
+
 async function fetchFinanceRecords() {
-  const url = `${FINANCE_API}?limit=${financeFetchLimit}&_=${Date.now()}`;
-  const payload = await fetchJsonWithTimeout(url);
-  const records = Array.isArray(payload.records) ? payload.records : [];
-  financeRecords = records.map(normalizeFinanceRecord);
+  const allRecords = [];
+  let offset = 0;
+  let pageCount = 0;
+
+  while (pageCount < financeFetchMaxPages) {
+    const pageRecords = await fetchFinanceRecordsPage(offset, financeFetchLimit);
+    allRecords.push(...pageRecords);
+    pageCount += 1;
+
+    if (pageRecords.length < financeFetchLimit) {
+      break;
+    }
+
+    offset += pageRecords.length;
+  }
+
+  financeRecords = allRecords;
   saveLocalFinanceRecords(financeRecords);
 }
 
@@ -284,6 +318,32 @@ async function refreshFinanceData(showMessage = false) {
     setFinanceBusy(false);
     renderFinance();
   }
+}
+
+async function syncFinanceDataFromApi() {
+  await Promise.all([fetchFinanceRecords(), fetchFinanceStockAccounts()]);
+  renderFinance();
+}
+
+function autoRefreshFinanceData() {
+  if (document.visibilityState === 'hidden' || isFinanceBusy || stagedFinanceImport) {
+    return;
+  }
+
+  syncFinanceDataFromApi().catch((error) => {
+    setFinanceStatus(financeRecords.length ? 'Cache lokal aktif.' : 'Database belum terhubung.', 'warning');
+    if (financeEls.status) {
+      financeEls.status.title = error.message || '';
+    }
+  });
+}
+
+function startFinanceAutoRefresh() {
+  if (financeAutoRefreshTimerId) {
+    window.clearInterval(financeAutoRefreshTimerId);
+  }
+
+  financeAutoRefreshTimerId = window.setInterval(autoRefreshFinanceData, financeAutoRefreshMs);
 }
 
 function getFinanceStockMonth(account) {
@@ -700,7 +760,7 @@ async function uploadStagedFinanceImport() {
     saveLocalFinanceRecords(financeRecords);
     closeFinancePreview();
     setFinanceStatus(`${records.length} transaksi Shopee tersimpan.`, 'success');
-    await refreshFinanceData(false);
+    await syncFinanceDataFromApi();
   } catch (error) {
     setFinanceStatus(error.message || 'Upload gagal.', 'warning');
   } finally {
@@ -746,7 +806,7 @@ async function saveGopayWithdrawal(event) {
     financeEls.gopayForm.reset();
     financeEls.gopayDate.value = new Date().toISOString().slice(0, 10);
     setFinanceStatus('Penarikan GoPay tersimpan.', 'success');
-    renderFinance();
+    await syncFinanceDataFromApi();
   } catch (error) {
     setFinanceStatus(error.message || 'GoPay gagal disimpan.', 'warning');
   } finally {
@@ -779,9 +839,12 @@ function setupFinanceEvents() {
     button?.addEventListener('click', closeFinancePreview);
   });
   financeEls.previewConfirm?.addEventListener('click', uploadStagedFinanceImport);
+  window.addEventListener('focus', autoRefreshFinanceData);
+  document.addEventListener('visibilitychange', autoRefreshFinanceData);
 }
 
 setupFinanceEvents();
 financeRecords = loadLocalFinanceRecords();
 renderFinance();
 refreshFinanceData(false);
+startFinanceAutoRefresh();

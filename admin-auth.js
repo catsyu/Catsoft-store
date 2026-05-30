@@ -1789,7 +1789,7 @@ function openAdminChatPopup() {
   const frame = popup.querySelector('[data-admin-chat-frame]');
 
   if (frame && !frame.getAttribute('src')) {
-    frame.setAttribute('src', '/tool/internal-chat?embedded=1&popup=1');
+    frame.setAttribute('src', '/tool/internal-chat?embedded=1&popup=1&v=20260531-single-console');
   }
 
   popup.hidden = false;
@@ -2090,16 +2090,38 @@ function getCurrentAdminConsoleState() {
   };
   const routeState = {
     '/access': { view: 'admin', adminAccessPane: 'admin' },
+    '/admin-access': { view: 'admin', adminAccessPane: 'admin' },
+    '/admin-access.html': { view: 'admin', adminAccessPane: 'admin' },
     '/supplier-access': { view: 'admin', adminAccessPane: 'supplier' },
+    '/supplier-access.html': { view: 'admin', adminAccessPane: 'supplier' },
     '/customer-access': { view: 'customer', consoleToolPane: 'customer-access' },
+    '/customer-access.html': { view: 'customer', consoleToolPane: 'customer-access' },
+    '/customer-database': { view: 'customer', consoleToolPane: 'customer-database' },
+    '/customer-database.html': { view: 'customer', consoleToolPane: 'customer-database' },
     '/customers': { view: 'customer', consoleToolPane: 'customer-database' },
+    '/refund-calculator': { view: 'customer', consoleToolPane: 'refund-calculator' },
+    '/refund-calculator.html': { view: 'customer', consoleToolPane: 'refund-calculator' },
     '/refund': { view: 'customer', consoleToolPane: 'refund-calculator' },
+    '/office-activation': { view: 'customer', consoleToolPane: 'office-activation' },
+    '/office-activation.html': { view: 'customer', consoleToolPane: 'office-activation' },
     '/office': { view: 'customer', consoleToolPane: 'office-activation' },
+    '/email-inbox': { view: 'email' },
+    '/email-inbox.html': { view: 'email' },
     '/mail': { view: 'email' },
+    '/internal-chat': { view: 'overview' },
+    '/internal-chat.html': { view: 'overview' },
     '/chat': { view: 'overview' },
+    '/marketing-calculator': { view: 'marketing', consoleToolPane: 'marketing-calculator' },
+    '/marketing-calculator.html': { view: 'marketing', consoleToolPane: 'marketing-calculator' },
     '/marketing': { view: 'marketing', consoleToolPane: 'marketing-calculator' },
+    '/content-editor': { view: 'marketing', consoleToolPane: 'content-editor' },
+    '/content-editor.html': { view: 'marketing', consoleToolPane: 'content-editor' },
     '/content': { view: 'marketing', consoleToolPane: 'content-editor' },
+    '/product-stock': { view: 'stock' },
+    '/product-stock.html': { view: 'stock' },
     '/stock': { view: 'stock' },
+    '/finance-database': { view: 'finance' },
+    '/finance-database.html': { view: 'finance' },
     '/finance': { view: 'finance' }
   };
   const normalizedHash = viewAliases[hash] || hash;

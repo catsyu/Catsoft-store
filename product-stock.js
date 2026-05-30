@@ -23,6 +23,7 @@ const stockStatusLabels = {
 
 const stockTypeLabels = {
   account: 'Akun',
+  team: 'Tim',
   redeem_code: 'Redeem Code'
 };
 
@@ -62,6 +63,23 @@ function formatStockCurrency(value) {
   return `Rp ${new Intl.NumberFormat('id-ID').format(amount)}`;
 }
 
+function getStockTeamMemberCount(account) {
+  const count = Number(account?.teamMemberCount || account?.team_member_count || 1);
+  return Number.isFinite(count) && count > 0 ? Math.round(count) : 1;
+}
+
+function getStockCostPerMember(account) {
+  if (normalizeStockType(account?.stockType || account?.stock_type) !== 'team') {
+    return Number(account?.stockCost || account?.stock_cost || 0);
+  }
+
+  return Math.round((Number(account?.stockCost || account?.stock_cost || 0) || 0) / getStockTeamMemberCount(account));
+}
+
+function getStockNetProfit(account) {
+  return (Number(account?.totalRevenue) || 0) - (Number(account?.stockCost) || 0);
+}
+
 function parseStockCurrency(value) {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
@@ -82,6 +100,36 @@ function createStockAccountId() {
   }
 
   return `stock-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function ensureStockSelectOption(select, value) {
+  if (!select || select.tagName !== 'SELECT') {
+    return;
+  }
+
+  const cleanValue = String(value || '').trim();
+
+  if (!cleanValue) {
+    return;
+  }
+
+  const hasOption = Array.from(select.options).some((option) => option.value === cleanValue);
+
+  if (!hasOption) {
+    const option = document.createElement('option');
+    option.value = cleanValue;
+    option.textContent = cleanValue;
+    select.appendChild(option);
+  }
+}
+
+function setStockSelectValue(select, value) {
+  if (!select) {
+    return;
+  }
+
+  ensureStockSelectOption(select, value);
+  select.value = String(value || '').trim();
 }
 
 function formatStockDate(value) {
@@ -128,6 +176,7 @@ function normalizeStockAccount(account) {
     loginUsername: String(account.loginUsername || account.login_username || '').trim(),
     loginPassword: String(account.loginPassword || account.login_password || '').trim(),
     stockCost: Number(account.stockCost || account.stock_cost || 0),
+    teamMemberCount: getStockTeamMemberCount(account),
     capacity: Number(account.capacity || 7),
     status: stockStatusLabels[account.status] ? account.status : 'active',
     resetAt: String(account.resetAt || account.reset_at || '').slice(0, 10),
@@ -149,20 +198,122 @@ function getStockSearchTerm() {
   return normalizeStockValue(document.querySelector('[data-stock-search]')?.value || '');
 }
 
-function getFilteredStockAccounts() {
-  const term = getStockSearchTerm();
+function getStockFilterValue(selector, fallback = 'all') {
+  return String(document.querySelector(selector)?.value || fallback).trim();
+}
 
-  if (!term) {
-    return [...productStockAccounts];
+function getActiveStockTypeTab() {
+  const activeTab = document.querySelector('[data-stock-type-tab].is-active');
+  return activeTab?.dataset.stockTypeTab || 'all';
+}
+
+function setActiveStockTypeTab(type = 'all') {
+  const nextType = stockTypeLabels[type] ? type : 'all';
+  document.querySelectorAll('[data-stock-type-tab]').forEach((button) => {
+    const isActive = (button.dataset.stockTypeTab || 'all') === nextType;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function getEffectiveStockTypeFilter() {
+  const tabType = getActiveStockTypeTab();
+  return tabType !== 'all' ? tabType : getStockFilterValue('[data-stock-filter-type]');
+}
+
+function getStockSortValue(account, sortBy) {
+  if (sortBy === 'accountName') {
+    return normalizeStockValue(account.accountName);
   }
 
-  return productStockAccounts.filter((account) => normalizeStockValue([
-    account.productName,
-    account.accountName,
-    account.loginUsername,
-    stockTypeLabels[account.stockType] || '',
-    account.status
-  ].join(' ')).includes(term));
+  if (sortBy === 'productName') {
+    return normalizeStockValue(account.productName);
+  }
+
+  if (sortBy === 'joinedActive') {
+    return Number(account.joinedActive) || 0;
+  }
+
+  if (sortBy === 'totalRevenue') {
+    return Number(account.totalRevenue) || 0;
+  }
+
+  if (sortBy === 'resetAt') {
+    return account.resetAt ? Date.parse(`${account.resetAt}T00:00:00`) || 0 : 0;
+  }
+
+  if (sortBy === 'status') {
+    return normalizeStockValue(stockStatusLabels[account.status] || account.status);
+  }
+
+  return Date.parse(account.updatedAt || account.createdAt || '') || 0;
+}
+
+function compareStockAccounts(first, second, sortBy, direction) {
+  const firstValue = getStockSortValue(first, sortBy);
+  const secondValue = getStockSortValue(second, sortBy);
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  if (typeof firstValue === 'number' && typeof secondValue === 'number') {
+    return (firstValue - secondValue) * multiplier;
+  }
+
+  return String(firstValue).localeCompare(String(secondValue), 'id', { numeric: true }) * multiplier;
+}
+
+function renderStockFilterOptions() {
+  const productSelect = document.querySelector('[data-stock-filter-product]');
+
+  if (!productSelect) {
+    return;
+  }
+
+  const currentValue = productSelect.value || 'all';
+  const products = [...new Set(productStockAccounts.map((account) => account.productName).filter(Boolean))]
+    .sort((first, second) => first.localeCompare(second, 'id', { numeric: true }));
+
+  const hasCurrent = currentValue === 'all' || products.includes(currentValue);
+  productSelect.innerHTML = [
+    `<option value="all">Semua Produk</option>`,
+    ...products.map((product) => `<option value="${escapeStockHtml(product)}">${escapeStockHtml(product)}</option>`)
+  ].join('');
+  productSelect.value = hasCurrent ? currentValue : 'all';
+}
+
+function getFilteredStockAccounts() {
+  const term = getStockSearchTerm();
+  const productFilter = getStockFilterValue('[data-stock-filter-product]');
+  const typeFilter = getEffectiveStockTypeFilter();
+  const statusFilter = getStockFilterValue('[data-stock-filter-status]');
+  const sortBy = getStockFilterValue('[data-stock-sort-by]', 'updatedAt');
+  const sortDirection = getStockFilterValue('[data-stock-sort-direction]', 'desc');
+  let filteredAccounts = [...productStockAccounts];
+
+  if (term) {
+    filteredAccounts = filteredAccounts.filter((account) => normalizeStockValue([
+      account.productName,
+      account.accountName,
+      account.loginUsername,
+      stockTypeLabels[account.stockType] || '',
+      stockStatusLabels[account.status] || account.status
+    ].join(' ')).includes(term));
+  }
+
+  if (productFilter !== 'all') {
+    filteredAccounts = filteredAccounts.filter((account) => account.productName === productFilter);
+  }
+
+  if (typeFilter !== 'all') {
+    filteredAccounts = filteredAccounts.filter((account) => account.stockType === typeFilter);
+  }
+
+  if (statusFilter === 'reset_due') {
+    filteredAccounts = filteredAccounts.filter(isStockResetDue);
+  } else if (statusFilter !== 'all') {
+    filteredAccounts = filteredAccounts.filter((account) => account.status === statusFilter);
+  }
+
+  return filteredAccounts.sort((first, second) => compareStockAccounts(first, second, sortBy, sortDirection));
 }
 
 function isStockDrawerOpen() {
@@ -199,6 +350,19 @@ function setStockStatus(message, type = '') {
 
   status.textContent = message || '';
   status.classList.toggle('success', type === 'success');
+}
+
+function setStockSaveState(isSaving) {
+  const saveButton = document.querySelector('.stock-drawer .admin-detail-save');
+
+  if (!saveButton) {
+    return;
+  }
+
+  saveButton.disabled = Boolean(isSaving);
+  saveButton.classList.toggle('is-loading', Boolean(isSaving));
+  saveButton.textContent = isSaving ? 'Menyimpan...' : 'Simpan';
+  saveButton.setAttribute('aria-busy', String(Boolean(isSaving)));
 }
 
 function mergeProductStockAccounts(accounts) {
@@ -411,16 +575,27 @@ function renderProductStockAccounts() {
   const list = document.querySelector('[data-stock-list]');
   const total = document.querySelector('[data-stock-total]');
   const reset = document.querySelector('[data-stock-reset]');
+  const costTotal = document.querySelector('[data-stock-cost-total]');
+  const profitTotal = document.querySelector('[data-stock-profit-total]');
 
   if (!list) {
     return;
   }
 
+  renderStockFilterOptions();
+
   const visible = getFilteredStockAccounts();
   const paged = visible.slice(0, productStockPageSize);
+  const visibleCost = visible.reduce((sum, account) => sum + (Number(account.stockCost) || 0), 0);
+  const visibleProfit = visible.reduce((sum, account) => sum + getStockNetProfit(account), 0);
 
   if (total) total.textContent = String(visible.length);
   if (reset) reset.textContent = String(visible.filter(isStockResetDue).length);
+  if (costTotal) costTotal.textContent = formatStockCurrency(visibleCost);
+  if (profitTotal) {
+    profitTotal.textContent = formatStockCurrency(visibleProfit);
+    profitTotal.closest('div')?.classList.toggle('is-negative', visibleProfit < 0);
+  }
 
   if (!visible.length) {
     list.innerHTML = `
@@ -441,6 +616,12 @@ function renderProductStockAccounts() {
     const resetText = isStockResetDue(account) ? 'Perlu Reset' : formatStockDate(account.resetAt);
     const statusText = stockStatusLabels[account.status] || 'Aktif';
     const typeText = stockTypeLabels[account.stockType] || 'Akun';
+    const typeDetail = account.stockType === 'team'
+      ? `Tim ${getStockTeamMemberCount(account)} anggota`
+      : typeText;
+    const costDetail = account.stockType === 'team'
+      ? `Biaya ${formatStockCurrency(account.stockCost)} · ${formatStockCurrency(getStockCostPerMember(account))}/anggota`
+      : `Biaya ${formatStockCurrency(account.stockCost)}`;
     const isSelected = selectedStockIds.has(account.id);
     const joinedDetail = account.joinedExpired
       ? `${account.joinedExpired} Habis`
@@ -456,7 +637,7 @@ function renderProductStockAccounts() {
           <span class="admin-spectrum-avatar stock" aria-hidden="true">${escapeStockHtml(getStockInitials(account.productName))}</span>
         </span>
         <span class="admin-spectrum-name">
-          <span><strong>${escapeStockHtml(account.accountName)}</strong><small>${escapeStockHtml(account.productName)} · ${escapeStockHtml(typeText)}</small></span>
+          <span><strong>${escapeStockHtml(account.accountName)}</strong><small>${escapeStockHtml(account.productName)} · ${escapeStockHtml(typeDetail)}</small></span>
         </span>
         <span class="stock-target-cell">
           <strong>${escapeStockHtml(account.loginUsername || 'Login Belum Diisi')}</strong>
@@ -468,7 +649,7 @@ function renderProductStockAccounts() {
         </span>
         <span>
           <b>${escapeStockHtml(formatStockCurrency(account.totalRevenue))}</b>
-          <small>Biaya ${escapeStockHtml(formatStockCurrency(account.stockCost))}</small>
+          <small>${escapeStockHtml(costDetail)}</small>
         </span>
         <span>
           <b>${escapeStockHtml(statusText)}</b>
@@ -559,18 +740,80 @@ function updateStockDrawerTitle(label = 'Tambah Akun Stok') {
   if (avatar) avatar.textContent = getStockInitials(product || value);
 }
 
+function getDefaultStockTypeForDrawer() {
+  const activeType = getActiveStockTypeTab();
+  return stockTypeLabels[activeType] ? activeType : 'account';
+}
+
+function updateStockTypeFields() {
+  const type = normalizeStockType(document.querySelector('[data-stock-type]')?.value || 'account');
+  const teamField = document.querySelector('[data-stock-team-field]');
+  const teamInput = document.querySelector('[data-stock-team-members]');
+  const capacityInput = document.querySelector('[data-stock-capacity]');
+  const productSelect = document.querySelector('[data-stock-product]');
+  const accountNameInput = document.querySelector('[data-stock-account-name]');
+  const loginUsernameInput = document.querySelector('[data-stock-login-username]');
+
+  if (teamField) {
+    teamField.hidden = type !== 'team';
+  }
+
+  if (type === 'team') {
+    if (teamInput && (!Number(teamInput.value) || Number(teamInput.value) < 1)) {
+      teamInput.value = '10';
+    }
+
+    if (capacityInput && (!Number(capacityInput.value) || capacityInput.value === '7')) {
+      capacityInput.value = String(Number(teamInput?.value || 10) || 10);
+    }
+
+    if (accountNameInput && !accountNameInput.value.trim()) {
+      accountNameInput.placeholder = 'ChatGPT Business Team';
+    }
+  } else if (type === 'redeem_code') {
+    if (!productSelect?.value || productSelect.value === 'ChatGPT') {
+      setStockSelectValue(productSelect, 'Redeem Code');
+    }
+
+    if (capacityInput && (!Number(capacityInput.value) || capacityInput.value === '7')) {
+      capacityInput.value = '1';
+    }
+
+    if (accountNameInput) {
+      accountNameInput.placeholder = 'Batch Redeem Code';
+    }
+
+    if (loginUsernameInput) {
+      loginUsernameInput.placeholder = 'Kode redeem atau batch';
+    }
+  } else {
+    if (accountNameInput) {
+      accountNameInput.placeholder = 'ChatGPT Sharing 1';
+    }
+
+    if (loginUsernameInput) {
+      loginUsernameInput.placeholder = '';
+    }
+  }
+}
+
 function resetStockForm() {
   const form = document.querySelector('[data-stock-form]');
   if (!form) return;
   form.reset();
+  setStockSaveState(false);
   activeStockDrawerAccount = null;
   isStockJoinedExpanded = false;
+  const defaultType = getDefaultStockTypeForDrawer();
   document.querySelector('[data-stock-id]').value = '';
-  document.querySelector('[data-stock-capacity]').value = '7';
-  document.querySelector('[data-stock-type]').value = 'account';
+  document.querySelector('[data-stock-capacity]').value = defaultType === 'team' ? '10' : (defaultType === 'redeem_code' ? '1' : '7');
+  document.querySelector('[data-stock-team-members]').value = defaultType === 'team' ? '10' : '1';
+  document.querySelector('[data-stock-type]').value = defaultType;
+  setStockSelectValue(document.querySelector('[data-stock-product]'), defaultType === 'redeem_code' ? 'Redeem Code' : 'ChatGPT');
   document.querySelector('[data-stock-cost]').value = 'Rp 0';
   document.querySelector('[data-stock-status-field]').value = 'active';
   document.querySelector('[data-stock-delete-section]').hidden = true;
+  updateStockTypeFields();
   renderJoinedCustomers(null);
   updateStockDrawerTitle();
 }
@@ -628,17 +871,19 @@ function openStockDrawer(id = '') {
     activeStockDrawerAccount = account;
     isStockJoinedExpanded = false;
     document.querySelector('[data-stock-id]').value = account.id;
-    document.querySelector('[data-stock-product]').value = account.productName;
+    setStockSelectValue(document.querySelector('[data-stock-product]'), account.productName);
     document.querySelector('[data-stock-type]').value = account.stockType;
     document.querySelector('[data-stock-account-name]').value = account.accountName;
     document.querySelector('[data-stock-login-username]').value = account.loginUsername;
     document.querySelector('[data-stock-login-password]').value = account.loginPassword;
     document.querySelector('[data-stock-cost]').value = formatStockCurrency(account.stockCost);
+    document.querySelector('[data-stock-team-members]').value = getStockTeamMemberCount(account);
     document.querySelector('[data-stock-capacity]').value = account.capacity;
     document.querySelector('[data-stock-status-field]').value = account.status;
     document.querySelector('[data-stock-reset-at]').value = account.resetAt;
     document.querySelector('[data-stock-notes]').value = account.notes;
     document.querySelector('[data-stock-delete-section]').hidden = false;
+    updateStockTypeFields();
     renderJoinedCustomers(account);
     updateStockDrawerTitle(account.accountName);
   }
@@ -670,6 +915,7 @@ function getStockFormValues() {
     loginUsername: document.querySelector('[data-stock-login-username]').value.trim(),
     loginPassword: document.querySelector('[data-stock-login-password]').value.trim(),
     stockCost: parseStockCurrency(document.querySelector('[data-stock-cost]').value || ''),
+    teamMemberCount: Number(document.querySelector('[data-stock-team-members]')?.value || 1),
     capacity: Number(document.querySelector('[data-stock-capacity]').value || 7),
     status: document.querySelector('[data-stock-status-field]').value,
     resetAt: document.querySelector('[data-stock-reset-at]').value,
@@ -681,6 +927,11 @@ function getStockFormValues() {
 
 async function saveStockForm(event) {
   event.preventDefault();
+
+  if (isProductStockMutating) {
+    return;
+  }
+
   const values = getStockFormValues();
 
   if (!values.productName || !values.accountName) {
@@ -690,6 +941,7 @@ async function saveStockForm(event) {
 
   setStockStatus('Menyimpan stok produk...');
   isProductStockMutating = true;
+  setStockSaveState(true);
 
   try {
     const result = await pushProductStockAccount(values);
@@ -708,6 +960,7 @@ async function saveStockForm(event) {
     setStockStatus(`Gagal menyimpan: ${error.message}`);
   } finally {
     isProductStockMutating = false;
+    setStockSaveState(false);
   }
 }
 
@@ -754,6 +1007,27 @@ function startProductStockAutoRefresh() {
 
 function bindProductStock() {
   document.querySelector('[data-stock-search]')?.addEventListener('input', renderProductStockAccounts);
+  document.querySelectorAll('[data-stock-type-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const type = button.dataset.stockTypeTab || 'all';
+      const typeSelect = document.querySelector('[data-stock-filter-type]');
+      setActiveStockTypeTab(type);
+      if (typeSelect) {
+        typeSelect.value = type === 'all' ? 'all' : type;
+      }
+      selectedStockIds.clear();
+      renderProductStockAccounts();
+    });
+  });
+  document.querySelectorAll('[data-stock-filter-product], [data-stock-filter-type], [data-stock-filter-status], [data-stock-sort-by], [data-stock-sort-direction]').forEach((input) => {
+    input.addEventListener('change', () => {
+      if (input.matches('[data-stock-filter-type]')) {
+        setActiveStockTypeTab(input.value || 'all');
+      }
+      selectedStockIds.clear();
+      renderProductStockAccounts();
+    });
+  });
   document.querySelector('[data-stock-add]')?.addEventListener('click', () => openStockDrawer());
   document.querySelector('[data-stock-refresh]')?.addEventListener('click', async () => {
     setStockStatus('Memuat ulang stok...');
@@ -775,8 +1049,19 @@ function bindProductStock() {
   document.querySelector('[data-stock-form]')?.addEventListener('submit', saveStockForm);
   document.querySelector('[data-stock-delete]')?.addEventListener('click', deleteCurrentStockAccount);
   document.querySelector('[data-stock-joined-toggle]')?.addEventListener('click', toggleStockJoinedCustomers);
+  document.querySelector('[data-stock-type]')?.addEventListener('change', () => {
+    updateStockTypeFields();
+    updateStockDrawerTitle();
+  });
+  document.querySelector('[data-stock-team-members]')?.addEventListener('input', (event) => {
+    const capacityInput = document.querySelector('[data-stock-capacity]');
+    if (document.querySelector('[data-stock-type]')?.value === 'team' && capacityInput && (!Number(capacityInput.value) || capacityInput.value === '10')) {
+      capacityInput.value = String(Number(event.target.value || 10) || 10);
+    }
+  });
   document.querySelectorAll('[data-stock-product], [data-stock-account-name]').forEach((input) => {
     input.addEventListener('input', () => updateStockDrawerTitle());
+    input.addEventListener('change', () => updateStockDrawerTitle());
   });
   document.querySelector('[data-stock-cost]')?.addEventListener('blur', (event) => {
     event.target.value = formatStockCurrency(parseStockCurrency(event.target.value));

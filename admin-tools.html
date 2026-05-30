@@ -7,7 +7,7 @@
   <title>Catsoft Admin Console</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260530-access-save-fix" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260530-search-icon-align" />
   <link rel="stylesheet" href="form-standard.css" />
 </head>
 <body class="admin-console-body">
@@ -23,6 +23,7 @@
         <a href="#email" data-console-target="email" data-admin-tool-link="email-inbox">Email</a>
         <a href="#marketing" data-console-target="marketing" data-admin-tool-link="marketing-suite">Marketing</a>
         <a href="#stock" data-console-target="stock" data-admin-tool-link="product-stock">Stok</a>
+        <a href="#finance" data-console-target="finance" data-admin-tool-link="finance-database">Keuangan</a>
       </nav>
       <nav class="admin-nav console-actions" aria-label="Akun Admin">
         <span class="console-site-link">Profil</span>
@@ -42,7 +43,7 @@
         <section class="console-overview-metrics" aria-label="Ringkasan Cepat" data-console-overview>
           <article>
             <span>Tools Aktif</span>
-            <strong data-admin-summary="tools">9 Aktif</strong>
+            <strong data-admin-summary="tools">10 Aktif</strong>
           </article>
           <article>
             <span>Mode Akses</span>
@@ -131,6 +132,13 @@
                 </span>
                 <span class="console-product-status" role="gridcell"><b>Stok</b><small>Akun</small></span>
               </a>
+              <a class="console-product-row" href="#finance" data-console-target="finance" data-admin-tool-link="finance-database" role="row">
+                <span class="console-product-main" role="gridcell">
+                  <span class="console-product-icon is-finance" aria-hidden="true"></span>
+                  <span class="console-product-copy"><strong>Finance Database</strong><small>Penarikan Dana Dan Profit Bulanan</small></span>
+                </span>
+                <span class="console-product-status" role="gridcell"><b>Profit</b><small>Keuangan</small></span>
+              </a>
             </div>
           </article>
         </section>
@@ -197,7 +205,7 @@
                 <iframe class="console-tool-frame is-compact-tool" title="Customer Access" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-access?embedded=1&v=20260530-customer-access-polish"></iframe>
               </section>
               <section class="console-access-pane console-tool-pane" data-console-tool-pane="customer-database" hidden>
-                <iframe class="console-tool-frame" title="Customer Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-database?embedded=1&v=20260530-marketing-income"></iframe>
+                <iframe class="console-tool-frame" title="Customer Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-database?embedded=1&v=20260531-income-filtered"></iframe>
               </section>
               <section class="console-access-pane console-tool-pane" data-console-tool-pane="refund-calculator" hidden>
                 <iframe class="console-tool-frame is-compact-tool" title="Refund Calculator" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/refund-calculator?embedded=1"></iframe>
@@ -217,7 +225,7 @@
               <p>Pantau email, OTP, status baca, penerima, dan temp mail dari dalam console.</p>
             </div>
           </div>
-          <iframe class="console-tool-frame" title="Email Inbox" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/email-inbox?embedded=1"></iframe>
+          <iframe class="console-tool-frame" title="Email Inbox" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/email-inbox?embedded=1&v=20260530-search-icon-align"></iframe>
         </section>
 
         <section class="console-module-view" data-console-view="marketing" data-admin-tool-module="marketing-suite" hidden>
@@ -258,7 +266,18 @@
               <p>Pantau akun stok, kapasitas sharing, customer yang join, dan jadwal reset dari satu database.</p>
             </div>
           </div>
-          <iframe class="console-tool-frame is-compact-tool is-stock-frame" title="Product Stock" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/product-stock?embedded=1&v=20260530-stock-limit-fix"></iframe>
+          <iframe class="console-tool-frame is-compact-tool is-stock-frame" title="Product Stock" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/product-stock?embedded=1&v=20260531-stock-team"></iframe>
+        </section>
+
+        <section class="console-module-view" data-console-view="finance" data-admin-tool-module="finance-database" hidden>
+          <div class="console-module-head">
+            <div>
+              <span class="section-kicker">Keuangan</span>
+              <h2>Database Keuangan</h2>
+              <p>Rekap penarikan Shopee, GoPay, biaya stok, dan profit bulanan dari satu console.</p>
+            </div>
+          </div>
+          <iframe class="console-tool-frame is-compact-tool is-finance-frame" title="Finance Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/finance-database?embedded=1&v=20260531-finance-db"></iframe>
         </section>
       </div>
 
@@ -304,6 +323,10 @@
           <a href="#stock" data-console-target="stock" data-admin-tool-link="product-stock">
             <span class="console-quick-icon is-stock" aria-hidden="true"></span>
             Product Stock
+          </a>
+          <a href="#finance" data-console-target="finance" data-admin-tool-link="finance-database">
+            <span class="console-quick-icon is-finance" aria-hidden="true"></span>
+            Keuangan
           </a>
         </div>
       </aside>

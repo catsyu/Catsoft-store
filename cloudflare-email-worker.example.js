@@ -10,7 +10,8 @@ const customerImportLookupSize = 50;
 const customerBulkMutationSize = 100;
 const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
 const productStockStatusValues = new Set(['active', 'full', 'reset', 'paused']);
-const productStockTypeValues = new Set(['account', 'redeem_code']);
+const productStockTypeValues = new Set(['account', 'team', 'redeem_code']);
+const financeSourceValues = new Set(['shopee', 'gopay']);
 
 const categoryRules = [
   {
@@ -186,6 +187,22 @@ export default {
       return productStockHealthCheck(request, env);
     }
 
+    if (url.pathname === '/api/finance-records' && request.method === 'GET') {
+      return listFinanceRecords(request, env);
+    }
+
+    if (url.pathname === '/api/finance-records' && request.method === 'POST') {
+      return saveFinanceRecords(request, env);
+    }
+
+    if (url.pathname === '/api/finance-records/bulk-import' && request.method === 'POST') {
+      return bulkImportFinanceRecords(request, env);
+    }
+
+    if (url.pathname === '/api/finance-records/health' && request.method === 'GET') {
+      return financeRecordsHealthCheck(request, env);
+    }
+
     if (url.pathname === '/api/office-confirmation' && request.method === 'POST') {
       return generateOfficeConfirmation(request, env);
     }
@@ -193,6 +210,7 @@ export default {
     const internalChatDetailMatch = url.pathname.match(/^\/api\/internal-chat\/messages\/([^/]+)$/);
     const customerDetailMatch = url.pathname.match(/^\/api\/customer-records\/([^/]+)$/);
     const productStockDetailMatch = url.pathname.match(/^\/api\/product-stock\/([^/]+)$/);
+    const financeDetailMatch = url.pathname.match(/^\/api\/finance-records\/([^/]+)$/);
     const detailMatch = url.pathname.match(/^\/api\/email-messages\/([^/]+)$/);
 
     if (internalChatDetailMatch && request.method === 'DELETE') {
@@ -209,6 +227,10 @@ export default {
 
     if (productStockDetailMatch && request.method === 'DELETE') {
       return deleteProductStockAccount(request, env, productStockDetailMatch[1]);
+    }
+
+    if (financeDetailMatch && request.method === 'DELETE') {
+      return deleteFinanceRecord(request, env, financeDetailMatch[1]);
     }
 
     if (detailMatch && request.method === 'GET') {
@@ -261,6 +283,7 @@ const adminHostRouteFallbacks = new Map([
   ['/marketing', '/admin-tools.html'],
   ['/content', '/admin-tools.html'],
   ['/stock', '/admin-tools.html'],
+  ['/finance', '/admin-tools.html'],
   ['/tool/customer-database', '/customer-database.html'],
   ['/tool/customer-access', '/customer-access.html'],
   ['/tool/refund-calculator', '/refund-calculator.html'],
@@ -269,7 +292,8 @@ const adminHostRouteFallbacks = new Map([
   ['/tool/internal-chat', '/internal-chat.html'],
   ['/tool/marketing-calculator', '/marketing-calculator.html'],
   ['/tool/content-editor', '/content-editor.html'],
-  ['/tool/product-stock', '/product-stock.html']
+  ['/tool/product-stock', '/product-stock.html'],
+  ['/tool/finance-database', '/finance-database.html']
 ]);
 
 const supplierHostRouteFallbacks = new Map([
@@ -386,7 +410,9 @@ async function withToolsStaticHeaders(response, toolsHost, pathname = '', source
     '/content-editor',
     '/content-editor.html',
     '/product-stock',
-    '/product-stock.html'
+    '/product-stock.html',
+    '/finance-database',
+    '/finance-database.html'
   ]);
   const normalizedPathname = String(pathname || '').split('?')[0].replace(/\/+$/, '');
   const shouldInjectBaseHref = toolsHost
@@ -526,6 +552,7 @@ function getStaticContentType(pathname) {
     'marketing-calculator',
     'content-editor',
     'product-stock',
+    'finance-database',
     'supplier-center',
     'supplier-email'
   ]);
@@ -1921,6 +1948,7 @@ async function ensureProductStockTable(db) {
       login_username TEXT,
       login_password TEXT,
       stock_cost INTEGER NOT NULL DEFAULT 0,
+      team_member_count INTEGER NOT NULL DEFAULT 1,
       capacity INTEGER NOT NULL DEFAULT 7,
       status TEXT NOT NULL DEFAULT 'active',
       reset_at TEXT,
@@ -1932,6 +1960,7 @@ async function ensureProductStockTable(db) {
 
   await addColumnIfMissing(db, 'product_stock_accounts', 'stock_type', "TEXT NOT NULL DEFAULT 'account'");
   await addColumnIfMissing(db, 'product_stock_accounts', 'stock_cost', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissing(db, 'product_stock_accounts', 'team_member_count', 'INTEGER NOT NULL DEFAULT 1');
 
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_product
@@ -1983,6 +2012,7 @@ function normalizeProductStockAccount(account) {
     loginUsername: cleanValue(account.loginUsername ?? account.login_username, 240),
     loginPassword: cleanValue(account.loginPassword ?? account.login_password, 240),
     stockCost: clampNumber(account.stockCost ?? account.stock_cost, 0, 0, 999999999),
+    teamMemberCount: clampNumber(account.teamMemberCount ?? account.team_member_count, 1, 1, 500),
     capacity: clampNumber(account.capacity, 7, 1, 500),
     status: normalizeProductStockStatus(account.status),
     resetAt: cleanDate(account.resetAt ?? account.reset_at),
@@ -2002,6 +2032,7 @@ function mapProductStockRow(row) {
     loginUsername: row.login_username || '',
     loginPassword: row.login_password || '',
     stockCost: row.stock_cost || 0,
+    teamMemberCount: row.team_member_count || 1,
     capacity: row.capacity || 7,
     status: row.status || 'active',
     resetAt: row.reset_at || '',
@@ -2067,6 +2098,9 @@ async function hydrateProductStockAccount(customerDb, account) {
     ...account,
     totalRevenue,
     netRevenue: totalRevenue - (Number(account.stockCost) || 0),
+    costPerMember: account.stockType === 'team'
+      ? Math.round((Number(account.stockCost) || 0) / Math.max(Number(account.teamMemberCount) || 1, 1))
+      : Number(account.stockCost) || 0,
     joinedTotal: joinedCustomers.length,
     joinedActive: activeCustomers.length,
     joinedExpired: expiredCustomers.length,
@@ -2098,7 +2132,7 @@ async function listProductStockAccounts(request, env) {
   const bindings = search ? [`%${search}%`, limit, offset] : [limit, offset];
   const result = await customerDb.prepare(`
     SELECT id, stock_type, product_name, account_name, account_target, login_username, login_password,
-      stock_cost, capacity, status, reset_at, notes, created_at, updated_at
+      stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
     FROM product_stock_accounts
     ${whereClause}
     ORDER BY updated_at DESC
@@ -2178,9 +2212,9 @@ async function saveProductStockAccounts(request, env) {
     await customerDb.prepare(`
       INSERT INTO product_stock_accounts (
         id, stock_type, product_name, account_name, account_target, login_username, login_password,
-        stock_cost, capacity, status, reset_at, notes, created_at, updated_at
+        stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         stock_type = excluded.stock_type,
         product_name = excluded.product_name,
@@ -2189,6 +2223,7 @@ async function saveProductStockAccounts(request, env) {
         login_username = excluded.login_username,
         login_password = excluded.login_password,
         stock_cost = excluded.stock_cost,
+        team_member_count = excluded.team_member_count,
         capacity = excluded.capacity,
         status = excluded.status,
         reset_at = excluded.reset_at,
@@ -2203,6 +2238,7 @@ async function saveProductStockAccounts(request, env) {
       account.loginUsername,
       account.loginPassword,
       account.stockCost,
+      account.teamMemberCount,
       account.capacity,
       account.status,
       account.resetAt,
@@ -2216,7 +2252,7 @@ async function saveProductStockAccounts(request, env) {
 
   const listResult = await customerDb.prepare(`
     SELECT id, stock_type, product_name, account_name, account_target, login_username, login_password,
-      stock_cost, capacity, status, reset_at, notes, created_at, updated_at
+      stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
     FROM product_stock_accounts
     ORDER BY updated_at DESC
     LIMIT 300
@@ -2244,6 +2280,318 @@ async function deleteProductStockAccount(request, env, id) {
 
   await ensureProductStockTable(customerDb);
   await customerDb.prepare('DELETE FROM product_stock_accounts WHERE id = ?').bind(cleanValue(id, 120)).run();
+
+  return json({ ok: true }, 200, request);
+}
+
+async function ensureFinanceTransactionsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS finance_transactions (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL DEFAULT 'shopee',
+      transaction_date TEXT NOT NULL,
+      month_key TEXT NOT NULL,
+      transaction_type TEXT NOT NULL DEFAULT 'withdrawal',
+      description TEXT,
+      reference TEXT,
+      amount INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'posted',
+      import_batch TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_finance_transactions_month
+    ON finance_transactions (month_key)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_finance_transactions_source
+    ON finance_transactions (source)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_finance_transactions_date
+    ON finance_transactions (transaction_date DESC)
+  `).run();
+}
+
+function normalizeFinanceSource(value) {
+  const source = cleanValue(value, 40).toLowerCase();
+  return financeSourceValues.has(source) ? source : 'shopee';
+}
+
+function normalizeFinanceAmount(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.abs(Math.round(value)) : 0;
+  }
+
+  const normalized = String(value || 0)
+    .replace(/[^\d,.-]/g, '')
+    .replace(/\.(?=\d{3}(\D|$))/g, '')
+    .replace(',', '.');
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? Math.abs(Math.round(amount)) : 0;
+}
+
+function normalizeFinanceMonthKey(value, transactionDate = '') {
+  const cleanMonth = cleanValue(value, 20);
+
+  if (/^\d{4}-\d{2}$/.test(cleanMonth)) {
+    return cleanMonth;
+  }
+
+  const date = cleanDate(transactionDate);
+  return date ? date.slice(0, 7) : new Date().toISOString().slice(0, 7);
+}
+
+function normalizeFinanceRecord(record) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const source = normalizeFinanceSource(record.source);
+  const transactionDate = cleanDate(record.transactionDate ?? record.transaction_date ?? record.date) || now.slice(0, 10);
+  const amount = normalizeFinanceAmount(record.amount ?? record.nominal ?? record.jumlah);
+  const normalized = {
+    id: cleanValue(record.id, 160),
+    source,
+    transactionDate,
+    monthKey: normalizeFinanceMonthKey(record.monthKey ?? record.month_key, transactionDate),
+    transactionType: 'withdrawal',
+    description: cleanValue(record.description ?? record.deskripsi, 1000) || (source === 'gopay' ? 'Penarikan GoPay' : 'Penarikan Dana Shopee'),
+    reference: cleanValue(record.reference ?? record.noPesanan ?? record.no_pesanan ?? record.orderNumber ?? record.order_number, 240),
+    amount,
+    status: cleanValue(record.status, 120) || 'posted',
+    importBatch: cleanValue(record.importBatch ?? record.import_batch, 160),
+    createdAt: cleanValue(record.createdAt ?? record.created_at, 80) || now,
+    updatedAt: now
+  };
+
+  if (!normalized.id) {
+    const seed = [
+      normalized.source,
+      normalized.transactionDate,
+      normalized.reference,
+      normalized.description,
+      normalized.amount
+    ].join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    normalized.id = `${normalized.source}-${seed || crypto.randomUUID()}`.slice(0, 160);
+  }
+
+  return normalized;
+}
+
+function mapFinanceRecordRow(row) {
+  return {
+    id: row.id,
+    source: row.source,
+    transactionDate: row.transaction_date,
+    monthKey: row.month_key,
+    transactionType: row.transaction_type,
+    description: row.description || '',
+    reference: row.reference || '',
+    amount: row.amount || 0,
+    status: row.status || 'posted',
+    importBatch: row.import_batch || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || row.created_at || ''
+  };
+}
+
+async function saveFinanceRecordToDb(db, record) {
+  await db.prepare(`
+    INSERT INTO finance_transactions (
+      id, source, transaction_date, month_key, transaction_type,
+      description, reference, amount, status, import_batch, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      source = excluded.source,
+      transaction_date = excluded.transaction_date,
+      month_key = excluded.month_key,
+      transaction_type = excluded.transaction_type,
+      description = excluded.description,
+      reference = excluded.reference,
+      amount = excluded.amount,
+      status = excluded.status,
+      import_batch = excluded.import_batch,
+      updated_at = excluded.updated_at
+  `).bind(
+    record.id,
+    record.source,
+    record.transactionDate,
+    record.monthKey,
+    record.transactionType,
+    record.description,
+    record.reference,
+    record.amount,
+    record.status,
+    record.importBatch,
+    record.createdAt,
+    record.updatedAt
+  ).run();
+}
+
+async function listFinanceRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureFinanceTransactionsTable(customerDb);
+
+  const url = new URL(request.url);
+  const limit = clampNumber(url.searchParams.get('limit'), DEFAULT_LIMIT, 1, 1000);
+  const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
+  const source = normalizeFinanceSource(url.searchParams.get('source'));
+  const hasSource = financeSourceValues.has(cleanValue(url.searchParams.get('source'), 40).toLowerCase());
+  const month = cleanValue(url.searchParams.get('month'), 20);
+  const search = normalizeSearch(url.searchParams.get('q') || url.searchParams.get('search'));
+  const where = [];
+  const bindings = [];
+
+  if (hasSource) {
+    where.push('source = ?');
+    bindings.push(source);
+  }
+
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    where.push('month_key = ?');
+    bindings.push(month);
+  }
+
+  if (search) {
+    where.push(`LOWER(source || ' ' || description || ' ' || COALESCE(reference, '') || ' ' || status) LIKE ?`);
+    bindings.push(`%${search}%`);
+  }
+
+  bindings.push(limit, offset);
+  const result = await customerDb.prepare(`
+    SELECT id, source, transaction_date, month_key, transaction_type, description, reference,
+      amount, status, import_batch, created_at, updated_at
+    FROM finance_transactions
+    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    ORDER BY transaction_date DESC, updated_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(...bindings).all();
+
+  return json({
+    records: (result.results || []).map(mapFinanceRecordRow)
+  }, 200, request);
+}
+
+async function financeRecordsHealthCheck(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ ok: false, error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureFinanceTransactionsTable(customerDb);
+  const row = await customerDb.prepare('SELECT COUNT(*) AS total FROM finance_transactions').first();
+  const columns = await customerDb.prepare('PRAGMA table_info(finance_transactions)').all();
+
+  return json({
+    ok: true,
+    database: 'connected',
+    total: row ? row.total : 0,
+    columns: (columns.results || []).map((column) => column.name)
+  }, 200, request);
+}
+
+async function saveFinanceRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureFinanceTransactionsTable(customerDb);
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const inputRecords = Array.isArray(payload.records)
+    ? payload.records
+    : Array.isArray(payload)
+      ? payload
+      : [payload.record || payload];
+  const saved = [];
+
+  for (const rawRecord of inputRecords) {
+    const record = normalizeFinanceRecord(rawRecord);
+
+    if (!record || !record.amount) {
+      return json({ ok: false, error: 'Nominal penarikan wajib diisi.' }, 400, request);
+    }
+
+    await saveFinanceRecordToDb(customerDb, record);
+    saved.push(record);
+  }
+
+  return json({
+    ok: true,
+    record: saved[0] || null,
+    records: saved
+  }, 200, request);
+}
+
+async function bulkImportFinanceRecords(request, env) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureFinanceTransactionsTable(customerDb);
+
+  let payload = {};
+
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return json({ ok: false, error: 'Body request harus JSON.' }, 400, request);
+  }
+
+  const inputRecords = Array.isArray(payload.records) ? payload.records : [];
+  const records = inputRecords
+    .map(normalizeFinanceRecord)
+    .filter((record) => record && record.amount);
+
+  if (!records.length) {
+    return json({ ok: false, error: 'Tidak ada transaksi valid untuk diupload.' }, 400, request);
+  }
+
+  for (const chunk of chunkArray(records, customerImportBatchSize)) {
+    await Promise.all(chunk.map((record) => saveFinanceRecordToDb(customerDb, record)));
+  }
+
+  return json({
+    ok: true,
+    uploaded: records.length,
+    records
+  }, 200, request);
+}
+
+async function deleteFinanceRecord(request, env, id) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureFinanceTransactionsTable(customerDb);
+  await customerDb.prepare('DELETE FROM finance_transactions WHERE id = ?').bind(cleanValue(id, 160)).run();
 
   return json({ ok: true }, 200, request);
 }

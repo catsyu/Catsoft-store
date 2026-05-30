@@ -7,9 +7,9 @@
   <title>Catsoft Product Stock</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260530-stock-limit-fix" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260530-search-icon-align" />
   <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="product-stock.css?v=20260530-stock-limit-fix" />
+  <link rel="stylesheet" href="product-stock.css?v=20260531-stock-team" />
 </head>
 <body class="product-stock-body">
   <main class="product-stock-page">
@@ -26,9 +26,23 @@
               <dt>Perlu Reset</dt>
               <dd data-stock-reset>0</dd>
             </div>
+            <div>
+              <dt>Total Biaya</dt>
+              <dd data-stock-cost-total>Rp 0</dd>
+            </div>
+            <div>
+              <dt>Total Profit</dt>
+              <dd data-stock-profit-total>Rp 0</dd>
+            </div>
           </dl>
         </div>
         <div class="admin-spectrum-rule"></div>
+        <nav class="stock-type-tabs" aria-label="Jenis stok">
+          <button class="is-active" type="button" data-stock-type-tab="all">Semua Stok</button>
+          <button type="button" data-stock-type-tab="account">Akun</button>
+          <button type="button" data-stock-type-tab="team">Tim</button>
+          <button type="button" data-stock-type-tab="redeem_code">Redeem Code</button>
+        </nav>
         <div class="admin-spectrum-toolbar">
           <label class="admin-spectrum-search">
             <span>Cari</span>
@@ -36,6 +50,59 @@
               <input type="search" data-stock-search autocomplete="off" placeholder="Produk, Akun, Atau Login" />
             </span>
           </label>
+          <details class="stock-filter-panel">
+            <summary>
+              <span>Filter</span>
+              <small>Produk, status, urutan</small>
+            </summary>
+            <div class="stock-filter-grid">
+              <label>
+                <span>Produk</span>
+                <select data-stock-filter-product>
+                  <option value="all">Semua Produk</option>
+                </select>
+              </label>
+              <label>
+                <span>Tipe</span>
+                <select data-stock-filter-type>
+                  <option value="all">Semua Tipe</option>
+                  <option value="account">Akun</option>
+                  <option value="team">Tim</option>
+                  <option value="redeem_code">Redeem Code</option>
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select data-stock-filter-status>
+                  <option value="all">Semua Status</option>
+                  <option value="active">Aktif</option>
+                  <option value="full">Penuh</option>
+                  <option value="reset">Perlu Reset</option>
+                  <option value="paused">Jeda</option>
+                  <option value="reset_due">Jadwal Reset</option>
+                </select>
+              </label>
+              <label>
+                <span>Urut</span>
+                <select data-stock-sort-by>
+                  <option value="updatedAt">Terbaru</option>
+                  <option value="accountName">Nama Stok</option>
+                  <option value="productName">Produk</option>
+                  <option value="joinedActive">Customer Join</option>
+                  <option value="totalRevenue">Penghasilan</option>
+                  <option value="resetAt">Jadwal Reset</option>
+                  <option value="status">Status</option>
+                </select>
+              </label>
+              <label>
+                <span>Arah</span>
+                <select data-stock-sort-direction>
+                  <option value="desc">Menurun</option>
+                  <option value="asc">Menaik</option>
+                </select>
+              </label>
+            </div>
+          </details>
           <div class="admin-spectrum-actions">
             <button class="admin-spectrum-primary" type="button" data-stock-add>Tambah Stok</button>
             <button class="admin-spectrum-secondary" type="button" data-stock-refresh>Refresh</button>
@@ -84,14 +151,17 @@
           </div>
           <label>
             Produk
-            <input type="text" data-stock-product list="stockProductList" placeholder="ChatGPT" required />
-            <datalist id="stockProductList">
-              <option value="ChatGPT"></option>
-              <option value="Canva Pro"></option>
-              <option value="CapCut Pro"></option>
-              <option value="Microsoft Office"></option>
-              <option value="Redeem Code"></option>
-            </datalist>
+            <select data-stock-product required>
+              <option value="ChatGPT">ChatGPT</option>
+              <option value="Canva Pro">Canva Pro</option>
+              <option value="CapCut Pro">CapCut Pro</option>
+              <option value="Microsoft Office">Microsoft Office</option>
+              <option value="Redeem Code">Redeem Code</option>
+              <option value="After Effects Assets">After Effects Assets</option>
+              <option value="LUT Apple Log ProRes">LUT Apple Log ProRes</option>
+              <option value="Preset Lightroom">Preset Lightroom</option>
+              <option value="Instagram Booster">Instagram Booster</option>
+            </select>
           </label>
           <label>
             Nama Akun Stok
@@ -102,8 +172,13 @@
               Tipe Stok
               <select data-stock-type>
                 <option value="account">Akun</option>
+                <option value="team">Tim</option>
                 <option value="redeem_code">Redeem Code</option>
               </select>
+            </label>
+            <label class="stock-team-field" data-stock-team-field hidden>
+              Anggota Tim
+              <input type="number" min="1" max="500" step="1" data-stock-team-members value="1" />
             </label>
             <label>
               Biaya Stok
@@ -164,6 +239,6 @@
     </aside>
   </main>
   <script src="admin-auth.js?v=20260530-stock-limit-fix" defer></script>
-  <script src="product-stock.js?v=20260530-stock-limit-fix" defer></script>
+  <script src="product-stock.js?v=20260531-stock-team" defer></script>
 </body>
 </html>

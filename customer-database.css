@@ -961,6 +961,11 @@ body.is-database-locked {
   border-color: #fdba74;
 }
 
+.stat-card.income {
+  background: #f8fafc;
+  border-color: #d8d8d8;
+}
+
 .stat-card:hover {
   border-color: #bfdbfe;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
@@ -2135,9 +2140,14 @@ body {
 .database-panel .stat-card.warning,
 .database-panel .stat-card.urgent,
 .database-panel .stat-card.danger,
-.database-panel .stat-card.duplicate {
+.database-panel .stat-card.duplicate,
+.database-panel .stat-card.income {
   background: #fff;
   border-color: #d8d8d8;
+}
+
+.database-panel .stat-card.income {
+  grid-column: span 2;
 }
 
 .database-panel .stat-card:hover {
@@ -2158,6 +2168,11 @@ body {
   color: #222;
   font-size: 17px;
   font-weight: 650;
+}
+
+.database-panel .stat-card.income strong {
+  font-size: 16px;
+  white-space: nowrap;
 }
 
 .lookup-panel {
@@ -3011,6 +3026,16 @@ textarea:focus {
   font-weight: 620;
 }
 
+.database-panel .stat-card.income {
+  grid-column: span 2;
+  background: #fff;
+}
+
+.database-panel .stat-card.income strong {
+  font-size: 16px;
+  white-space: nowrap;
+}
+
 .lookup-panel,
 .database-filter-panel > summary,
 .database-panel .results-bar,
@@ -3421,7 +3446,8 @@ textarea:focus {
   grid-column: 1 / -1 !important;
 }
 
-.customer-form[data-customer-view-panel="input"] .product-field > input {
+.customer-form[data-customer-view-panel="input"] .product-field > input,
+.customer-form[data-customer-view-panel="input"] .product-field > select {
   grid-column: 1 !important;
 }
 
@@ -3513,7 +3539,8 @@ textarea:focus {
   }
 
   .customer-form[data-customer-view-panel="input"] .text-link-button,
-  .customer-form[data-customer-view-panel="input"] .product-field > input {
+  .customer-form[data-customer-view-panel="input"] .product-field > input,
+  .customer-form[data-customer-view-panel="input"] .product-field > select {
     grid-column: 1 !important;
   }
 
@@ -3831,10 +3858,69 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .database-panel .bulk-toolbar.has-selection .bulk-select-all,
+.database-panel .bulk-toolbar.has-selection .bulk-select-all,
   .database-panel .bulk-toolbar.has-selection strong,
   .database-panel .bulk-toolbar.has-selection select {
     grid-column: 1 / -1 !important;
+  }
+}
+
+/* Compact result summary pill. */
+.database-panel .database-list-head {
+  grid-template-columns: max-content minmax(0, 1fr) !important;
+}
+
+.database-panel .results-bar {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  width: fit-content !important;
+  max-width: min(100%, 360px) !important;
+  min-height: 28px !important;
+  align-items: center !important;
+  gap: 0 !important;
+  border: 1px solid #d7d7d7 !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  padding: 2px 7px !important;
+  overflow: hidden !important;
+}
+
+.database-panel .results-bar strong,
+.database-panel .results-bar span {
+  display: inline-flex !important;
+  min-width: 0 !important;
+  min-height: 21px !important;
+  align-items: center !important;
+  color: #252525 !important;
+  font-size: 11px !important;
+  font-weight: 560 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+.database-panel .results-bar strong {
+  flex: 0 0 auto !important;
+  padding: 0 9px 0 4px !important;
+  border-right: 1px solid #d7d7d7 !important;
+}
+
+.database-panel .results-bar span {
+  justify-content: flex-start !important;
+  overflow: hidden !important;
+  max-width: 200px !important;
+  padding: 0 3px 0 9px !important;
+  color: #5f5f5f !important;
+  text-align: left !important;
+  text-overflow: ellipsis !important;
+}
+
+@media (max-width: 860px) {
+  .database-panel .database-list-head {
+    grid-template-columns: 1fr !important;
+  }
+
+  .database-panel .results-bar {
+    max-width: 100% !important;
   }
 }
 
@@ -3849,6 +3935,10 @@ textarea:focus {
 
   .database-panel .database-filter-panel > summary small {
     display: none !important;
+  }
+
+  .database-panel .database-list-head {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -4079,4 +4169,21 @@ textarea:focus {
   .database-panel .inline-edit-form .wide-field {
     grid-column: 1 !important;
   }
+}
+
+/* Match Admin Console search icon style in the database toolbar. */
+.database-panel .search-controls input[type="search"] {
+  padding-left: 38px !important;
+  background-color: #fff !important;
+  background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23333333' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10.5' cy='10.5' r='5.5'/%3E%3Cpath d='M14.6 14.6 20 20'/%3E%3C/svg%3E") !important;
+  background-position: 13px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 18px 18px !important;
+}
+
+.database-panel .search-controls input[type="search"]::-webkit-search-decoration,
+.database-panel .search-controls input[type="search"]::-webkit-search-cancel-button,
+.database-panel .search-controls input[type="search"]::-webkit-search-results-button,
+.database-panel .search-controls input[type="search"]::-webkit-search-results-decoration {
+  display: none !important;
 }

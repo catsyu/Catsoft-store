@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Catsoft Finance Database</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260530-search-icon-align" />
+  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="finance-database.css?v=20260531-finance-db" />
+</head>
+<body class="finance-body">
+  <main class="finance-page">
+    <section class="admin-access-panel admin-access-page-panel finance-panel" aria-labelledby="financeTitle">
+      <div class="admin-spectrum-page">
+        <div class="admin-spectrum-head finance-head">
+          <h2 id="financeTitle">Keuangan</h2>
+          <dl>
+            <div>
+              <dt>Penarikan</dt>
+              <dd data-finance-total>Rp 0</dd>
+            </div>
+            <div>
+              <dt>Shopee</dt>
+              <dd data-finance-shopee>Rp 0</dd>
+            </div>
+            <div>
+              <dt>GoPay</dt>
+              <dd data-finance-gopay>Rp 0</dd>
+            </div>
+            <div>
+              <dt>Biaya Stok</dt>
+              <dd data-finance-stock-cost>Rp 0</dd>
+            </div>
+            <div>
+              <dt>Profit</dt>
+              <dd data-finance-profit>Rp 0</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="finance-toolbar">
+          <label class="finance-search">
+            <span>Cari</span>
+            <span class="finance-search-field">
+              <input type="search" data-finance-search autocomplete="off" placeholder="Sumber, deskripsi, atau referensi" />
+            </span>
+          </label>
+          <label class="finance-field">
+            <span>Bulan</span>
+            <input type="month" data-finance-month />
+          </label>
+          <label class="finance-field">
+            <span>Sumber</span>
+            <select data-finance-source>
+              <option value="all">Semua Sumber</option>
+              <option value="shopee">Shopee</option>
+              <option value="gopay">GoPay</option>
+            </select>
+          </label>
+          <div class="finance-actions">
+            <button class="finance-primary" type="button" data-finance-upload>Upload Shopee</button>
+            <button class="finance-secondary" type="button" data-finance-gopay-toggle>Tambah GoPay</button>
+            <button class="finance-secondary" type="button" data-finance-refresh>Refresh</button>
+          </div>
+          <input type="file" data-finance-file accept=".xlsx,.xls,.csv" hidden />
+        </div>
+
+        <form class="finance-gopay-form" data-finance-gopay-form hidden>
+          <label>
+            <span>Tanggal</span>
+            <input type="date" data-gopay-date required />
+          </label>
+          <label>
+            <span>Nominal</span>
+            <input type="text" inputmode="numeric" data-gopay-amount placeholder="Rp 0" required />
+          </label>
+          <label>
+            <span>Catatan</span>
+            <input type="text" data-gopay-note placeholder="Penarikan GoPay ke rekening" />
+          </label>
+          <button class="finance-primary" type="submit">Simpan GoPay</button>
+        </form>
+
+        <p class="admin-access-status finance-status" data-finance-status aria-live="polite"></p>
+
+        <section class="finance-summary-table" aria-labelledby="financeMonthlyTitle">
+          <div class="finance-section-head">
+            <h3 id="financeMonthlyTitle">Profit Bulanan</h3>
+            <span data-finance-month-context>Bulan aktif</span>
+          </div>
+          <div class="finance-table" data-finance-monthly></div>
+        </section>
+
+        <section class="finance-records" aria-labelledby="financeRecordsTitle">
+          <div class="finance-section-head">
+            <h3 id="financeRecordsTitle">Transaksi</h3>
+            <span data-finance-result-count>0 Data</span>
+          </div>
+          <div class="finance-list" data-finance-list></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="finance-modal" data-finance-preview-modal hidden>
+    <div class="finance-modal-scrim"></div>
+    <section class="finance-preview-card" role="dialog" aria-modal="true" aria-labelledby="financePreviewTitle">
+      <div class="finance-preview-head">
+        <div>
+          <span>Preview XLSX Shopee</span>
+          <h2 id="financePreviewTitle">Preview Siap</h2>
+        </div>
+        <button type="button" data-finance-preview-close aria-label="Tutup">×</button>
+      </div>
+      <p data-finance-preview-message>Cek data sebelum upload ke database.</p>
+      <div class="finance-preview-stats" data-finance-preview-stats></div>
+      <div class="finance-preview-table" data-finance-preview-rows></div>
+      <div class="finance-preview-actions">
+        <button class="finance-secondary" type="button" data-finance-preview-cancel>Batal</button>
+        <button class="finance-primary" type="button" data-finance-preview-confirm>Upload Ke Database</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="admin-auth.js?v=20260531-finance-db"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="finance-database.js?v=20260531-finance-db"></script>
+</body>
+</html>

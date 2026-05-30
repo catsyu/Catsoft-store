@@ -28,6 +28,7 @@ const CATSOFT_ADMIN_TOOLS = [
   { id: 'marketing-calculator', label: 'Marketing Calculator', path: 'marketing-calculator.html', route: '/marketing' },
   { id: 'content-editor', label: 'Content Editor', path: 'content-editor.html', route: '/content' },
   { id: 'product-stock', label: 'Product Stock', path: 'product-stock.html', route: '/stock' },
+  { id: 'finance-database', label: 'Finance Database', path: 'finance-database.html', route: '/finance' },
   { id: 'supplier-access', label: 'Supplier Center Access', path: 'supplier-access.html', route: '/supplier-access' },
   { id: 'admin-access', label: 'Admin Access', path: 'admin-access.html', route: '/access', ownerOnly: true }
 ];
@@ -62,6 +63,12 @@ const CATSOFT_ADMIN_ACCESS_TOOL_CATEGORIES = [
     label: 'Stok',
     note: 'Akun Stok Dan Customer Join',
     tools: ['product-stock']
+  },
+  {
+    id: 'finance',
+    label: 'Keuangan',
+    note: 'Penarikan Dana Dan Profit Bulanan',
+    tools: ['finance-database']
   },
   {
     id: 'access',
@@ -2066,6 +2073,7 @@ function getCurrentAdminConsoleState() {
     refund: 'customer',
     office: 'customer',
     content: 'marketing',
+    'finance-database': 'finance',
     'supplier-access': 'admin'
   };
   const hashToolPanes = {
@@ -2091,10 +2099,11 @@ function getCurrentAdminConsoleState() {
     '/chat': { view: 'overview' },
     '/marketing': { view: 'marketing', consoleToolPane: 'marketing-calculator' },
     '/content': { view: 'marketing', consoleToolPane: 'content-editor' },
-    '/stock': { view: 'stock' }
+    '/stock': { view: 'stock' },
+    '/finance': { view: 'finance' }
   };
   const normalizedHash = viewAliases[hash] || hash;
-  const allowedViews = ['overview', 'admin', 'customer', 'email', 'marketing', 'stock'];
+  const allowedViews = ['overview', 'admin', 'customer', 'email', 'marketing', 'stock', 'finance'];
   if (allowedViews.includes(normalizedHash)) {
     return {
       view: normalizedHash,
@@ -2157,6 +2166,10 @@ function getAdminConsoleHashForState(viewName) {
 
   if (viewName === 'stock') {
     return '#stock';
+  }
+
+  if (viewName === 'finance') {
+    return '#finance';
   }
 
   return '#overview';
@@ -2417,7 +2430,8 @@ function showAdminConsoleView(viewName = 'overview', options = {}) {
     'customer-access': 'customer',
     refund: 'customer',
     office: 'customer',
-    content: 'marketing'
+    content: 'marketing',
+    'finance-database': 'finance'
   };
   const requestedView = viewAliases[viewName] || viewName || 'overview';
   const moduleView = document.querySelector(`[data-console-view="${requestedView}"]`);

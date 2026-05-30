@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS product_stock_accounts (
   login_username TEXT,
   login_password TEXT,
   stock_cost INTEGER NOT NULL DEFAULT 0,
+  team_member_count INTEGER NOT NULL DEFAULT 1,
   capacity INTEGER NOT NULL DEFAULT 7,
   status TEXT NOT NULL DEFAULT 'active',
   reset_at TEXT,
@@ -145,6 +146,30 @@ CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_status
 
 CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_reset_at
   ON product_stock_accounts (reset_at);
+
+CREATE TABLE IF NOT EXISTS finance_transactions (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL DEFAULT 'shopee',
+  transaction_date TEXT NOT NULL,
+  month_key TEXT NOT NULL,
+  transaction_type TEXT NOT NULL DEFAULT 'withdrawal',
+  description TEXT,
+  reference TEXT,
+  amount INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'posted',
+  import_batch TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_month
+  ON finance_transactions (month_key);
+
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_source
+  ON finance_transactions (source);
+
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_date
+  ON finance_transactions (transaction_date DESC);
 
 CREATE TABLE IF NOT EXISTS customer_accounts (
   username TEXT PRIMARY KEY,

@@ -2643,6 +2643,10 @@ body.admin-console-body {
   --tool-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z'/%3E%3Cpath d='m3.3 7 8.7 5 8.7-5'/%3E%3Cpath d='M12 22V12'/%3E%3Cpath d='m7.5 4.3 9 5.2'/%3E%3C/svg%3E");
 }
 
+.console-product-icon.is-finance {
+  --tool-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M7 15h3v3H7z'/%3E%3Cpath d='M12 10h3v8h-3z'/%3E%3Cpath d='M17 6h3v12h-3z'/%3E%3Cpath d='M6 8c2-3 5-4 8-1l1 1c2 2 4 2 6-1'/%3E%3C/svg%3E");
+}
+
 .console-user-stats {
   display: grid;
   gap: 10px;
@@ -3982,6 +3986,10 @@ body.admin-console-body .admin-detail-drawer .admin-form-actions button[type="bu
   --tool-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z'/%3E%3Cpath d='m3.3 7 8.7 5 8.7-5'/%3E%3Cpath d='M12 22V12'/%3E%3Cpath d='m7.5 4.3 9 5.2'/%3E%3C/svg%3E");
 }
 
+.console-quick-links .is-finance {
+  --tool-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='M7 15h3v3H7z'/%3E%3Cpath d='M12 10h3v8h-3z'/%3E%3Cpath d='M17 6h3v12h-3z'/%3E%3Cpath d='M6 8c2-3 5-4 8-1l1 1c2 2 4 2 6-1'/%3E%3C/svg%3E");
+}
+
 .console-footer {
   display: flex;
   justify-content: space-between;
@@ -5019,7 +5027,46 @@ body.admin-console-body .console-access-sidebar small {
     border-radius: 13px 13px 0 0;
   }
 
-  body.admin-console-body .console-access-sidebar span {
+body.admin-console-body .console-access-sidebar span {
     font-size: 13px;
   }
+}
+
+/* Unified search icon: one clean magnifier for all Admin Console spectrum fields. */
+.admin-spectrum-search-field {
+  position: relative;
+}
+
+.admin-spectrum-search input {
+  padding-left: 38px !important;
+  background-image: none !important;
+}
+
+.admin-spectrum-search-field::before,
+.admin-spectrum-search-field::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.admin-spectrum-search-field::before {
+  left: 14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #333;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+
+.admin-spectrum-search-field::after {
+  left: 24px;
+  top: calc(50% + 4px);
+  width: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: #333;
+  transform: rotate(45deg);
+  transform-origin: left center;
 }

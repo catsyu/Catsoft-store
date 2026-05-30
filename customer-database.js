@@ -15,6 +15,7 @@ const bulkStatusChunkSize = 500;
 const bulkDeleteChunkSize = 500;
 const bulkPatchFallbackConcurrency = 8;
 const storageKey = 'catsoftCustomerDatabaseRecords';
+const customerFetchMaxPages = 120;
 const backupStorageKey = `${storageKey}:backup`;
 const productRegistryStorageKey = 'catsoftCustomerDatabaseProducts';
 const customerMarketingSettingsKey = 'catsoftMarketingCalculatorSettings';
@@ -75,6 +76,7 @@ const expiryDateInput = document.getElementById('expiryDate');
 const subscriptionStatusSelect = document.getElementById('subscriptionStatus');
 const adminNotesInput = document.getElementById('adminNotes');
 const totalCount = document.getElementById('totalCount');
+const totalIncomeAmount = document.getElementById('totalIncomeAmount');
 const activeCount = document.getElementById('activeCount');
 const expiredCount = document.getElementById('expiredCount');
 const expireTodayCount = document.getElementById('expireTodayCount');
@@ -241,6 +243,11 @@ const protectedStatusOptions = new Set(['removed', 'refund', 'problem']);
 const statusFilterLabels = {
   ...statusLabels,
   duplicate: 'Data Ganda'
+};
+const resultSummaryFilterLabels = {
+  ...statusFilterLabels,
+  incomplete: 'Tidak Lengkap',
+  duplicate: 'Ganda'
 };
 
 const orderSourceLabels = {
@@ -653,8 +660,39 @@ function addRegisteredProduct(productName) {
   renderProductOptions();
 }
 
+function buildSelectOptions(values, selectedValue = '', placeholder = 'Pilih') {
+  const selected = String(selectedValue || '').trim();
+  const seen = new Set();
+  const options = [`<option value="" ${selected ? '' : 'selected'}>${escapeHtml(placeholder)}</option>`];
+
+  [selected, ...(Array.isArray(values) ? values : [])].forEach((value) => {
+    const cleanValue = String(value || '').trim();
+    const key = cleanValue.toLowerCase();
+
+    if (!cleanValue || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    options.push(`<option value="${escapeHtml(cleanValue)}" ${cleanValue === selected ? 'selected' : ''}>${escapeHtml(cleanValue)}</option>`);
+  });
+
+  return options.join('');
+}
+
+function setSelectOptions(select, values, selectedValue, placeholder = 'Pilih') {
+  if (!select || select.tagName !== 'SELECT') {
+    return;
+  }
+
+  const selected = typeof selectedValue === 'undefined' ? select.value : selectedValue;
+  select.innerHTML = buildSelectOptions(values, selected, placeholder);
+}
+
 function renderProductOptions() {
   const products = getRegisteredProductOptions();
+
+  setSelectOptions(productNameInput, products, productNameInput?.value || '', 'Pilih Produk');
 
   if (registeredProductList) {
     registeredProductList.innerHTML = products
@@ -694,17 +732,19 @@ function getStockAccountOptions() {
 }
 
 function renderStockAccountOptions() {
-  if (!stockAccountList) {
-    return;
-  }
+  const options = getStockAccountOptions();
 
-  stockAccountList.innerHTML = getStockAccountOptions()
-    .map((stockName) => `<option value="${escapeHtml(stockName)}"></option>`)
-    .join('');
+  setSelectOptions(stockAccountInput, options, stockAccountInput?.value || '', 'Pilih akun stok');
+
+  if (stockAccountList) {
+    stockAccountList.innerHTML = options
+      .map((stockName) => `<option value="${escapeHtml(stockName)}"></option>`)
+      .join('');
+  }
 }
 
 async function syncStockAccountOptions() {
-  if (!stockAccountList) {
+  if (!stockAccountInput && !stockAccountList) {
     return;
   }
 
@@ -1203,10 +1243,12 @@ async function fetchApiRecordsPage(offset = 0, limit = customerFetchLimit, optio
 async function fetchApiRecords(options = {}) {
   const allRecords = [];
   let offset = 0;
+  let pageCount = 0;
 
-  while (offset <= 10000) {
+  while (pageCount < customerFetchMaxPages) {
     const pageRecords = await fetchApiRecordsPage(offset, customerFetchLimit, options);
     allRecords.push(...pageRecords);
+    pageCount += 1;
 
     if (pageRecords.length < customerFetchLimit) {
       break;
@@ -1491,11 +1533,11 @@ function renderResultSummary(filteredRecords) {
   }
 
   if (statusFilter.value !== 'all') {
-    filters.push(statusFilterLabels[statusFilter.value] || statusFilter.value);
+    filters.push(resultSummaryFilterLabels[statusFilter.value] || statusFilterLabels[statusFilter.value] || statusFilter.value);
   }
 
   resultCount.textContent = `${total} Data`;
-  resultContext.textContent = filters.length ? filters.join(' / ') : 'Semua Data';
+  resultContext.textContent = filters.length ? filters.join(' · ') : 'Semua Data';
 }
 
 function getRecordSortValue(record, sortBy, duplicateIndex = getDuplicateIndex(records)) {
@@ -2114,12 +2156,12 @@ function fillForm(record) {
   recordIdInput.value = record.id;
   customerNameInput.value = record.customerName || '';
   activatedEmailInput.value = record.activatedEmail || '';
-  if (stockAccountInput) stockAccountInput.value = record.stockAccount || '';
+  setSelectOptions(stockAccountInput, getStockAccountOptions(), record.stockAccount || '', 'Pilih akun stok');
   if (incomeAmountInput) incomeAmountInput.value = record.incomeAmount ? formatCurrencyAmount(record.incomeAmount) : '';
   whatsappNumberInput.value = record.whatsappNumber || '';
   orderNumberInput.value = record.orderNumber || '';
   updateOrderReferenceField(getRecordOrderSource(record), getOrderReferenceValue(record) || '');
-  productNameInput.value = record.productName || '';
+  setSelectOptions(productNameInput, getRegisteredProductOptions(), record.productName || '', 'Pilih Produk');
   updateActivationFieldMode(record.productName || '');
   durationDaysInput.value = record.durationDays || 30;
   syncDurationPreset();
@@ -2154,7 +2196,9 @@ function renderInlineEditForm(record, status) {
       </label>
       <label class="field-group">
         <span>Stok</span>
-        <input data-edit-field="stockAccount" type="text" list="stockAccountList" placeholder="Pilih akun stok" value="${escapeHtml(record.stockAccount || '')}" />
+        <select data-edit-field="stockAccount">
+          ${buildSelectOptions(getStockAccountOptions(), record.stockAccount || '', 'Pilih akun stok')}
+        </select>
       </label>
       <label class="field-group">
         <span>Penghasilan</span>
@@ -2173,7 +2217,9 @@ function renderInlineEditForm(record, status) {
       </label>
       <label class="field-group">
         <span>Produk</span>
-        <input data-edit-field="productName" type="text" list="registeredProductList" value="${escapeHtml(record.productName || '')}" />
+        <select data-edit-field="productName">
+          ${buildSelectOptions(getRegisteredProductOptions(), record.productName || '', 'Pilih Produk')}
+        </select>
       </label>
       <label class="field-group">
         <span>Durasi</span>
@@ -2355,6 +2401,8 @@ function resetForm() {
   subscriptionStatusSelect.value = 'active';
   whatsappNumberInput.value = '';
   orderNumberInput.value = '';
+  setSelectOptions(stockAccountInput, getStockAccountOptions(), '', 'Pilih akun stok');
+  setSelectOptions(productNameInput, getRegisteredProductOptions(), '', 'Pilih Produk');
   updateOrderReferenceField('shopee', '');
   updateActivationFieldMode('');
   syncPackagePreset();
@@ -2522,10 +2570,14 @@ function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
   });
 }
 
-function renderStats() {
+function renderStats(displayedRecords = records) {
   const today = todayDate();
   const duplicateIndex = getDuplicateIndex(records);
+  const incomeTotal = displayedRecords.reduce((total, record) => total + parseCurrencyAmount(record.incomeAmount ?? record.income_amount), 0);
   totalCount.textContent = records.length;
+  if (totalIncomeAmount) {
+    totalIncomeAmount.textContent = formatCurrencyAmount(incomeTotal);
+  }
   activeCount.textContent = records.filter((record) => getLifecycleStatus(record) === 'active').length;
   expiredCount.textContent = records.filter((record) => getLifecycleStatus(record) === 'expired').length;
   expireTodayCount.textContent = records.filter((record) => isSameDate(fromDateInput(record.expiryDate), today)).length;
@@ -2560,10 +2612,9 @@ function applyStatsFilter(mode) {
 }
 
 function renderRecords() {
-  renderStats();
-
   const duplicateIndex = getDuplicateIndex(records);
   const filteredRecords = sortFilteredRecords(getFilteredRecords(duplicateIndex), duplicateIndex);
+  renderStats(filteredRecords);
   const lookupEmails = getLookupEmailSet();
   lastRenderedRecordIds = filteredRecords.map((record) => record.id);
   renderLookupState(filteredRecords);
@@ -3037,8 +3088,8 @@ function applyOcrText(rawText) {
   }
 
   if (productName) {
-    productNameInput.value = productName;
     addRegisteredProduct(productName);
+    setSelectOptions(productNameInput, getRegisteredProductOptions(), productName, 'Pilih Produk');
     updateActivationFieldMode(productName);
   }
 
@@ -4146,6 +4197,7 @@ document.addEventListener('keydown', (event) => {
 // Klik statistik untuk menampilkan subset data terkait
 const statCards = [
   { element: totalCount.closest('.stat-card'), mode: 'all' },
+  { element: totalIncomeAmount?.closest('.stat-card'), mode: 'all' },
   { element: activeCount.closest('.stat-card'), mode: 'active' },
   { element: expiredCount.closest('.stat-card'), mode: 'expired' },
   { element: expireTodayCount.closest('.stat-card'), mode: 'today' },

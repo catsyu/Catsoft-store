@@ -104,13 +104,56 @@ html {
   text-align: right;
 }
 
+.product-stock-body .admin-spectrum-head dl div.is-negative dd {
+  color: #8a2f2f;
+}
+
 .product-stock-body .admin-spectrum-rule {
   display: none;
 }
 
+.stock-type-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 1px solid var(--stock-border);
+  background: #111;
+  overflow-x: auto;
+}
+
+.stock-type-tabs button {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 118px;
+  min-height: 38px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  padding: 8px 17px;
+  background: transparent;
+  color: #cfcfcf;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.stock-type-tabs button:hover,
+.stock-type-tabs button:focus-visible {
+  background: #1e1e1e;
+  color: #fff;
+  outline: none;
+}
+
+.stock-type-tabs button.is-active {
+  background: #fff;
+  color: #111;
+}
+
 .product-stock-body .admin-spectrum-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 360px) minmax(190px, 260px) minmax(0, 1fr);
   align-items: end;
   gap: 12px;
   min-height: 0;
@@ -146,10 +189,7 @@ html {
   border-radius: 999px;
   padding: 7px 12px 7px 38px !important;
   background-color: #fbfbfb;
-  background-image: url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%232f2f2f' stroke-width='2.15' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10.25' cy='10.25' r='5.75'/%3E%3Cpath d='M14.6 14.6 20 20'/%3E%3C/svg%3E");
-  background-position: 13px center;
-  background-repeat: no-repeat;
-  background-size: 17px 17px;
+  background-image: none;
   color: #222;
   font-size: 13px;
   font-weight: 500;
@@ -181,6 +221,104 @@ html {
   justify-content: flex-end;
   gap: 10px;
   margin-left: auto;
+}
+
+.stock-filter-panel {
+  position: relative;
+  min-width: 0;
+}
+
+.stock-filter-panel summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  border: 1px solid #cfcfcf;
+  border-radius: 999px;
+  padding: 7px 14px 7px 16px;
+  background: #fff;
+  color: #333;
+  font-size: 13px;
+  font-weight: 520;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.stock-filter-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.stock-filter-panel summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #333;
+  border-bottom: 2px solid #333;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.14s ease;
+}
+
+.stock-filter-panel[open] summary {
+  border-color: #9f9f9f;
+  background: #f7f7f7;
+}
+
+.stock-filter-panel[open] summary::after {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.stock-filter-panel summary small {
+  min-width: 0;
+  overflow: hidden;
+  color: #666;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-filter-grid {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  width: min(520px, calc(100vw - 48px));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  border: 1px solid var(--stock-border);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.12);
+}
+
+.stock-filter-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #4f4f4f;
+  font-size: 11px;
+  font-weight: 560;
+  line-height: 1.15;
+}
+
+.stock-filter-grid select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #cfcfcf;
+  border-radius: 9px;
+  padding: 6px 30px 6px 10px;
+  background-color: #fff;
+  color: #222;
+  font-size: 12px;
+  font-weight: 520;
+  outline: none;
+}
+
+.stock-filter-grid select:focus {
+  border-color: #777;
 }
 
 .product-stock-body .admin-spectrum-primary,
@@ -552,57 +690,126 @@ html {
   font-weight: 500;
 }
 
-.stock-drawer .admin-detail-head {
-  align-items: center;
-  margin-bottom: 14px;
-  padding-bottom: 14px;
+.stock-drawer {
+  width: min(470px, 100vw);
+  padding: 18px;
+  background: #fff;
 }
 
-.stock-drawer {
-  width: min(520px, 100vw);
+.stock-drawer .admin-detail-head {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 12px;
+}
+
+.stock-drawer .admin-detail-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 11px;
+  font-weight: 560;
 }
 
 .stock-drawer .admin-detail-head h3 {
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 520;
+  line-height: 1.12;
 }
 
 .stock-drawer .admin-detail-role {
+  margin-top: 2px;
+  color: #666;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.stock-drawer .admin-detail-save,
+.stock-drawer .admin-detail-close {
+  min-height: 30px;
+  height: 30px;
+}
+
+.stock-drawer .admin-detail-save {
+  min-width: 74px;
+  padding: 5px 14px;
   font-size: 12px;
+  font-weight: 520;
+}
+
+.stock-drawer .admin-detail-save.is-loading {
+  min-width: 104px;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.stock-drawer .admin-detail-save.is-loading::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 999px;
+  animation: stock-save-spin 0.7s linear infinite;
+}
+
+.stock-drawer .admin-detail-close {
+  width: 30px;
+  font-size: 20px;
 }
 
 .stock-drawer .admin-detail-section {
-  gap: 10px;
-  padding: 14px 0;
+  gap: 8px;
+  padding: 11px 0;
 }
 
 .stock-drawer .admin-detail-section h4 {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 520;
+  line-height: 1.2;
 }
 
 .stock-drawer .admin-access-form label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  color: #4b4b4b;
+  font-size: 11.5px;
+  font-weight: 520 !important;
+  line-height: 1.25;
 }
 
 .stock-drawer .admin-access-form input:not([type="checkbox"]),
 .stock-drawer .admin-access-form select,
 .stock-drawer .admin-access-form textarea {
-  min-height: 38px;
+  min-height: 34px;
   border: 1px solid #cfcfcf;
-  border-radius: 10px;
-  padding: 8px 11px;
-  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fbfbfb;
   color: #202020;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 520;
   box-shadow: none;
 }
 
+.stock-drawer .admin-access-form select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #222 50%),
+    linear-gradient(135deg, #222 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+}
+
 .stock-drawer .admin-access-form textarea {
-  min-height: 74px;
+  min-height: 58px;
   resize: vertical;
+  line-height: 1.35;
 }
 
 .stock-drawer .admin-access-form input:not([type="checkbox"]):focus,
@@ -616,7 +823,7 @@ html {
 .stock-inline-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .stock-mini-stat {
@@ -624,14 +831,14 @@ html {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 28px;
+  min-height: 30px;
   border: 1px solid #d4d4d4;
   border-radius: 999px;
-  padding: 4px 10px;
-  background: #f8f8f8;
+  padding: 5px 11px;
+  background: #fff;
   color: #444;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 520;
 }
 
 .stock-joined-toggle {
@@ -692,9 +899,9 @@ html {
 .stock-joined-list p {
   margin: 0;
   border: 1px solid var(--stock-border);
-  border-radius: 12px;
-  padding: 9px 11px;
-  background: #f8f8f8;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fafafa;
   color: var(--stock-muted);
   font-size: 12px;
   line-height: 1.45;
@@ -734,15 +941,32 @@ html {
 }
 
 .stock-danger-zone {
+  padding-top: 10px;
   padding-bottom: 0;
 }
 
 .stock-danger-zone .admin-spectrum-secondary {
   width: 100%;
+  min-height: 34px;
   min-width: 0;
   border-color: #d8d8d8;
   background: #fff;
   color: #333;
+  font-size: 12px;
+  font-weight: 520;
+}
+
+.stock-danger-zone .admin-spectrum-secondary:hover,
+.stock-danger-zone .admin-spectrum-secondary:focus-visible {
+  border-color: #9f9f9f;
+  background: #f8f8f8;
+  color: #111;
+}
+
+@keyframes stock-save-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 760px) {
@@ -767,9 +991,28 @@ html {
     padding-bottom: 1px;
   }
 
+  .stock-type-tabs button {
+    min-width: auto;
+    min-height: 36px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+  }
+
   .product-stock-body .admin-spectrum-toolbar {
     grid-template-columns: 1fr;
     padding: 12px 14px;
+  }
+
+  .stock-filter-panel summary {
+    min-height: 34px;
+  }
+
+  .stock-filter-grid {
+    position: static;
+    width: 100%;
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+    box-shadow: none;
   }
 
   .product-stock-body .admin-spectrum-actions {
@@ -860,16 +1103,66 @@ html {
 
   .stock-drawer {
     width: 100vw;
-    padding: 14px;
+    padding: 12px;
   }
 
   .stock-drawer .admin-detail-head {
-    margin: -14px -14px 12px;
-    padding: 13px 14px 12px;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 8px;
+    margin: -12px -12px 10px;
+    padding: 11px 12px 10px;
+  }
+
+  .stock-drawer .admin-detail-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .stock-drawer .admin-detail-head h3 {
+    font-size: 17px;
+  }
+
+  .stock-drawer .admin-detail-save {
+    min-width: 68px;
+    padding: 5px 12px;
+  }
+
+  .stock-drawer .admin-detail-close {
+    width: 30px;
+    height: 30px;
   }
 
   .stock-drawer .admin-detail-section {
-    gap: 9px;
-    padding: 12px 0;
+    gap: 8px;
+    padding: 10px 0;
   }
+
+  .stock-drawer .admin-access-form input:not([type="checkbox"]),
+  .stock-drawer .admin-access-form select,
+  .stock-drawer .admin-access-form textarea {
+    min-height: 33px;
+  }
+}
+
+/* Product stock loads after admin-tools.css, so keep the shared search icon aligned here too. */
+.product-stock-body .admin-spectrum-search input {
+  padding-left: 38px !important;
+  background-image: none !important;
+}
+
+.product-stock-body .admin-spectrum-search-field::before {
+  left: 14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-width: 2px;
+  transform: translateY(-50%);
+}
+
+.product-stock-body .admin-spectrum-search-field::after {
+  left: 24px;
+  top: calc(50% + 4px);
+  width: 8px;
+  height: 2px;
+  transform: rotate(45deg);
 }

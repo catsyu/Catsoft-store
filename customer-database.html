@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="form-standard.css?v=20260529-upload-icon-center" />
-  <link rel="stylesheet" href="customer-database.css?v=20260530-marketing-income" />
+  <link rel="stylesheet" href="customer-database.css?v=20260531-income-filtered" />
 </head>
 <body>
   <main class="customer-page">
@@ -86,8 +86,9 @@
 
             <label class="field-group">
               <span>Stok</span>
-              <input id="stockAccount" type="text" list="stockAccountList" placeholder="Pilih akun stok" autocomplete="off" />
-              <datalist id="stockAccountList"></datalist>
+              <select id="stockAccount">
+                <option value="">Pilih akun stok</option>
+              </select>
             </label>
 
             <label class="field-group">
@@ -113,8 +114,9 @@
 
           <label class="field-group wide-field product-field">
             <span>Produk</span>
-            <input id="productName" type="text" list="registeredProductList" placeholder="Pilih Produk" required />
-            <datalist id="registeredProductList"></datalist>
+            <select id="productName" required>
+              <option value="">Pilih Produk</option>
+            </select>
             <button class="text-link-button" id="editRegisteredProductsBtn" type="button">Edit Produk Terdaftar</button>
             <div class="product-editor is-hidden" id="registeredProductsEditor">
               <textarea id="registeredProductsInput" rows="5"></textarea>
@@ -186,6 +188,10 @@
           <div class="stat-card">
             <span>Total</span>
             <strong id="totalCount">0</strong>
+          </div>
+          <div class="stat-card income">
+            <span>Total Penghasilan</span>
+            <strong id="totalIncomeAmount">Rp 0</strong>
           </div>
           <div class="stat-card">
             <span>Aktif</span>
@@ -386,6 +392,6 @@
   <script src="admin-auth.js?v=20260530-access-save-fix" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260530-marketing-income" defer></script>
+  <script src="customer-database.js?v=20260531-income-filtered" defer></script>
 </body>
 </html>

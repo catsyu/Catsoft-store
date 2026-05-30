@@ -709,36 +709,146 @@ function getStockAccountOptionLabel(account) {
   return String(account.accountName || account.account_name || account.loginUsername || account.login_username || '').trim();
 }
 
-function getStockAccountOptions() {
+function getStockAccountOptionKey(account) {
+  return String(
+    account.loginUsername
+      || account.login_username
+      || account.accountName
+      || account.account_name
+      || account.accountTarget
+      || account.account_target
+      || account.id
+      || ''
+  ).trim();
+}
+
+function getStockAccountTypeLabel(value) {
+  const type = String(value || '').trim().toLowerCase();
+  return {
+    account: 'Akun',
+    team: 'Tim',
+    redeem_code: 'Redeem Code'
+  }[type] || type;
+}
+
+function getStockAccountOptionParts(account) {
+  return [
+    getStockAccountOptionLabel(account),
+    account.productName || account.product_name,
+    getStockAccountTypeLabel(account.stockType || account.stock_type),
+    account.loginUsername || account.login_username,
+    account.accountTarget || account.account_target
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .filter((value, index, values) => values.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index);
+}
+
+function getStockAccountSearchOptions() {
   const options = new Map();
+  const usedLabels = new Map();
 
   stockAccountOptions.forEach((account) => {
-    [
-      getStockAccountOptionLabel(account),
-      account.loginUsername || account.login_username,
-      account.accountTarget || account.account_target
-    ].forEach((value) => {
-      const text = String(value || '').trim();
-      if (text) options.set(text.toLowerCase(), text);
+    const saveValue = getStockAccountOptionKey(account);
+
+    if (!saveValue) {
+      return;
+    }
+
+    const parts = getStockAccountOptionParts(account);
+    const fallbackLabel = getStockAccountOptionLabel(account) || saveValue;
+    const baseLabel = (parts.length ? parts.join(' · ') : fallbackLabel).trim();
+    const count = usedLabels.get(baseLabel.toLowerCase()) || 0;
+    const displayValue = count ? `${baseLabel} · ${saveValue}` : baseLabel;
+
+    usedLabels.set(baseLabel.toLowerCase(), count + 1);
+    options.set(saveValue.toLowerCase(), {
+      value: displayValue,
+      label: displayValue,
+      saveValue,
+      aliases: [displayValue, saveValue, ...parts, account.id].map((value) => String(value || '').trim()).filter(Boolean),
+      searchText: [...parts, saveValue, account.id].join(' ').toLowerCase()
     });
   });
 
   records.forEach((record) => {
-    const text = String(record.stockAccount || '').trim();
-    if (text) options.set(text.toLowerCase(), text);
+    const saveValue = String(record.stockAccount || '').trim();
+
+    if (!saveValue || options.has(saveValue.toLowerCase())) {
+      return;
+    }
+
+    options.set(saveValue.toLowerCase(), {
+      value: saveValue,
+      label: saveValue,
+      saveValue,
+      aliases: [saveValue],
+      searchText: saveValue.toLowerCase()
+    });
   });
 
-  return [...options.values()].sort((first, second) => first.localeCompare(second, 'id'));
+  return [...options.values()].sort((first, second) => {
+    return first.label.localeCompare(second.label, 'id');
+  });
+}
+
+function getStockAccountOptions() {
+  return getStockAccountSearchOptions().map((option) => option.value);
+}
+
+function getStockAccountOptionByValue(value, options = getStockAccountSearchOptions()) {
+  const text = String(value || '').trim().toLowerCase();
+
+  if (!text) {
+    return null;
+  }
+
+  return options.find((option) => {
+    return (option.aliases || [option.value, option.saveValue, option.label]).some((alias) => {
+      return String(alias || '').trim().toLowerCase() === text;
+    });
+  }) || null;
+}
+
+function getStockAccountSaveValue(value, options) {
+  const text = String(value || '').trim();
+  const option = getStockAccountOptionByValue(text, options);
+
+  return option ? option.saveValue : text;
+}
+
+function getStockAccountDisplayValue(value, options) {
+  const text = String(value || '').trim();
+  const option = getStockAccountOptionByValue(text, options);
+
+  return option ? option.value : text;
+}
+
+function setStockAccountFieldValue(field, value) {
+  if (!field) {
+    return;
+  }
+
+  if (field.tagName === 'SELECT') {
+    setSelectOptions(field, getStockAccountOptions(), value, 'Pilih akun stok');
+    return;
+  }
+
+  field.value = getStockAccountDisplayValue(value);
 }
 
 function renderStockAccountOptions() {
-  const options = getStockAccountOptions();
+  const options = getStockAccountSearchOptions();
 
-  setSelectOptions(stockAccountInput, options, stockAccountInput?.value || '', 'Pilih akun stok');
+  if (stockAccountInput?.tagName === 'SELECT') {
+    setSelectOptions(stockAccountInput, options.map((option) => option.value), stockAccountInput?.value || '', 'Pilih akun stok');
+  } else if (stockAccountInput?.value) {
+    setStockAccountFieldValue(stockAccountInput, getStockAccountSaveValue(stockAccountInput.value));
+  }
 
   if (stockAccountList) {
     stockAccountList.innerHTML = options
-      .map((stockName) => `<option value="${escapeHtml(stockName)}"></option>`)
+      .map((option) => `<option value="${escapeHtml(option.value)}" label="${escapeHtml(option.label)}"></option>`)
       .join('');
   }
 }
@@ -749,7 +859,11 @@ async function syncStockAccountOptions() {
   }
 
   try {
-    const response = await fetchWithTimeout(getProductStockApiEndpoint(), {
+    const stockUrl = new URL(getProductStockApiEndpoint(), window.location.href);
+    stockUrl.searchParams.set('limit', '300');
+    stockUrl.searchParams.set('_', String(Date.now()));
+
+    const response = await fetchWithTimeout(stockUrl.toString(), {
       cache: 'no-store',
       timeoutMs: 10000,
       headers: {
@@ -2134,7 +2248,7 @@ function getFormRecord() {
     id: recordIdInput.value || createId(),
     customerName: customerNameInput.value.trim(),
     activatedEmail: activatedEmailInput.value.trim(),
-    stockAccount: stockAccountInput?.value.trim() || '',
+    stockAccount: getStockAccountSaveValue(stockAccountInput?.value || ''),
     incomeAmount: parseCurrencyAmount(incomeAmountInput?.value || ''),
     whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
     orderNumber: orderSource === 'shopee' ? orderReference : '',
@@ -2156,7 +2270,7 @@ function fillForm(record) {
   recordIdInput.value = record.id;
   customerNameInput.value = record.customerName || '';
   activatedEmailInput.value = record.activatedEmail || '';
-  setSelectOptions(stockAccountInput, getStockAccountOptions(), record.stockAccount || '', 'Pilih akun stok');
+  setStockAccountFieldValue(stockAccountInput, record.stockAccount || '');
   if (incomeAmountInput) incomeAmountInput.value = record.incomeAmount ? formatCurrencyAmount(record.incomeAmount) : '';
   whatsappNumberInput.value = record.whatsappNumber || '';
   orderNumberInput.value = record.orderNumber || '';
@@ -2196,9 +2310,7 @@ function renderInlineEditForm(record, status) {
       </label>
       <label class="field-group">
         <span>Stok</span>
-        <select data-edit-field="stockAccount">
-          ${buildSelectOptions(getStockAccountOptions(), record.stockAccount || '', 'Pilih akun stok')}
-        </select>
+        <input data-edit-field="stockAccount" type="text" list="stockAccountList" placeholder="Cari stok, produk, atau login" autocomplete="off" value="${escapeHtml(getStockAccountDisplayValue(record.stockAccount || ''))}" />
       </label>
       <label class="field-group">
         <span>Penghasilan</span>
@@ -2334,7 +2446,7 @@ function getInlineEditRecord(recordCard, previousRecord) {
     id: previousRecord.id,
     customerName: getInlineEditField(editor, 'customerName')?.value.trim() || '',
     activatedEmail: getInlineEditField(editor, 'activatedEmail')?.value.trim() || '',
-    stockAccount: getInlineEditField(editor, 'stockAccount')?.value.trim() || '',
+    stockAccount: getStockAccountSaveValue(getInlineEditField(editor, 'stockAccount')?.value || ''),
     incomeAmount: parseCurrencyAmount(getInlineEditField(editor, 'incomeAmount')?.value || ''),
     whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
     orderNumber: orderSource === 'shopee' ? orderReference : '',
@@ -2401,7 +2513,7 @@ function resetForm() {
   subscriptionStatusSelect.value = 'active';
   whatsappNumberInput.value = '';
   orderNumberInput.value = '';
-  setSelectOptions(stockAccountInput, getStockAccountOptions(), '', 'Pilih akun stok');
+  setStockAccountFieldValue(stockAccountInput, '');
   setSelectOptions(productNameInput, getRegisteredProductOptions(), '', 'Pilih Produk');
   updateOrderReferenceField('shopee', '');
   updateActivationFieldMode('');
@@ -2541,11 +2653,13 @@ function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
   const statusValue = statusFilter.value;
   const dateValue = dateFilter.value;
   const lookupEmails = getLookupEmailSet();
+  const stockOptions = getStockAccountSearchOptions();
   return records.filter((record) => {
     const haystack = normalizeSearch([
       record.customerName,
       record.activatedEmail,
       record.stockAccount,
+      getStockAccountDisplayValue(record.stockAccount, stockOptions),
       record.incomeAmount,
       record.whatsappNumber,
       record.orderNumber,
@@ -2665,7 +2779,7 @@ function renderRecords() {
           <div><span>Mulai</span>${escapeHtml(formatDate(record.startDate))}</div>
           <div><span>Durasi</span>${escapeHtml(getDurationLabel(record.durationDays))}</div>
 	          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
-          <div><span>Stok</span>${escapeHtml(record.stockAccount || '-')}</div>
+          <div><span>Stok</span>${escapeHtml(getStockAccountDisplayValue(record.stockAccount) || '-')}</div>
           <div><span>Penghasilan</span>${escapeHtml(formatCurrencyAmount(record.incomeAmount))}</div>
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
           <div><span>Last Update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
@@ -3946,6 +4060,9 @@ productNameInput.addEventListener('change', () => {
 incomeAmountInput?.addEventListener('blur', (event) => {
   const amount = parseCurrencyAmount(event.target.value);
   event.target.value = amount ? formatCurrencyAmount(amount) : '';
+});
+stockAccountInput?.addEventListener('blur', () => {
+  setStockAccountFieldValue(stockAccountInput, getStockAccountSaveValue(stockAccountInput.value));
 });
 editRegisteredProductsBtn?.addEventListener('click', openRegisteredProductEditor);
 saveRegisteredProductsBtn?.addEventListener('click', saveRegisteredProductEditor);

@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="admin-tools.css?v=20260530-search-icon-align" />
   <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="product-stock.css?v=20260531-stock-team" />
+  <link rel="stylesheet" href="product-stock.css?v=20260531-stock-team-members" />
 </head>
 <body class="product-stock-body">
   <main class="product-stock-page">
@@ -180,6 +180,12 @@
               Anggota Tim
               <input type="number" min="1" max="500" step="1" data-stock-team-members value="1" />
             </label>
+            <label class="stock-parent-team-field" data-stock-parent-team-field hidden>
+              Link Ke Tim
+              <select data-stock-parent-team>
+                <option value="">Tidak Terhubung</option>
+              </select>
+            </label>
             <label>
               Biaya Stok
               <input type="text" inputmode="numeric" data-stock-cost value="Rp 0" />
@@ -198,6 +204,15 @@
               </select>
             </label>
           </div>
+        </section>
+
+        <section class="admin-detail-section stock-team-members-section" data-stock-team-members-section hidden>
+          <div class="admin-detail-section-head">
+            <h4>Member Tim</h4>
+            <button class="stock-mini-stat" type="button" data-stock-add-team-member>Tambah Member</button>
+          </div>
+          <p class="stock-team-members-note">Setiap member akan tersimpan sebagai akun stok individu yang terhubung ke tim ini.</p>
+          <div class="stock-team-member-list" data-stock-team-member-list></div>
         </section>
 
         <section class="admin-detail-section">
@@ -239,6 +254,6 @@
     </aside>
   </main>
   <script src="admin-auth.js?v=20260530-stock-limit-fix" defer></script>
-  <script src="product-stock.js?v=20260531-stock-team" defer></script>
+  <script src="product-stock.js?v=20260531-stock-team-members" defer></script>
 </body>
 </html>

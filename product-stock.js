@@ -13,6 +13,8 @@ let selectedStockIds = new Set();
 let productStockAutoRefreshTimerId = null;
 let isProductStockFetching = false;
 let isProductStockMutating = false;
+let stockTeamMemberDrafts = [];
+let stockTeamMemberOriginalIds = new Set();
 
 const stockStatusLabels = {
   active: 'Aktif',
@@ -78,6 +80,127 @@ function getStockCostPerMember(account) {
 
 function getStockNetProfit(account) {
   return (Number(account?.totalRevenue) || 0) - (Number(account?.stockCost) || 0);
+}
+
+function getTeamMemberAccounts(parentStockId) {
+  const cleanParentId = String(parentStockId || '').trim();
+  if (!cleanParentId) {
+    return [];
+  }
+
+  return productStockAccounts
+    .filter((account) => account.parentStockId === cleanParentId)
+    .sort((first, second) => {
+      const firstIndex = Number(first.teamMemberIndex) || 0;
+      const secondIndex = Number(second.teamMemberIndex) || 0;
+      return firstIndex - secondIndex || first.accountName.localeCompare(second.accountName, 'id', { numeric: true });
+    });
+}
+
+function getParentTeamAccount(parentStockId) {
+  const cleanParentId = String(parentStockId || '').trim();
+  if (!cleanParentId) {
+    return null;
+  }
+
+  return productStockAccounts.find((account) => account.id === cleanParentId && account.stockType === 'team') || null;
+}
+
+function getAvailableTeamAccounts(excludedId = '') {
+  const cleanExcludedId = String(excludedId || '').trim();
+  return productStockAccounts
+    .filter((account) => account.stockType === 'team' && account.id !== cleanExcludedId)
+    .sort((first, second) => first.accountName.localeCompare(second.accountName, 'id', { numeric: true }));
+}
+
+function getNextTeamMemberIndex(parentStockId) {
+  return getTeamMemberAccounts(parentStockId)
+    .reduce((max, account) => Math.max(max, Number(account.teamMemberIndex) || 0), 0) + 1;
+}
+
+function getTeamMemberDisplayName(parentAccount, index) {
+  const baseName = String(parentAccount?.accountName || parentAccount?.productName || 'Member Tim').trim();
+  return `${baseName} ${index}`;
+}
+
+function createTeamMemberDraft(parentAccount = null, overrides = {}) {
+  const index = Number(overrides.teamMemberIndex) || stockTeamMemberDrafts.length + 1;
+  const parentCost = Number(parentAccount?.stockCost) || parseStockCurrency(document.querySelector('[data-stock-cost]')?.value || '');
+  const parentMemberCount = Math.max(
+    Number(parentAccount?.teamMemberCount) || Number(document.querySelector('[data-stock-team-members]')?.value || 1) || 1,
+    1
+  );
+  const defaultCost = Math.round(parentCost / parentMemberCount);
+  const defaultCapacity = Number(parentAccount?.capacity || document.querySelector('[data-stock-capacity]')?.value || 7) || 7;
+
+  return {
+    id: overrides.id || createStockAccountId(),
+    draftKey: overrides.draftKey || overrides.id || createStockAccountId(),
+    parentStockId: overrides.parentStockId || parentAccount?.id || '',
+    teamMemberIndex: index,
+    stockType: 'account',
+    productName: overrides.productName || parentAccount?.productName || document.querySelector('[data-stock-product]')?.value || '',
+    accountName: overrides.accountName || getTeamMemberDisplayName(parentAccount, index),
+    loginUsername: overrides.loginUsername || '',
+    loginPassword: overrides.loginPassword || '',
+    stockCost: Number(overrides.stockCost || defaultCost || 0),
+    capacity: Number(overrides.capacity || defaultCapacity || 1),
+    status: overrides.status || parentAccount?.status || 'active',
+    resetAt: overrides.resetAt || parentAccount?.resetAt || '',
+    notes: overrides.notes || ''
+  };
+}
+
+function getStockDisplayMetrics(account, visibleAccounts = productStockAccounts) {
+  const children = account?.stockType === 'team' ? getTeamMemberAccounts(account.id) : [];
+  const visibleIds = new Set((visibleAccounts || []).map((item) => item.id));
+  const visibleChildren = children.filter((child) => visibleIds.has(child.id));
+  const activeChildren = visibleChildren.length ? visibleChildren : children;
+
+  if (account?.stockType === 'team' && activeChildren.length) {
+    const capacity = activeChildren.reduce((sum, child) => sum + (Number(child.capacity) || 0), 0);
+    const joinedActive = activeChildren.reduce((sum, child) => sum + (Number(child.joinedActive) || 0), 0);
+    const joinedExpired = activeChildren.reduce((sum, child) => sum + (Number(child.joinedExpired) || 0), 0);
+    const openSlots = activeChildren.reduce((sum, child) => sum + (Number(child.openSlots) || 0), 0);
+    const totalRevenue = activeChildren.reduce((sum, child) => sum + (Number(child.totalRevenue) || 0), 0);
+
+    return {
+      capacity: capacity || Number(account.capacity) || 0,
+      joinedActive,
+      joinedExpired,
+      openSlots,
+      totalRevenue
+    };
+  }
+
+  return {
+    capacity: Number(account?.capacity) || 0,
+    joinedActive: Number(account?.joinedActive) || 0,
+    joinedExpired: Number(account?.joinedExpired) || 0,
+    openSlots: Number(account?.openSlots) || 0,
+    totalRevenue: Number(account?.totalRevenue) || 0
+  };
+}
+
+function getStockCostForTotals(account, visibleAccounts = productStockAccounts) {
+  const visibleIds = new Set((visibleAccounts || []).map((item) => item.id));
+
+  if (account?.parentStockId && visibleIds.has(account.parentStockId)) {
+    return 0;
+  }
+
+  return Number(account?.stockCost) || 0;
+}
+
+function getStockProfitForTotals(account, visibleAccounts = productStockAccounts) {
+  const visibleIds = new Set((visibleAccounts || []).map((item) => item.id));
+
+  if (account?.parentStockId && visibleIds.has(account.parentStockId)) {
+    return 0;
+  }
+
+  const metrics = getStockDisplayMetrics(account, visibleAccounts);
+  return (Number(metrics.totalRevenue) || 0) - (Number(account?.stockCost) || 0);
 }
 
 function parseStockCurrency(value) {
@@ -169,6 +292,8 @@ function isStockResetDue(account) {
 function normalizeStockAccount(account) {
   return {
     id: String(account.id || createStockAccountId()),
+    parentStockId: String(account.parentStockId || account.parent_stock_id || '').trim(),
+    teamMemberIndex: Number(account.teamMemberIndex || account.team_member_index || 0),
     stockType: normalizeStockType(account.stockType || account.stock_type),
     productName: String(account.productName || account.product_name || '').trim(),
     accountName: String(account.accountName || account.account_name || '').trim(),
@@ -294,6 +419,7 @@ function getFilteredStockAccounts() {
       account.productName,
       account.accountName,
       account.loginUsername,
+      getParentTeamAccount(account.parentStockId)?.accountName || '',
       stockTypeLabels[account.stockType] || '',
       stockStatusLabels[account.status] || account.status
     ].join(' ')).includes(term));
@@ -586,8 +712,8 @@ function renderProductStockAccounts() {
 
   const visible = getFilteredStockAccounts();
   const paged = visible.slice(0, productStockPageSize);
-  const visibleCost = visible.reduce((sum, account) => sum + (Number(account.stockCost) || 0), 0);
-  const visibleProfit = visible.reduce((sum, account) => sum + getStockNetProfit(account), 0);
+  const visibleCost = visible.reduce((sum, account) => sum + getStockCostForTotals(account, visible), 0);
+  const visibleProfit = visible.reduce((sum, account) => sum + getStockProfitForTotals(account, visible), 0);
 
   if (total) total.textContent = String(visible.length);
   if (reset) reset.textContent = String(visible.filter(isStockResetDue).length);
@@ -612,20 +738,26 @@ function renderProductStockAccounts() {
   }
 
   const rows = paged.map((account) => {
-    const usageText = `${account.joinedActive}/${account.capacity}`;
+    const metrics = getStockDisplayMetrics(account, visible);
+    const parentTeam = getParentTeamAccount(account.parentStockId);
+    const usageText = `${metrics.joinedActive}/${metrics.capacity}`;
     const resetText = isStockResetDue(account) ? 'Perlu Reset' : formatStockDate(account.resetAt);
     const statusText = stockStatusLabels[account.status] || 'Aktif';
     const typeText = stockTypeLabels[account.stockType] || 'Akun';
     const typeDetail = account.stockType === 'team'
       ? `Tim ${getStockTeamMemberCount(account)} anggota`
+      : parentTeam
+        ? `Member Tim · ${parentTeam.accountName}`
       : typeText;
     const costDetail = account.stockType === 'team'
       ? `Biaya ${formatStockCurrency(account.stockCost)} · ${formatStockCurrency(getStockCostPerMember(account))}/anggota`
+      : parentTeam
+        ? `Biaya member ${formatStockCurrency(account.stockCost)}`
       : `Biaya ${formatStockCurrency(account.stockCost)}`;
     const isSelected = selectedStockIds.has(account.id);
-    const joinedDetail = account.joinedExpired
-      ? `${account.joinedExpired} Habis`
-      : `${account.openSlots} Slot Kosong`;
+    const joinedDetail = metrics.joinedExpired
+      ? `${metrics.joinedExpired} Habis`
+      : `${metrics.openSlots} Slot Kosong`;
 
     return `
       <div class="admin-spectrum-row stock-spectrum-row ${isSelected ? 'is-selected' : ''}" role="row">
@@ -648,7 +780,7 @@ function renderProductStockAccounts() {
           <small>${escapeStockHtml(joinedDetail)}</small>
         </span>
         <span>
-          <b>${escapeStockHtml(formatStockCurrency(account.totalRevenue))}</b>
+          <b>${escapeStockHtml(formatStockCurrency(metrics.totalRevenue))}</b>
           <small>${escapeStockHtml(costDetail)}</small>
         </span>
         <span>
@@ -745,18 +877,47 @@ function getDefaultStockTypeForDrawer() {
   return stockTypeLabels[activeType] ? activeType : 'account';
 }
 
+function renderParentTeamOptions(selectedParentId = '', currentId = '') {
+  const select = document.querySelector('[data-stock-parent-team]');
+  if (!select) {
+    return;
+  }
+
+  const teams = getAvailableTeamAccounts(currentId);
+  const cleanSelectedId = String(selectedParentId || '').trim();
+  select.innerHTML = [
+    '<option value="">Tidak Terhubung</option>',
+    ...teams.map((team) => `<option value="${escapeStockHtml(team.id)}">${escapeStockHtml(team.accountName)}</option>`)
+  ].join('');
+
+  select.value = teams.some((team) => team.id === cleanSelectedId) ? cleanSelectedId : '';
+}
+
 function updateStockTypeFields() {
   const type = normalizeStockType(document.querySelector('[data-stock-type]')?.value || 'account');
   const teamField = document.querySelector('[data-stock-team-field]');
+  const teamMembersSection = document.querySelector('[data-stock-team-members-section]');
+  const parentTeamField = document.querySelector('[data-stock-parent-team-field]');
   const teamInput = document.querySelector('[data-stock-team-members]');
   const capacityInput = document.querySelector('[data-stock-capacity]');
   const productSelect = document.querySelector('[data-stock-product]');
   const accountNameInput = document.querySelector('[data-stock-account-name]');
   const loginUsernameInput = document.querySelector('[data-stock-login-username]');
+  const currentId = document.querySelector('[data-stock-id]')?.value || '';
 
   if (teamField) {
     teamField.hidden = type !== 'team';
   }
+
+  if (teamMembersSection) {
+    teamMembersSection.hidden = type !== 'team';
+  }
+
+  if (parentTeamField) {
+    parentTeamField.hidden = type !== 'account';
+  }
+
+  renderParentTeamOptions(document.querySelector('[data-stock-parent-team]')?.value || '', currentId);
 
   if (type === 'team') {
     if (teamInput && (!Number(teamInput.value) || Number(teamInput.value) < 1)) {
@@ -770,6 +931,7 @@ function updateStockTypeFields() {
     if (accountNameInput && !accountNameInput.value.trim()) {
       accountNameInput.placeholder = 'ChatGPT Business Team';
     }
+    renderTeamMemberRows();
   } else if (type === 'redeem_code') {
     if (!productSelect?.value || productSelect.value === 'ChatGPT') {
       setStockSelectValue(productSelect, 'Redeem Code');
@@ -797,6 +959,110 @@ function updateStockTypeFields() {
   }
 }
 
+function syncTeamMemberDraftFromInput(event) {
+  const input = event.currentTarget;
+  const key = input.dataset.teamMemberKey;
+  const field = input.dataset.teamMemberField;
+  const draft = stockTeamMemberDrafts.find((item) => item.draftKey === key);
+
+  if (!draft || !field) {
+    return;
+  }
+
+  if (field === 'capacity' || field === 'stockCost') {
+    draft[field] = field === 'stockCost' ? parseStockCurrency(input.value) : Number(input.value || 1);
+  } else {
+    draft[field] = input.value;
+  }
+}
+
+function removeTeamMemberDraft(key) {
+  stockTeamMemberDrafts = stockTeamMemberDrafts.filter((draft) => draft.draftKey !== key);
+  renderTeamMemberRows();
+}
+
+function addTeamMemberDraft() {
+  const parentAccount = getStockFormValues();
+  const nextIndex = stockTeamMemberDrafts.reduce((max, draft) => Math.max(max, Number(draft.teamMemberIndex) || 0), 0) + 1;
+  stockTeamMemberDrafts.push(createTeamMemberDraft(parentAccount, { teamMemberIndex: nextIndex }));
+  const teamInput = document.querySelector('[data-stock-team-members]');
+
+  if (teamInput && Number(teamInput.value || 0) < stockTeamMemberDrafts.length) {
+    teamInput.value = String(stockTeamMemberDrafts.length);
+  }
+
+  renderTeamMemberRows();
+}
+
+function renderTeamMemberRows() {
+  const list = document.querySelector('[data-stock-team-member-list]');
+  if (!list) {
+    return;
+  }
+
+  if (!stockTeamMemberDrafts.length) {
+    list.innerHTML = '<p class="stock-team-members-empty">Belum ada member. Klik Tambah Member untuk membuat akun stok individu dari tim ini.</p>';
+    return;
+  }
+
+  list.innerHTML = stockTeamMemberDrafts.map((member, index) => {
+    const key = escapeStockHtml(member.draftKey);
+    return `
+      <div class="stock-team-member-row">
+        <span class="stock-team-member-number">${index + 1}</span>
+        <label>
+          Nama Member
+          <input type="text" data-team-member-key="${key}" data-team-member-field="accountName" value="${escapeStockHtml(member.accountName)}" placeholder="Member ${index + 1}" />
+        </label>
+        <label>
+          Username
+          <input type="text" data-team-member-key="${key}" data-team-member-field="loginUsername" value="${escapeStockHtml(member.loginUsername)}" placeholder="email atau username" />
+        </label>
+        <label>
+          Password
+          <input type="text" data-team-member-key="${key}" data-team-member-field="loginPassword" value="${escapeStockHtml(member.loginPassword)}" placeholder="password login" />
+        </label>
+        <label>
+          Kapasitas
+          <input type="number" min="1" max="500" step="1" data-team-member-key="${key}" data-team-member-field="capacity" value="${escapeStockHtml(member.capacity)}" />
+        </label>
+        <button class="stock-team-member-remove" type="button" data-remove-team-member="${key}" aria-label="Hapus member ${index + 1}">×</button>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('[data-team-member-field]').forEach((input) => {
+    input.addEventListener('input', syncTeamMemberDraftFromInput);
+    input.addEventListener('change', syncTeamMemberDraftFromInput);
+    if (input.dataset.teamMemberField === 'stockCost') {
+      input.addEventListener('blur', (event) => {
+        event.target.value = formatStockCurrency(parseStockCurrency(event.target.value));
+      });
+    }
+  });
+
+  list.querySelectorAll('[data-remove-team-member]').forEach((button) => {
+    button.addEventListener('click', () => removeTeamMemberDraft(button.dataset.removeTeamMember));
+  });
+}
+
+function applyLinkedTeamDefaults() {
+  const type = normalizeStockType(document.querySelector('[data-stock-type]')?.value || 'account');
+  const parentTeam = getParentTeamAccount(document.querySelector('[data-stock-parent-team]')?.value || '');
+
+  if (type !== 'account' || !parentTeam) {
+    return;
+  }
+
+  const productSelect = document.querySelector('[data-stock-product]');
+  const costInput = document.querySelector('[data-stock-cost]');
+
+  setStockSelectValue(productSelect, parentTeam.productName);
+  if (costInput) {
+    costInput.value = formatStockCurrency(getStockCostPerMember(parentTeam));
+  }
+}
+
 function resetStockForm() {
   const form = document.querySelector('[data-stock-form]');
   if (!form) return;
@@ -804,6 +1070,8 @@ function resetStockForm() {
   setStockSaveState(false);
   activeStockDrawerAccount = null;
   isStockJoinedExpanded = false;
+  stockTeamMemberDrafts = [];
+  stockTeamMemberOriginalIds = new Set();
   const defaultType = getDefaultStockTypeForDrawer();
   document.querySelector('[data-stock-id]').value = '';
   document.querySelector('[data-stock-capacity]').value = defaultType === 'team' ? '10' : (defaultType === 'redeem_code' ? '1' : '7');
@@ -811,9 +1079,11 @@ function resetStockForm() {
   document.querySelector('[data-stock-type]').value = defaultType;
   setStockSelectValue(document.querySelector('[data-stock-product]'), defaultType === 'redeem_code' ? 'Redeem Code' : 'ChatGPT');
   document.querySelector('[data-stock-cost]').value = 'Rp 0';
+  renderParentTeamOptions('', '');
   document.querySelector('[data-stock-status-field]').value = 'active';
   document.querySelector('[data-stock-delete-section]').hidden = true;
   updateStockTypeFields();
+  renderTeamMemberRows();
   renderJoinedCustomers(null);
   updateStockDrawerTitle();
 }
@@ -826,8 +1096,9 @@ function renderJoinedCustomers(account) {
     return;
   }
 
-  const capacity = account?.capacity || 7;
-  const activeTotal = account?.joinedActive || 0;
+  const metrics = getStockDisplayMetrics(account);
+  const capacity = metrics.capacity || account?.capacity || 7;
+  const activeTotal = metrics.joinedActive || 0;
   summary.textContent = `${activeTotal}/${capacity} Aktif`;
   summary.disabled = !account;
   summary.setAttribute('aria-expanded', String(Boolean(account && isStockJoinedExpanded)));
@@ -839,12 +1110,19 @@ function renderJoinedCustomers(account) {
     return;
   }
 
-  if (!account.joinedCustomers.length) {
+  const joinedCustomers = account.stockType === 'team'
+    ? getTeamMemberAccounts(account.id).flatMap((member) => (member.joinedCustomers || []).map((customer) => ({
+      ...customer,
+      stockMemberName: member.accountName
+    })))
+    : account.joinedCustomers;
+
+  if (!joinedCustomers.length) {
     list.innerHTML = '<p>Belum ada customer yang terhubung lewat field Stok di database customer.</p>';
     return;
   }
 
-  list.innerHTML = account.joinedCustomers.map((customer) => {
+  list.innerHTML = joinedCustomers.map((customer) => {
     const statusText = customer.isExpired ? 'Habis' : (customer.status === 'problem' ? 'Bermasalah' : 'Aktif');
     return `
       <div class="stock-joined-row">
@@ -855,7 +1133,7 @@ function renderJoinedCustomers(account) {
         </span>
         <span>
           <b>${escapeStockHtml(statusText)}</b>
-          <small>${escapeStockHtml(formatStockCurrency(customer.incomeAmount || 0))} · ${escapeStockHtml(formatStockDate(customer.expiryDate))}</small>
+          <small>${escapeStockHtml(customer.stockMemberName ? `${customer.stockMemberName} · ` : '')}${escapeStockHtml(formatStockCurrency(customer.incomeAmount || 0))} · ${escapeStockHtml(formatStockDate(customer.expiryDate))}</small>
         </span>
       </div>
     `;
@@ -873,6 +1151,8 @@ function openStockDrawer(id = '') {
     document.querySelector('[data-stock-id]').value = account.id;
     setStockSelectValue(document.querySelector('[data-stock-product]'), account.productName);
     document.querySelector('[data-stock-type]').value = account.stockType;
+    renderParentTeamOptions(account.parentStockId, account.id);
+    document.querySelector('[data-stock-parent-team]').value = account.parentStockId || '';
     document.querySelector('[data-stock-account-name]').value = account.accountName;
     document.querySelector('[data-stock-login-username]').value = account.loginUsername;
     document.querySelector('[data-stock-login-password]').value = account.loginPassword;
@@ -883,7 +1163,16 @@ function openStockDrawer(id = '') {
     document.querySelector('[data-stock-reset-at]').value = account.resetAt;
     document.querySelector('[data-stock-notes]').value = account.notes;
     document.querySelector('[data-stock-delete-section]').hidden = false;
+    stockTeamMemberDrafts = account.stockType === 'team'
+      ? getTeamMemberAccounts(account.id).map((member) => ({
+        ...member,
+        draftKey: member.id,
+        stockCost: Number(member.stockCost) || getStockCostPerMember(account)
+      }))
+      : [];
+    stockTeamMemberOriginalIds = new Set(stockTeamMemberDrafts.map((member) => member.id).filter(Boolean));
     updateStockTypeFields();
+    renderTeamMemberRows();
     renderJoinedCustomers(account);
     updateStockDrawerTitle(account.accountName);
   }
@@ -901,13 +1190,19 @@ function toggleStockJoinedCustomers() {
 }
 
 function getStockFormValues() {
-  const id = document.querySelector('[data-stock-id]').value;
+  const idInput = document.querySelector('[data-stock-id]');
+  let id = idInput?.value || '';
+  if (!id) {
+    id = createStockAccountId();
+    if (idInput) idInput.value = id;
+  }
   const now = new Date().toISOString();
   const existing = productStockAccounts.find((account) => account.id === id);
 
   return {
     ...(existing || {}),
-    id: id || createStockAccountId(),
+    id,
+    parentStockId: document.querySelector('[data-stock-parent-team]')?.value || '',
     stockType: document.querySelector('[data-stock-type]').value,
     productName: document.querySelector('[data-stock-product]').value.trim(),
     accountName: document.querySelector('[data-stock-account-name]').value.trim(),
@@ -923,6 +1218,85 @@ function getStockFormValues() {
     createdAt: existing?.createdAt || now,
     updatedAt: now
   };
+}
+
+function buildStockSavePayload(values) {
+  const now = new Date().toISOString();
+  const existing = productStockAccounts.find((account) => account.id === values.id);
+
+  if (values.stockType === 'team') {
+    const memberCount = Math.max(Number(values.teamMemberCount) || 1, stockTeamMemberDrafts.length || 0, 1);
+    const memberCost = Math.round((Number(values.stockCost) || 0) / memberCount);
+    const parentAccount = {
+      ...values,
+      parentStockId: '',
+      teamMemberIndex: 0,
+      teamMemberCount: memberCount,
+      capacity: Number(values.capacity) || 1,
+      updatedAt: now
+    };
+
+    const memberAccounts = stockTeamMemberDrafts.map((draft, index) => ({
+      ...draft,
+      id: draft.id || createStockAccountId(),
+      parentStockId: values.id,
+      teamMemberIndex: index + 1,
+      stockType: 'account',
+      productName: values.productName,
+      accountName: String(draft.accountName || '').trim() || getTeamMemberDisplayName(parentAccount, index + 1),
+      accountTarget: '',
+      loginUsername: String(draft.loginUsername || '').trim(),
+      loginPassword: String(draft.loginPassword || '').trim(),
+      stockCost: memberCost,
+      teamMemberCount: 1,
+      capacity: Number(draft.capacity || values.capacity || 1) || 1,
+      status: draft.status || values.status,
+      resetAt: draft.resetAt || values.resetAt,
+      notes: draft.notes || '',
+      createdAt: draft.createdAt || now,
+      updatedAt: now
+    }));
+
+    const activeMemberIds = new Set(memberAccounts.map((member) => member.id));
+    const removedMembers = [...stockTeamMemberOriginalIds]
+      .filter((id) => !activeMemberIds.has(id))
+      .map((id) => ({ id, deleted: true }));
+
+    return [parentAccount, ...memberAccounts, ...removedMembers];
+  }
+
+  const parentTeam = values.stockType === 'account' ? getParentTeamAccount(values.parentStockId) : null;
+  const shouldDeleteOldMembers = existing?.stockType === 'team' ? getTeamMemberAccounts(existing.id).map((member) => ({
+    id: member.id,
+    deleted: true
+  })) : [];
+
+  const account = {
+    ...values,
+    parentStockId: values.stockType === 'account' ? values.parentStockId : '',
+    teamMemberIndex: values.parentStockId
+      ? (existing?.parentStockId === values.parentStockId && existing?.teamMemberIndex
+        ? existing.teamMemberIndex
+        : getNextTeamMemberIndex(values.parentStockId))
+      : 0,
+    productName: parentTeam ? parentTeam.productName : values.productName,
+    stockCost: parentTeam ? getStockCostPerMember(parentTeam) : values.stockCost,
+    teamMemberCount: 1,
+    updatedAt: now
+  };
+
+  if (!parentTeam) {
+    return [account, ...shouldDeleteOldMembers];
+  }
+
+  const linkedCount = getTeamMemberAccounts(parentTeam.id).filter((member) => member.id !== account.id).length + 1;
+  const updatedParentTeam = {
+    ...parentTeam,
+    teamMemberCount: Math.max(getStockTeamMemberCount(parentTeam), linkedCount),
+    updatedAt: now
+  };
+
+  return [updatedParentTeam, account, ...shouldDeleteOldMembers];
 }
 
 async function saveStockForm(event) {
@@ -944,13 +1318,14 @@ async function saveStockForm(event) {
   setStockSaveState(true);
 
   try {
-    const result = await pushProductStockAccount(values);
+    const savePayload = buildStockSavePayload(values);
+    const result = await pushProductStockAccounts(savePayload);
     if (Array.isArray(result.accounts)) {
       productStockAccounts = result.accounts.map(normalizeStockAccount);
       pruneSelectedStockIds();
       renderProductStockAccounts();
     } else {
-      const savedAccounts = Array.isArray(result.saved) && result.saved.length ? result.saved : [values];
+      const savedAccounts = Array.isArray(result.saved) && result.saved.length ? result.saved : savePayload.filter((account) => !account.deleted);
       mergeProductStockAccounts(savedAccounts);
       await fetchProductStockAccounts();
     }
@@ -1049,8 +1424,14 @@ function bindProductStock() {
   document.querySelector('[data-stock-form]')?.addEventListener('submit', saveStockForm);
   document.querySelector('[data-stock-delete]')?.addEventListener('click', deleteCurrentStockAccount);
   document.querySelector('[data-stock-joined-toggle]')?.addEventListener('click', toggleStockJoinedCustomers);
+  document.querySelector('[data-stock-add-team-member]')?.addEventListener('click', addTeamMemberDraft);
+  document.querySelector('[data-stock-parent-team]')?.addEventListener('change', () => {
+    applyLinkedTeamDefaults();
+    updateStockDrawerTitle();
+  });
   document.querySelector('[data-stock-type]')?.addEventListener('change', () => {
     updateStockTypeFields();
+    applyLinkedTeamDefaults();
     updateStockDrawerTitle();
   });
   document.querySelector('[data-stock-team-members]')?.addEventListener('input', (event) => {
@@ -1058,6 +1439,7 @@ function bindProductStock() {
     if (document.querySelector('[data-stock-type]')?.value === 'team' && capacityInput && (!Number(capacityInput.value) || capacityInput.value === '10')) {
       capacityInput.value = String(Number(event.target.value || 10) || 10);
     }
+    renderTeamMemberRows();
   });
   document.querySelectorAll('[data-stock-product], [data-stock-account-name]').forEach((input) => {
     input.addEventListener('input', () => updateStockDrawerTitle());

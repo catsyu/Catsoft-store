@@ -119,6 +119,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
 
 CREATE TABLE IF NOT EXISTS product_stock_accounts (
   id TEXT PRIMARY KEY,
+  parent_stock_id TEXT,
+  team_member_index INTEGER NOT NULL DEFAULT 0,
   stock_type TEXT NOT NULL DEFAULT 'account',
   product_name TEXT NOT NULL,
   account_name TEXT NOT NULL,
@@ -137,6 +139,9 @@ CREATE TABLE IF NOT EXISTS product_stock_accounts (
 
 CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_product
   ON product_stock_accounts (LOWER(product_name));
+
+CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_parent
+  ON product_stock_accounts (parent_stock_id);
 
 CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_target
   ON product_stock_accounts (LOWER(account_target));

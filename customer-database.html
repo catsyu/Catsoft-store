@@ -86,9 +86,8 @@
 
             <label class="field-group">
               <span>Stok</span>
-              <select id="stockAccount">
-                <option value="">Pilih akun stok</option>
-              </select>
+              <input id="stockAccount" type="text" list="stockAccountList" placeholder="Cari stok, produk, atau login" autocomplete="off" />
+              <datalist id="stockAccountList"></datalist>
             </label>
 
             <label class="field-group">
@@ -392,6 +391,6 @@
   <script src="admin-auth.js?v=20260530-access-save-fix" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260531-income-filtered" defer></script>
+  <script src="customer-database.js?v=20260531-stock-search" defer></script>
 </body>
 </html>

@@ -1941,6 +1941,8 @@ async function ensureProductStockTable(db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS product_stock_accounts (
       id TEXT PRIMARY KEY,
+      parent_stock_id TEXT,
+      team_member_index INTEGER NOT NULL DEFAULT 0,
       stock_type TEXT NOT NULL DEFAULT 'account',
       product_name TEXT NOT NULL,
       account_name TEXT NOT NULL,
@@ -1961,10 +1963,17 @@ async function ensureProductStockTable(db) {
   await addColumnIfMissing(db, 'product_stock_accounts', 'stock_type', "TEXT NOT NULL DEFAULT 'account'");
   await addColumnIfMissing(db, 'product_stock_accounts', 'stock_cost', 'INTEGER NOT NULL DEFAULT 0');
   await addColumnIfMissing(db, 'product_stock_accounts', 'team_member_count', 'INTEGER NOT NULL DEFAULT 1');
+  await addColumnIfMissing(db, 'product_stock_accounts', 'parent_stock_id', 'TEXT');
+  await addColumnIfMissing(db, 'product_stock_accounts', 'team_member_index', 'INTEGER NOT NULL DEFAULT 0');
 
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_product
     ON product_stock_accounts (LOWER(product_name))
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_parent
+    ON product_stock_accounts (parent_stock_id)
   `).run();
 
   await db.prepare(`
@@ -2005,6 +2014,8 @@ function normalizeProductStockAccount(account) {
 
   return {
     id: cleanValue(account.id, 120) || crypto.randomUUID(),
+    parentStockId: cleanValue(account.parentStockId ?? account.parent_stock_id, 120),
+    teamMemberIndex: clampNumber(account.teamMemberIndex ?? account.team_member_index, 0, 0, 500),
     stockType: normalizeProductStockType(account.stockType ?? account.stock_type),
     productName,
     accountName,
@@ -2025,6 +2036,8 @@ function normalizeProductStockAccount(account) {
 function mapProductStockRow(row) {
   return {
     id: row.id,
+    parentStockId: row.parent_stock_id || '',
+    teamMemberIndex: row.team_member_index || 0,
     stockType: row.stock_type || 'account',
     productName: row.product_name || '',
     accountName: row.account_name || '',
@@ -2127,11 +2140,11 @@ async function listProductStockAccounts(request, env) {
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
   const search = normalizeCustomerUniqueEmail(url.searchParams.get('q') || url.searchParams.get('search'));
   const whereClause = search
-    ? `WHERE LOWER(product_name || ' ' || account_name || ' ' || stock_type || ' ' || COALESCE(account_target, '') || ' ' || COALESCE(login_username, '')) LIKE ?`
+    ? `WHERE LOWER(product_name || ' ' || account_name || ' ' || stock_type || ' ' || COALESCE(parent_stock_id, '') || ' ' || COALESCE(account_target, '') || ' ' || COALESCE(login_username, '')) LIKE ?`
     : '';
   const bindings = search ? [`%${search}%`, limit, offset] : [limit, offset];
   const result = await customerDb.prepare(`
-    SELECT id, stock_type, product_name, account_name, account_target, login_username, login_password,
+    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password,
       stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
     FROM product_stock_accounts
     ${whereClause}
@@ -2211,11 +2224,13 @@ async function saveProductStockAccounts(request, env) {
 
     await customerDb.prepare(`
       INSERT INTO product_stock_accounts (
-        id, stock_type, product_name, account_name, account_target, login_username, login_password,
+        id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password,
         stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
+        parent_stock_id = excluded.parent_stock_id,
+        team_member_index = excluded.team_member_index,
         stock_type = excluded.stock_type,
         product_name = excluded.product_name,
         account_name = excluded.account_name,
@@ -2231,6 +2246,8 @@ async function saveProductStockAccounts(request, env) {
         updated_at = excluded.updated_at
     `).bind(
       account.id,
+      account.parentStockId,
+      account.teamMemberIndex,
       account.stockType,
       account.productName,
       account.accountName,
@@ -2251,7 +2268,7 @@ async function saveProductStockAccounts(request, env) {
   }
 
   const listResult = await customerDb.prepare(`
-    SELECT id, stock_type, product_name, account_name, account_target, login_username, login_password,
+    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password,
       stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
     FROM product_stock_accounts
     ORDER BY updated_at DESC

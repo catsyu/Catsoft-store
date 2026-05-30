@@ -17,6 +17,22 @@ const bulkPatchFallbackConcurrency = 8;
 const storageKey = 'catsoftCustomerDatabaseRecords';
 const backupStorageKey = `${storageKey}:backup`;
 const productRegistryStorageKey = 'catsoftCustomerDatabaseProducts';
+const customerMarketingSettingsKey = 'catsoftMarketingCalculatorSettings';
+const customerMarketingSettingsApi = window.CATSOFT_TOOL_SETTINGS_API || getDefaultCustomerMarketingSettingsApiEndpoint();
+const defaultCustomerMarketingSettings = {
+  adminFeeRate: 6.75,
+  programFeeRate: 4.5,
+  processingFee: 1250,
+  adsValue: 10,
+  adsMethod: 'percent',
+  affiliateRate: 0,
+  cashbackRate: 0,
+  shippingSubsidy: 0,
+  packingCost: 0,
+  otherCost: 0,
+  riskRate: 0
+};
+const customerAdsVatRate = 11;
 
 const form = document.getElementById('customerForm');
 const resetFormBtn = document.getElementById('resetFormBtn');
@@ -257,6 +273,7 @@ let localStorageWarning = '';
 let records = loadRecords();
 let registeredProducts = loadRegisteredProducts();
 let stockAccountOptions = [];
+let customerMarketingSettings = loadCustomerMarketingSettings();
 let activeOrderSource = 'shopee';
 let isSyncingRecords = false;
 let isMutatingRecords = false;
@@ -738,6 +755,104 @@ function parseCurrencyAmount(value) {
 
 function formatCurrencyAmount(value) {
   return `Rp ${new Intl.NumberFormat('id-ID').format(Number(value) || 0)}`;
+}
+
+function getDefaultCustomerMarketingSettingsApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/tool-settings/marketing-calculator';
+  }
+
+  return '/api/tool-settings/marketing-calculator';
+}
+
+function parseMarketingNumber(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const parsed = Number(String(value || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeCustomerMarketingSettings(settings = {}) {
+  const merged = { ...defaultCustomerMarketingSettings, ...(settings || {}) };
+
+  return {
+    adminFeeRate: Math.max(parseMarketingNumber(merged.adminFeeRate), 0),
+    programFeeRate: Math.max(parseMarketingNumber(merged.programFeeRate), 0),
+    processingFee: Math.max(parseCurrencyAmount(merged.processingFee), 0),
+    adsValue: 10,
+    adsMethod: 'percent',
+    affiliateRate: Math.max(parseMarketingNumber(merged.affiliateRate), 0),
+    cashbackRate: Math.max(parseMarketingNumber(merged.cashbackRate), 0),
+    shippingSubsidy: Math.max(parseCurrencyAmount(merged.shippingSubsidy), 0),
+    packingCost: Math.max(parseCurrencyAmount(merged.packingCost), 0),
+    otherCost: Math.max(parseCurrencyAmount(merged.otherCost), 0),
+    riskRate: Math.max(parseMarketingNumber(merged.riskRate), 0)
+  };
+}
+
+function loadCustomerMarketingSettings() {
+  try {
+    return normalizeCustomerMarketingSettings(JSON.parse(localStorage.getItem(customerMarketingSettingsKey) || '{}'));
+  } catch (error) {
+    return normalizeCustomerMarketingSettings();
+  }
+}
+
+async function syncCustomerMarketingSettings() {
+  customerMarketingSettings = loadCustomerMarketingSettings();
+
+  try {
+    const response = await fetch(`${customerMarketingSettingsApi}?_=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    const settings = payload.settings || payload || {};
+    localStorage.setItem(customerMarketingSettingsKey, JSON.stringify(settings));
+    customerMarketingSettings = normalizeCustomerMarketingSettings(settings);
+  } catch (error) {
+    customerMarketingSettings = loadCustomerMarketingSettings();
+  }
+}
+
+function calculateCustomerMarketingIncome(grossRevenue, settings = customerMarketingSettings) {
+  const netRevenue = Math.max(parseCurrencyAmount(grossRevenue), 0);
+
+  if (!netRevenue) {
+    return 0;
+  }
+
+  const activeSettings = normalizeCustomerMarketingSettings(settings);
+  const adminFee = Math.round(netRevenue * activeSettings.adminFeeRate / 100);
+  const programFee = Math.round(netRevenue * activeSettings.programFeeRate / 100);
+  const adsBaseBudget = Math.round(netRevenue * 10 / 100);
+  const adsVat = Math.round(adsBaseBudget * customerAdsVatRate / 100);
+  const affiliateFee = Math.round(netRevenue * activeSettings.affiliateRate / 100);
+  const cashbackFee = Math.round(netRevenue * activeSettings.cashbackRate / 100);
+  const riskCost = Math.round(netRevenue * activeSettings.riskRate / 100);
+  const totalCost = adminFee
+    + programFee
+    + activeSettings.processingFee
+    + adsBaseBudget
+    + adsVat
+    + affiliateFee
+    + cashbackFee
+    + activeSettings.shippingSubsidy
+    + activeSettings.packingCost
+    + activeSettings.otherCost
+    + riskCost;
+
+  return Math.max(0, Math.round(netRevenue - totalCost));
 }
 
 function renderActivationValue(record) {
@@ -3024,6 +3139,31 @@ function getShopeeCell(row, labels) {
   return match ? String(match[1] || '').trim() : '';
 }
 
+function getShopeeGrossOrderAmount(row) {
+  return parseCurrencyAmount(getShopeeCell(row, [
+    'Subtotal Pesanan',
+    'Subtotal Order',
+    'Subtotal Produk',
+    'Total Harga Produk',
+    'Total Harga Produk Setelah Diskon',
+    'Harga Setelah Diskon',
+    'Harga Produk',
+    'Total Pembayaran',
+    'Total Belanja',
+    'Subtotal'
+  ]));
+}
+
+function getShopeeFinalIncomeAmount(row) {
+  return parseCurrencyAmount(getShopeeCell(row, [
+    'Penghasilan Akhir',
+    'Estimasi Total Penghasilan',
+    'Total Penghasilan',
+    'Dana Yang Dilepaskan',
+    'Dana Dilepaskan'
+  ]));
+}
+
 function parseShopeeDate(value) {
   if (!value) {
     return null;
@@ -3070,6 +3210,9 @@ function buildShopeeRecord(row, existingRecord = {}) {
   const durationDays = getDurationFromPackageText(`${variationText} ${productText}`);
   const startDateValue = startDate ? toDateInputValue(startDate) : existingRecord.startDate || '';
   const expiryDateValue = startDate ? toDateInputValue(addDays(startDate, durationDays)) : existingRecord.expiryDate || '';
+  const grossOrderAmount = getShopeeGrossOrderAmount(row);
+  const calculatedIncomeAmount = grossOrderAmount ? calculateCustomerMarketingIncome(grossOrderAmount) : 0;
+  const fallbackIncomeAmount = getShopeeFinalIncomeAmount(row);
   const noteParts = [
     orderStatus ? `Shopee: ${orderStatus}` : '',
     receiverName ? `Penerima: ${receiverName}` : ''
@@ -3079,14 +3222,7 @@ function buildShopeeRecord(row, existingRecord = {}) {
     customerName: username || existingRecord.customerName || receiverName,
     activatedEmail: existingRecord.activatedEmail || '',
     stockAccount: existingRecord.stockAccount || '',
-    incomeAmount: existingRecord.incomeAmount || parseCurrencyAmount(getShopeeCell(row, [
-      'Penghasilan Akhir',
-      'Estimasi Total Penghasilan',
-      'Total Penghasilan',
-      'Harga Setelah Diskon',
-      'Total Harga Produk',
-      'Subtotal Produk'
-    ])),
+    incomeAmount: calculatedIncomeAmount || existingRecord.incomeAmount || fallbackIncomeAmount,
     whatsappNumber: phone || existingRecord.whatsappNumber || '',
     orderNumber: orderNumber || existingRecord.orderNumber || '',
     orderSource: 'shopee',
@@ -3491,6 +3627,7 @@ async function prepareImportPreview(file) {
         throw new Error('Reader XLSX belum tersedia. Cek koneksi CDN SheetJS.');
       }
 
+      await syncCustomerMarketingSettings();
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -4028,6 +4165,7 @@ renderStockAccountOptions();
 renderRecords();
 setCustomerWorkspaceMode('input');
 setSyncStatus(localStorageWarning || (records.length ? 'Cache Lokal' : 'Menghubungkan Web'), localStorageWarning || records.length ? 'warning' : '');
+syncCustomerMarketingSettings();
 syncStockAccountOptions();
 syncRecordsWithApi();
 startAutoRefresh();

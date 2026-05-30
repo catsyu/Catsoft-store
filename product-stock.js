@@ -231,7 +231,11 @@ async function fetchProductStockAccounts(options = {}) {
   isProductStockFetching = true;
 
   try {
-    const response = await fetch(`${PRODUCT_STOCK_API}?_=${Date.now()}`, {
+    const stockUrl = new URL(PRODUCT_STOCK_API, window.location.href);
+    stockUrl.searchParams.set('limit', '300');
+    stockUrl.searchParams.set('_', String(Date.now()));
+
+    const response = await fetch(stockUrl.toString(), {
       cache: 'no-store',
       headers: { 'Cache-Control': 'no-cache' }
     });

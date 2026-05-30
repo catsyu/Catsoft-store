@@ -3474,6 +3474,13 @@ body.admin-console-body .admin-spectrum-head h2 {
   outline: none;
 }
 
+.admin-detail-save:disabled {
+  border-color: #d2d2d2;
+  background: #f4f4f4;
+  color: #777;
+  cursor: wait;
+}
+
 .admin-detail-close {
   width: 30px;
   height: 30px;
@@ -3495,6 +3502,21 @@ body.admin-console-body .admin-spectrum-head h2 {
 
 .admin-detail-form {
   align-content: start;
+}
+
+.admin-detail-status {
+  margin: 0;
+  color: #9a2c2c;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.admin-detail-status:empty {
+  display: none;
+}
+
+.admin-detail-status.success {
+  color: #06724d;
 }
 
 .admin-detail-section {

@@ -1052,21 +1052,39 @@ async function saveAdminAccountsApi(request, env) {
   await ensureAdminAccountsTable(adminDb);
 
   const payload = await readJson(request);
-  const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+  const accounts = Array.isArray(payload.accounts)
+    ? payload.accounts
+    : Array.isArray(payload)
+      ? payload
+      : [payload.account || payload].filter(Boolean);
   const now = new Date().toISOString();
 
-  const existing = await adminDb.prepare('SELECT username FROM admin_accounts').all();
-  const incomingNames = new Set(accounts.map((account) => normalizeSearch(account.username)).filter(Boolean));
   const statements = [];
+  const savedUsernames = [];
+  const deletedUsernames = [];
 
   accounts.forEach((account) => {
+    const originalUsername = String(account.originalUsername || account.original_username || account.username || '').trim();
     const username = String(account.username || '').trim();
     const password = String(account.password || '');
     const passwordHash = String(account.passwordHash || account.password_hash || '');
     const whatsappTarget = String(account.whatsappTarget || account.whatsapp_target || '').replace(/\D/g, '');
 
+    if (account.deleted) {
+      if (originalUsername) {
+        statements.push(adminDb.prepare('DELETE FROM admin_accounts WHERE LOWER(username) = ?').bind(normalizeSearch(originalUsername)));
+        deletedUsernames.push(originalUsername);
+      }
+      return;
+    }
+
     if (!username || (!password && !passwordHash)) {
       return;
+    }
+
+    if (originalUsername && normalizeSearch(originalUsername) !== normalizeSearch(username)) {
+      statements.push(adminDb.prepare('DELETE FROM admin_accounts WHERE LOWER(username) = ?').bind(normalizeSearch(originalUsername)));
+      deletedUsernames.push(originalUsername);
     }
 
     statements.push(adminDb.prepare(`
@@ -1102,12 +1120,7 @@ async function saveAdminAccountsApi(request, env) {
       account.createdAt || now,
       account.updatedAt || now
     ));
-  });
-
-  (existing.results || []).forEach((row) => {
-    if (!incomingNames.has(normalizeSearch(row.username))) {
-      statements.push(adminDb.prepare('DELETE FROM admin_accounts WHERE username = ?').bind(row.username));
-    }
+    savedUsernames.push(username);
   });
 
   if (statements.length) {
@@ -1117,11 +1130,23 @@ async function saveAdminAccountsApi(request, env) {
   await saveAuditLog(adminDb, {
     action: 'admin_accounts_saved',
     targetType: 'admin_accounts',
-    targetId: String(accounts.length),
-    metadata: { total: accounts.length }
+    targetId: String(savedUsernames.length),
+    metadata: { saved: savedUsernames.length, deleted: deletedUsernames.length }
   });
 
-  return json({ ok: true, accounts: accounts.length }, 200, request);
+  const result = await adminDb.prepare(`
+    SELECT username, password, password_hash, whatsapp_target, tools, inbox_access_all, inbox_rules,
+      last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+    FROM admin_accounts
+    ORDER BY updated_at DESC
+  `).all();
+
+  return json({
+    ok: true,
+    saved: savedUsernames,
+    deletedUsernames,
+    accounts: (result.results || []).map(mapAdminAccountRow)
+  }, 200, request);
 }
 
 async function listSupplierAccounts(request, env) {
@@ -1155,20 +1180,38 @@ async function saveSupplierAccountsApi(request, env) {
   await ensureSupplierAccountsTable(adminDb);
 
   const payload = await readJson(request);
-  const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+  const accounts = Array.isArray(payload.accounts)
+    ? payload.accounts
+    : Array.isArray(payload)
+      ? payload
+      : [payload.account || payload].filter(Boolean);
   const now = new Date().toISOString();
 
-  const existing = await adminDb.prepare('SELECT username FROM supplier_accounts').all();
-  const incomingNames = new Set(accounts.map((account) => normalizeSearch(account.username)).filter(Boolean));
   const statements = [];
+  const savedUsernames = [];
+  const deletedUsernames = [];
 
   accounts.forEach((account) => {
+    const originalUsername = String(account.originalUsername || account.original_username || account.username || '').trim();
     const username = String(account.username || '').trim();
     const password = String(account.password || '');
     const passwordHash = String(account.passwordHash || account.password_hash || '');
 
+    if (account.deleted) {
+      if (originalUsername) {
+        statements.push(adminDb.prepare('DELETE FROM supplier_accounts WHERE LOWER(username) = ?').bind(normalizeSearch(originalUsername)));
+        deletedUsernames.push(originalUsername);
+      }
+      return;
+    }
+
     if (!username || (!password && !passwordHash)) {
       return;
+    }
+
+    if (originalUsername && normalizeSearch(originalUsername) !== normalizeSearch(username)) {
+      statements.push(adminDb.prepare('DELETE FROM supplier_accounts WHERE LOWER(username) = ?').bind(normalizeSearch(originalUsername)));
+      deletedUsernames.push(originalUsername);
     }
 
     statements.push(adminDb.prepare(`
@@ -1206,12 +1249,7 @@ async function saveSupplierAccountsApi(request, env) {
       account.createdAt || now,
       account.updatedAt || now
     ));
-  });
-
-  (existing.results || []).forEach((row) => {
-    if (!incomingNames.has(normalizeSearch(row.username))) {
-      statements.push(adminDb.prepare('DELETE FROM supplier_accounts WHERE username = ?').bind(row.username));
-    }
+    savedUsernames.push(username);
   });
 
   if (statements.length) {
@@ -1221,11 +1259,23 @@ async function saveSupplierAccountsApi(request, env) {
   await saveAuditLog(adminDb, {
     action: 'supplier_accounts_saved',
     targetType: 'supplier_accounts',
-    targetId: String(accounts.length),
-    metadata: { total: accounts.length }
+    targetId: String(savedUsernames.length),
+    metadata: { saved: savedUsernames.length, deleted: deletedUsernames.length }
   });
 
-  return json({ ok: true, accounts: accounts.length }, 200, request);
+  const result = await adminDb.prepare(`
+    SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+      last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+    FROM supplier_accounts
+    ORDER BY updated_at DESC
+  `).all();
+
+  return json({
+    ok: true,
+    saved: savedUsernames,
+    deletedUsernames,
+    accounts: (result.results || []).map(mapSupplierAccountRow)
+  }, 200, request);
 }
 
 async function ensureCustomerAccountsTable(customerDb) {
@@ -3473,6 +3523,10 @@ function normalizeSearch(value) {
 }
 
 function clampNumber(value, fallback, min, max) {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
   const number = Number(value);
 
   if (!Number.isFinite(number)) {

@@ -7,16 +7,16 @@
   <title>Catsoft Customer Access</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260529-customer-email-access" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260530-access-save-fix" />
   <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="customer-access.css?v=20260529-customer-email-access" />
+  <link rel="stylesheet" href="customer-access.css?v=20260530-customer-access-polish" />
 </head>
 <body class="customer-access-body">
   <main class="customer-access-page" id="customerAccessRoot">
     <section class="admin-access-panel admin-access-page-panel customer-access-panel" aria-labelledby="customerAccessTitle">
       <div class="admin-spectrum-page">
         <div class="admin-spectrum-head">
-          <h2 id="customerAccessTitle">Customer</h2>
+          <h2 id="customerAccessTitle">Kelola Customer</h2>
           <dl>
             <div>
               <dt>Total Customer</dt>
@@ -27,13 +27,14 @@
         <div class="admin-spectrum-rule"></div>
         <div class="admin-spectrum-toolbar">
           <label class="admin-spectrum-search">
-            <span>Cari Berdasarkan Username, Password, Atau Akses Email</span>
+            <span>Cari Username, Password, Atau Akses Email</span>
             <span class="admin-spectrum-search-field">
               <input type="search" data-customer-access-search autocomplete="off" />
             </span>
           </label>
           <div class="admin-spectrum-actions">
-            <button class="admin-spectrum-primary" type="button" data-customer-access-sync>Sync Dari Database</button>
+            <button class="admin-spectrum-primary" type="button" data-customer-add-access>Tambah Akses Customer</button>
+            <button class="admin-spectrum-secondary" type="button" data-customer-access-sync>Sync Database</button>
             <button class="admin-spectrum-secondary" type="button" data-customer-delete-selected disabled>Hapus Customer</button>
           </div>
         </div>
@@ -51,7 +52,7 @@
           <span class="admin-detail-role">Akses Customer</span>
         </div>
         <div class="admin-detail-actions">
-          <button class="admin-detail-save" type="submit" form="customerAccessForm">Simpan</button>
+          <button class="admin-detail-save" type="button" data-customer-save>Simpan</button>
           <button class="admin-detail-close" type="button" data-customer-drawer-close aria-label="Tutup">×</button>
         </div>
       </div>
@@ -123,7 +124,7 @@
       </form>
     </aside>
   </main>
-  <script src="admin-auth.js?v=20260529-customer-email-access" defer></script>
-  <script src="customer-access.js?v=20260529-customer-email-access" defer></script>
+  <script src="admin-auth.js?v=20260530-access-save-fix" defer></script>
+  <script src="customer-access.js?v=20260530-customer-access-polish" defer></script>
 </body>
 </html>

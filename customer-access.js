@@ -24,6 +24,7 @@ const CUSTOMER_INBOX_PRESETS = [
 
 let customerAccessAccounts = [];
 let customerAccessPageSize = 10;
+let customerAccessSaving = false;
 
 function getDefaultCustomerAccessApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
@@ -64,6 +65,21 @@ function getCustomerAccessInitials(username) {
   const parts = String(username || 'CU').replace(/[^a-z0-9._ -]/gi, ' ').split(/\s+|[._-]+/).filter(Boolean);
   const initials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : String(username || 'CU').replace(/[^a-z0-9]/gi, '').slice(0, 2);
   return (initials || 'CU').toUpperCase();
+}
+
+function generateCustomerAccessPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(8);
+
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    bytes.forEach((_, index) => {
+      bytes[index] = Math.floor(Math.random() * 255);
+    });
+  }
+
+  return `CS-${[...bytes].map((byte) => alphabet[byte % alphabet.length]).join('')}`;
 }
 
 function formatCustomerAccessDate(value) {
@@ -160,6 +176,8 @@ async function pushCustomerAccounts(accounts) {
   if (!response.ok) {
     throw new Error(`API customer ${response.status}`);
   }
+
+  return response.json().catch(() => ({}));
 }
 
 function renderInboxPresetChecks() {
@@ -313,7 +331,7 @@ function setCustomerDrawerOpen(isOpen) {
   document.body.classList.toggle('admin-drawer-open', isOpen);
 }
 
-function updateCustomerDrawerTitle(label = 'Edit Customer') {
+function updateCustomerDrawerTitle(label = 'Tambah Akses') {
   const username = document.querySelector('[data-customer-username]');
   const title = document.querySelector('[data-customer-drawer-title]');
   const avatar = document.querySelector('[data-customer-drawer-avatar]');
@@ -321,6 +339,33 @@ function updateCustomerDrawerTitle(label = 'Edit Customer') {
 
   if (title) title.textContent = value;
   if (avatar) avatar.textContent = getCustomerAccessInitials(value);
+}
+
+function resetCustomerAccessForm() {
+  const form = document.querySelector('[data-customer-access-form]');
+
+  if (!form) {
+    return;
+  }
+
+  form.reset();
+  document.querySelector('[data-customer-original-username]').value = '';
+  document.querySelector('[data-customer-username]').value = '';
+  document.querySelector('[data-customer-password]').value = generateCustomerAccessPassword();
+  document.querySelector('[data-customer-status]').value = 'active';
+  document.querySelector('[data-customer-record-count]').textContent = 'Akses Manual';
+  document.querySelector('[data-customer-last-record]').textContent = 'Belum Terhubung Ke Database Customer';
+  document.querySelectorAll('input[name="customerInboxPresets"]').forEach((input) => {
+    input.checked = false;
+  });
+
+  const textarea = document.querySelector('[data-customer-inbox-rules]');
+  if (textarea) {
+    textarea.value = '';
+  }
+
+  updateCustomerInboxAccessVisibility();
+  updateCustomerDrawerTitle('Tambah Akses');
 }
 
 function updateCustomerInboxAccessVisibility() {
@@ -384,6 +429,14 @@ function openCustomerDrawer(username) {
   setCustomerDrawerOpen(true);
 }
 
+function openNewCustomerDrawer() {
+  renderInboxPresetChecks();
+  resetCustomerAccessForm();
+  setCustomerDrawerOpen(true);
+  setCustomerAccessStatus('');
+  document.querySelector('[data-customer-username]')?.focus();
+}
+
 function getCustomerAccountFormValues() {
   const presetRules = [...document.querySelectorAll('input[name="customerInboxPresets"]:checked')].map((input) => input.value);
   const customRules = document.querySelector('[data-customer-inbox-rules]').value
@@ -407,33 +460,64 @@ function getCustomerAccountFormValues() {
 
 async function saveCustomerAccountForm(event) {
   event.preventDefault();
-  const values = getCustomerAccountFormValues();
-  const existing = customerAccessAccounts.find((item) => normalizeCustomerAccessValue(item.username) === normalizeCustomerAccessValue(values.originalUsername));
-
-  if (!values.username || !values.password) {
-    setCustomerAccessStatus('Username dan password wajib diisi.');
+  if (customerAccessSaving) {
     return;
   }
 
-  const nextAccount = normalizeCustomerAccessAccount({
-    ...(existing || {}),
-    ...values,
-    updatedAt: new Date().toISOString()
-  });
-  const nextAccounts = customerAccessAccounts
-    .filter((item) => normalizeCustomerAccessValue(item.username) !== normalizeCustomerAccessValue(values.originalUsername))
-    .concat(nextAccount);
-
-  setCustomerAccessStatus('Menyimpan customer...');
+  customerAccessSaving = true;
+  const saveButton = document.querySelector('[data-customer-save]');
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = 'Menyimpan';
+  }
 
   try {
-    await pushCustomerAccounts([{ ...nextAccount, originalUsername: values.originalUsername }]);
+    const values = getCustomerAccountFormValues();
+    const existing = values.originalUsername
+      ? customerAccessAccounts.find((item) => normalizeCustomerAccessValue(item.username) === normalizeCustomerAccessValue(values.originalUsername))
+      : null;
+    const usernameTaken = customerAccessAccounts.some((item) => (
+      normalizeCustomerAccessValue(item.username) === normalizeCustomerAccessValue(values.username)
+      && normalizeCustomerAccessValue(item.username) !== normalizeCustomerAccessValue(values.originalUsername)
+    ));
+
+    if (!values.username || !values.password) {
+      setCustomerAccessStatus('Username dan password wajib diisi.');
+      return;
+    }
+
+    if (usernameTaken) {
+      setCustomerAccessStatus('Username customer sudah terdaftar. Buka data tersebut untuk mengedit.');
+      return;
+    }
+
+    const nextAccount = normalizeCustomerAccessAccount({
+      ...(existing || {}),
+      ...values,
+      sourceRecordId: existing ? existing.sourceRecordId : '',
+      recordCount: existing ? existing.recordCount : 0,
+      lastRecordAt: existing ? existing.lastRecordAt : '',
+      createdAt: existing ? existing.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    const nextAccounts = customerAccessAccounts
+      .filter((item) => normalizeCustomerAccessValue(item.username) !== normalizeCustomerAccessValue(values.originalUsername))
+      .concat(nextAccount);
+
+    setCustomerAccessStatus('Menyimpan customer...');
+    await pushCustomerAccounts([{ ...nextAccount, originalUsername: values.originalUsername || nextAccount.username }]);
     customerAccessAccounts = nextAccounts;
     renderCustomerAccounts();
     setCustomerAccessStatus('Customer tersimpan dan tersinkron.', 'success');
     setCustomerDrawerOpen(false);
   } catch (error) {
     setCustomerAccessStatus(`Gagal menyimpan: ${error.message}`);
+  } finally {
+    customerAccessSaving = false;
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = 'Simpan';
+    }
   }
 }
 
@@ -461,6 +545,7 @@ async function deleteSelectedCustomers() {
 function bindCustomerAccess() {
   renderInboxPresetChecks();
   document.querySelector('[data-customer-access-search]')?.addEventListener('input', renderCustomerAccounts);
+  document.querySelector('[data-customer-add-access]')?.addEventListener('click', openNewCustomerDrawer);
   document.querySelector('[data-customer-access-sync]')?.addEventListener('click', async () => {
     setCustomerAccessStatus('Menyinkronkan akun dari database...');
     try {
@@ -471,10 +556,18 @@ function bindCustomerAccess() {
     }
   });
   document.querySelector('[data-customer-delete-selected]')?.addEventListener('click', deleteSelectedCustomers);
+  document.querySelector('[data-customer-save]')?.addEventListener('click', () => {
+    const form = document.querySelector('[data-customer-access-form]');
+    if (typeof form?.requestSubmit === 'function') {
+      form.requestSubmit();
+    } else {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+  });
   document.querySelector('[data-customer-access-form]')?.addEventListener('submit', saveCustomerAccountForm);
   document.querySelector('[data-customer-drawer-close]')?.addEventListener('click', () => setCustomerDrawerOpen(false));
   document.querySelector('[data-customer-access-scrim]')?.addEventListener('click', () => setCustomerDrawerOpen(false));
-  document.querySelector('[data-customer-username]')?.addEventListener('input', () => updateCustomerDrawerTitle('Edit Customer'));
+  document.querySelector('[data-customer-username]')?.addEventListener('input', () => updateCustomerDrawerTitle('Tambah Akses'));
   document.querySelectorAll('input[name="customerInboxPresets"]').forEach((input) => {
     input.addEventListener('change', () => handleCustomerInboxPresetChange(input));
   });

@@ -32,13 +32,137 @@ html {
 .customer-access-panel {
   overflow: hidden;
   border-color: var(--ca-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--ca-card);
 }
 
 .customer-access-body .admin-spectrum-page {
   border: 0;
   border-radius: 0;
+  background: #fff;
+}
+
+.customer-access-body .admin-spectrum-head {
+  min-height: 72px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--ca-border);
+  background: #fff;
+}
+
+.customer-access-body .admin-spectrum-head h2 {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.customer-access-body .admin-spectrum-head dl div {
+  min-height: 30px;
+  border: 1px solid var(--ca-border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #fafafa;
+}
+
+.customer-access-body .admin-spectrum-toolbar {
+  min-height: 0;
+  align-items: end;
+  border-bottom: 1px solid var(--ca-border);
+  padding: 13px 18px;
+  background: #fff;
+}
+
+.customer-access-body .admin-spectrum-search {
+  flex: 1 1 440px;
+  max-width: 520px;
+  gap: 5px;
+  color: #4f4f4f;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.customer-access-body .admin-spectrum-search input {
+  height: 32px !important;
+  min-height: 32px !important;
+  border-color: #cfcfcf;
+  background: #fff;
+}
+
+.customer-access-body .admin-spectrum-actions {
+  gap: 8px;
+}
+
+.customer-access-body .admin-spectrum-primary,
+.customer-access-body .admin-spectrum-secondary {
+  min-width: 0;
+  min-height: 32px;
+  border-width: 1px;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.customer-access-body .admin-spectrum-primary {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+.customer-access-body .admin-spectrum-primary:hover,
+.customer-access-body .admin-spectrum-primary:focus-visible {
+  border-color: #333;
+  background: #333;
+  box-shadow: none;
+}
+
+.customer-access-body .admin-spectrum-secondary {
+  border-color: #cfcfcf;
+  background: #fff;
+  color: #333;
+}
+
+.customer-access-body .admin-spectrum-secondary:not(:disabled):hover,
+.customer-access-body .admin-spectrum-secondary:not(:disabled):focus-visible {
+  border-color: #9f9f9f;
+  background: #f7f7f7;
+  box-shadow: none;
+}
+
+.customer-access-body .admin-spectrum-secondary:disabled {
+  border-color: #d9d9d9;
+  background: #f9f9f9;
+  color: #8b8b8b;
+}
+
+.customer-access-body .admin-spectrum-table {
+  margin: 16px 18px 0;
+  border: 1px solid var(--ca-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.customer-access-body .admin-spectrum-row {
+  min-height: 54px;
+  padding-inline: 14px;
+}
+
+.customer-access-body .admin-spectrum-row.is-heading {
+  min-height: 38px;
+  background: #fafafa;
+  color: #4f4f4f;
+}
+
+.customer-access-body .admin-spectrum-row:not(.is-heading):hover,
+.customer-access-body .admin-spectrum-row:not(.is-heading):focus-visible {
+  background: #f7f7f7;
+}
+
+.customer-access-body .admin-spectrum-pager {
+  margin: 12px 18px 16px;
+  border: 1px solid var(--ca-border);
+  border-radius: 999px;
+  background: #fff;
 }
 
 .customer-access-body .customer-spectrum-table .admin-spectrum-row {
@@ -54,9 +178,9 @@ html {
   display: grid;
   gap: 4px;
   border: 1px solid var(--ca-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: #f7f7f7;
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: #fafafa;
   color: var(--ca-muted);
   font-size: 12px;
   line-height: 1.35;
@@ -68,10 +192,11 @@ html {
   padding: 0 18px;
   color: #087443;
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .customer-access-body .admin-access-status:not(:empty) {
-  padding-top: 10px;
+  padding-top: 9px;
 }
 
 .customer-access-body .is-hidden {
@@ -79,6 +204,45 @@ html {
 }
 
 @media (max-width: 760px) {
+  .customer-access-body .admin-spectrum-head {
+    min-height: 0;
+    padding: 13px 14px;
+  }
+
+  .customer-access-body .admin-spectrum-head h2 {
+    font-size: 20px;
+  }
+
+  .customer-access-body .admin-spectrum-toolbar {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .customer-access-body .admin-spectrum-search {
+    max-width: none;
+  }
+
+  .customer-access-body .admin-spectrum-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .customer-access-body .admin-spectrum-actions button {
+    width: 100%;
+  }
+
+  .customer-access-body .admin-spectrum-actions button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .customer-access-body .admin-spectrum-table {
+    margin: 12px 12px 0;
+    border-radius: 10px;
+  }
+
   .customer-access-body .customer-spectrum-table .admin-spectrum-row {
     grid-template-columns: 28px minmax(0, 1fr) 66px;
   }
@@ -92,5 +256,10 @@ html {
 
   .customer-access-panel {
     border-radius: 0;
+  }
+
+  .customer-access-body .admin-spectrum-pager {
+    margin: 10px 12px 14px;
+    border-radius: 12px;
   }
 }

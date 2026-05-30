@@ -14,6 +14,8 @@ let catsoftAdminHeartbeatTimer = null;
 let catsoftAdminPageSize = 10;
 let catsoftSupplierPageSize = 10;
 let catsoftActiveAdminAccessPane = '';
+let catsoftAdminAccessSaving = false;
+let catsoftSupplierAccessSaving = false;
 const catsoftActiveConsoleToolPanes = {};
 
 const CATSOFT_ADMIN_TOOLS = [
@@ -349,12 +351,25 @@ async function pushSupplierAccountsToApi(accounts) {
   const response = await fetch(CATSOFT_SUPPLIER_ACCOUNTS_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accounts: accounts.map(normalizeSupplierAccount) })
+    body: JSON.stringify({
+      accounts: accounts.map((account) => ({
+        ...normalizeSupplierAccount(account),
+        originalUsername: account.originalUsername || account.original_username || account.username,
+        deleted: Boolean(account.deleted)
+      }))
+    })
   });
 
   if (!response.ok) {
     throw new Error(`API supplier ${response.status}`);
   }
+
+  const data = await response.json().catch(() => ({}));
+  if (Array.isArray(data.accounts)) {
+    saveSupplierAccounts(parseSupplierAccountsResponse(data));
+  }
+
+  return data;
 }
 
 async function syncAdminAccountsFromApi(options = {}) {
@@ -392,12 +407,25 @@ async function pushAdminAccountsToApi(accounts) {
   const response = await fetch(CATSOFT_ADMIN_ACCOUNTS_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accounts: accounts.map(normalizeAdminAccount) })
+    body: JSON.stringify({
+      accounts: accounts.map((account) => ({
+        ...normalizeAdminAccount(account),
+        originalUsername: account.originalUsername || account.original_username || account.username,
+        deleted: Boolean(account.deleted)
+      }))
+    })
   });
 
   if (!response.ok) {
     throw new Error(`API admin ${response.status}`);
   }
+
+  const data = await response.json().catch(() => ({}));
+  if (Array.isArray(data.accounts)) {
+    saveAdminAccounts(parseAdminAccountsResponse(data));
+  }
+
+  return data;
 }
 
 async function recordSessionActivity(role, username, eventType = 'active') {
@@ -539,11 +567,19 @@ function hexToBytes(value) {
 }
 
 async function sha256Hex(value) {
+  if (!window.crypto || !crypto.subtle || typeof TextEncoder === 'undefined') {
+    throw new Error('Browser belum mendukung penyimpanan password aman.');
+  }
+
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
   return bytesToHex(new Uint8Array(digest));
 }
 
 async function createPasswordHash(password) {
+  if (!window.crypto || !crypto.getRandomValues || !crypto.subtle) {
+    return '';
+  }
+
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const saltHex = bytesToHex(salt);
   const hashHex = await sha256Hex(`${saltHex}:${password}`);
@@ -567,7 +603,11 @@ async function verifyAccountPassword(account, password) {
   }
 
   if (account.passwordHash) {
-    return verifyPasswordHash(password, account.passwordHash);
+    try {
+      if (await verifyPasswordHash(password, account.passwordHash)) {
+        return true;
+      }
+    } catch (error) {}
   }
 
   return account.password === password;
@@ -597,7 +637,10 @@ async function migrateAdminPasswordIfLegacy(account, password) {
   saveAdminAccounts(nextAccounts);
 
   try {
-    await pushAdminAccountsToApi(nextAccounts);
+    const migratedAccount = nextAccounts.find((item) => normalizeAdminValue(item.username) === normalizeAdminValue(account.username));
+    if (migratedAccount) {
+      await pushAdminAccountsToApi([{ ...migratedAccount, originalUsername: migratedAccount.username }]);
+    }
   } catch (error) {}
 }
 
@@ -1840,7 +1883,10 @@ async function updateCurrentAdminPassword(admin) {
   status.textContent = 'Password tersimpan lokal, sinkronisasi...';
 
   try {
-    await pushAdminAccountsToApi(nextAccounts);
+    const updatedAccount = nextAccounts.find((item) => normalizeAdminValue(item.username) === normalizeAdminValue(admin.username));
+    if (updatedAccount) {
+      await pushAdminAccountsToApi([{ ...updatedAccount, originalUsername: updatedAccount.username }]);
+    }
     status.classList.add('success');
     status.textContent = 'Password berhasil diganti.';
     setTimeout(closeAdminPasswordDialog, 900);
@@ -2647,12 +2693,13 @@ function renderOwnerAccessPanel() {
           <span class="admin-detail-role">Akses Admin</span>
         </div>
         <div class="admin-detail-actions">
-          <button class="admin-detail-save" type="submit" form="adminAccessForm">Simpan</button>
+          <button class="admin-detail-save" type="button" id="adminAccessSave">Simpan</button>
           <button class="admin-detail-close" type="button" id="adminAccessDrawerClose" aria-label="Tutup">×</button>
         </div>
       </div>
       <form class="admin-access-form admin-detail-form" id="adminAccessForm">
         <input id="adminAccessOriginalUsername" type="hidden" />
+        <p class="admin-detail-status" id="adminAccessDrawerStatus" aria-live="polite"></p>
         <section class="admin-detail-section">
           <div class="admin-detail-section-head">
             <h4>Profil Admin</h4>
@@ -2777,6 +2824,43 @@ function setAdminWhatsappStatus(message, type = '') {
   status.classList.toggle('success', type === 'success');
 }
 
+function submitAccessForm(formId) {
+  const form = document.getElementById(formId);
+
+  if (!form) {
+    return;
+  }
+
+  if (typeof form.requestSubmit === 'function') {
+    form.requestSubmit();
+    return;
+  }
+
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+}
+
+function setAdminAccessDrawerStatus(message, type = '') {
+  const status = document.getElementById('adminAccessDrawerStatus');
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('success', type === 'success');
+}
+
+function setAccessSaveBusy(buttonId, isBusy) {
+  const button = document.getElementById(buttonId);
+
+  if (!button) {
+    return;
+  }
+
+  button.disabled = isBusy;
+  button.textContent = isBusy ? 'Menyimpan' : 'Simpan';
+}
+
 function sendAdminAccessViaWhatsapp() {
   const values = getAccessFormValues();
 
@@ -2814,11 +2898,13 @@ function setAccessStatus(message, type = '') {
   const status = document.getElementById('adminAccessStatus');
 
   if (!status) {
+    setAdminAccessDrawerStatus(message, type);
     return;
   }
 
   status.textContent = message;
   status.classList.toggle('success', type === 'success');
+  setAdminAccessDrawerStatus(message, type);
 }
 
 function setAdminAccessDrawerOpen(isOpen) {
@@ -2850,6 +2936,7 @@ function resetAccessForm() {
   document.getElementById('adminAccessOriginalUsername').value = '';
   document.getElementById('adminAccessWhatsapp').value = '';
   setAdminWhatsappStatus('');
+  setAdminAccessDrawerStatus('');
   document.querySelectorAll('#adminAccessForm input[name="inboxPresets"]').forEach((input) => {
     input.checked = CATSOFT_DEFAULT_INBOX_RULES.includes(input.value);
   });
@@ -2898,6 +2985,7 @@ function wireOwnerAccessPanel() {
   document.getElementById('adminAccessWhatsapp').addEventListener('input', () => setAdminWhatsappStatus(''));
   document.getElementById('adminAccessPassword').addEventListener('input', () => setAdminWhatsappStatus(''));
   document.getElementById('adminSendAccessWhatsapp').addEventListener('click', sendAdminAccessViaWhatsapp);
+  document.getElementById('adminAccessSave').addEventListener('click', () => submitAccessForm('adminAccessForm'));
 
   document.querySelectorAll('#adminAccessForm input[name="tools"]').forEach((input) => {
     input.addEventListener('change', () => {
@@ -2912,65 +3000,80 @@ function wireOwnerAccessPanel() {
 
   document.getElementById('adminAccessForm').addEventListener('submit', async (event) => {
     event.preventDefault();
-    const values = getAccessFormValues();
-
-    if (normalizeAdminValue(values.username) === normalizeAdminValue(CATSOFT_OWNER_USERNAME)) {
-      setAccessStatus('Username OwnerCatsoft tidak bisa dipakai untuk admin lain.');
+    if (catsoftAdminAccessSaving) {
       return;
     }
 
-    const accounts = loadAdminAccounts();
-    const usernameTaken = accounts.some((account) => (
-      normalizeAdminValue(account.username) === normalizeAdminValue(values.username)
-      && normalizeAdminValue(account.username) !== normalizeAdminValue(values.originalUsername)
-    ));
-
-    if (usernameTaken) {
-      setAccessStatus('Username admin sudah terdaftar.');
-      return;
-    }
-
-    const existingAccount = values.originalUsername
-      ? accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername))
-      : null;
-
-    if (!values.username || (!values.password && !existingAccount)) {
-      setAccessStatus('Username dan password wajib diisi untuk admin baru.');
-      return;
-    }
-
-    const passwordHash = values.password ? await createPasswordHash(values.password) : (existingAccount ? existingAccount.passwordHash : '');
-    const nextAccount = {
-      username: values.username,
-      password: values.password ? '' : (existingAccount ? existingAccount.password : ''),
-      passwordHash,
-      whatsappTarget: values.whatsappTarget,
-      tools: values.tools,
-      inboxAccessAll: values.inboxAccessAll,
-      inboxRules: values.inboxRules,
-      lastLoginAt: existingAccount ? existingAccount.lastLoginAt : '',
-      activeAt: existingAccount ? existingAccount.activeAt : '',
-      loginCountToday: existingAccount ? existingAccount.loginCountToday : 0,
-      loginCountDate: existingAccount ? existingAccount.loginCountDate : '',
-      createdAt: values.originalUsername ? (existingAccount || {}).createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const nextAccounts = values.originalUsername
-      ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
-      : [...accounts, nextAccount];
-
-    saveAdminAccounts(nextAccounts);
-    resetAccessForm();
-    setAdminAccessDrawerOpen(false);
-    renderAdminAccountList();
-    setAccessStatus('Akses admin tersimpan lokal, mengirim sync...', 'success');
+    catsoftAdminAccessSaving = true;
+    setAccessSaveBusy('adminAccessSave', true);
 
     try {
-      await pushAdminAccountsToApi(nextAccounts);
-      setAccessStatus('Akses admin tersimpan dan tersinkron.', 'success');
+      const values = getAccessFormValues();
+
+      if (normalizeAdminValue(values.username) === normalizeAdminValue(CATSOFT_OWNER_USERNAME)) {
+        setAccessStatus('Username OwnerCatsoft tidak bisa dipakai untuk admin lain.');
+        return;
+      }
+
+      const accounts = loadAdminAccounts();
+      const usernameTaken = accounts.some((account) => (
+        normalizeAdminValue(account.username) === normalizeAdminValue(values.username)
+        && normalizeAdminValue(account.username) !== normalizeAdminValue(values.originalUsername)
+      ));
+
+      if (usernameTaken) {
+        setAccessStatus('Username admin sudah terdaftar. Buka data admin tersebut untuk mengedit.');
+        return;
+      }
+
+      const existingAccount = values.originalUsername
+        ? accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername))
+        : null;
+
+      if (!values.username || (!values.password && !existingAccount)) {
+        setAccessStatus('Username dan password wajib diisi untuk admin baru.');
+        return;
+      }
+
+      const passwordHash = values.password ? await createPasswordHash(values.password) : (existingAccount ? existingAccount.passwordHash : '');
+      const nextAccount = {
+        username: values.username,
+        password: values.password || (existingAccount ? existingAccount.password : ''),
+        passwordHash,
+        whatsappTarget: values.whatsappTarget,
+        tools: values.tools,
+        inboxAccessAll: values.inboxAccessAll,
+        inboxRules: values.inboxRules,
+        lastLoginAt: existingAccount ? existingAccount.lastLoginAt : '',
+        activeAt: existingAccount ? existingAccount.activeAt : '',
+        loginCountToday: existingAccount ? existingAccount.loginCountToday : 0,
+        loginCountDate: existingAccount ? existingAccount.loginCountDate : '',
+        createdAt: values.originalUsername ? (existingAccount || {}).createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const nextAccounts = values.originalUsername
+        ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
+        : [...accounts, nextAccount];
+
+      saveAdminAccounts(nextAccounts);
+      resetAccessForm();
+      setAdminAccessDrawerOpen(false);
+      renderAdminAccountList();
+      setAccessStatus('Akses admin tersimpan lokal, mengirim sync...', 'success');
+
+      try {
+        await pushAdminAccountsToApi([{ ...nextAccount, originalUsername: values.originalUsername || nextAccount.username }]);
+        renderAdminAccountList();
+        setAccessStatus('Akses admin tersimpan dan tersinkron.', 'success');
+      } catch (error) {
+        setAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+      }
     } catch (error) {
-      setAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+      setAccessStatus(`Gagal menyimpan admin: ${error.message}`);
+    } finally {
+      catsoftAdminAccessSaving = false;
+      setAccessSaveBusy('adminAccessSave', false);
     }
   });
 }
@@ -3244,12 +3347,13 @@ function renderSupplierAccessPanel() {
           <span class="admin-detail-role">Akses Supplier</span>
         </div>
         <div class="admin-detail-actions">
-          <button class="admin-detail-save" type="submit" form="supplierAccessForm">Simpan</button>
+          <button class="admin-detail-save" type="button" id="supplierAccessSave">Simpan</button>
           <button class="admin-detail-close" type="button" id="supplierAccessDrawerClose" aria-label="Tutup">×</button>
         </div>
       </div>
       <form class="admin-access-form admin-detail-form" id="supplierAccessForm">
         <input id="supplierAccessOriginalUsername" type="hidden" />
+        <p class="admin-detail-status" id="supplierAccessDrawerStatus" aria-live="polite"></p>
         <section class="admin-detail-section">
           <div class="admin-detail-section-head">
             <h4>Profil Supplier</h4>
@@ -3344,6 +3448,19 @@ function setSupplierAccessStatus(message, type = '') {
   const status = document.getElementById('supplierAccessStatus');
 
   if (!status) {
+    setSupplierAccessDrawerStatus(message, type);
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('success', type === 'success');
+  setSupplierAccessDrawerStatus(message, type);
+}
+
+function setSupplierAccessDrawerStatus(message, type = '') {
+  const status = document.getElementById('supplierAccessDrawerStatus');
+
+  if (!status) {
     return;
   }
 
@@ -3382,6 +3499,7 @@ function resetSupplierAccessForm() {
 
   form.reset();
   document.getElementById('supplierAccessOriginalUsername').value = '';
+  setSupplierAccessDrawerStatus('');
   document.querySelectorAll('#supplierAccessForm input[name="supplierTools"]').forEach((input) => {
     input.checked = input.value === 'supplier-email';
   });
@@ -3432,6 +3550,7 @@ function wireSupplierAccessPanel() {
   });
 
   document.getElementById('supplierAccessUsername').addEventListener('input', () => updateSupplierAccessDrawerTitle('Tambahkan Supplier'));
+  document.getElementById('supplierAccessSave').addEventListener('click', () => submitAccessForm('supplierAccessForm'));
 
   document.querySelectorAll('#supplierAccessForm input[name="supplierTools"]').forEach((input) => {
     input.addEventListener('change', () => {
@@ -3446,61 +3565,76 @@ function wireSupplierAccessPanel() {
 
   document.getElementById('supplierAccessForm').addEventListener('submit', async (event) => {
     event.preventDefault();
-    const values = getSupplierAccessFormValues();
-
-    const accounts = loadSupplierAccounts();
-    const usernameTaken = accounts.some((account) => (
-      normalizeAdminValue(account.username) === normalizeAdminValue(values.username)
-      && normalizeAdminValue(account.username) !== normalizeAdminValue(values.originalUsername)
-    ));
-
-    if (usernameTaken) {
-      setSupplierAccessStatus('Username supplier sudah terdaftar.');
+    if (catsoftSupplierAccessSaving) {
       return;
     }
 
-    const admin = getCurrentAdmin();
-    const existingAccount = values.originalUsername
-      ? accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername))
-      : null;
-
-    if (!values.username || (!values.password && !existingAccount)) {
-      setSupplierAccessStatus('Username dan password wajib diisi untuk supplier baru.');
-      return;
-    }
-
-    const passwordHash = values.password ? await createPasswordHash(values.password) : (existingAccount ? existingAccount.passwordHash : '');
-    const nextAccount = {
-      username: values.username,
-      password: values.password ? '' : (existingAccount ? existingAccount.password : ''),
-      passwordHash,
-      tools: values.tools,
-      allowedDomains: values.allowedDomains.length ? values.allowedDomains : [CATSOFT_SUPPLIER_DOMAINS[0]],
-      inboxAccessAll: values.inboxAccessAll,
-      inboxRules: values.inboxRules,
-      createdBy: admin ? admin.username : '',
-      lastLoginAt: existingAccount ? existingAccount.lastLoginAt : '',
-      activeAt: existingAccount ? existingAccount.activeAt : '',
-      loginCountToday: existingAccount ? existingAccount.loginCountToday : 0,
-      loginCountDate: existingAccount ? existingAccount.loginCountDate : '',
-      createdAt: values.originalUsername ? (existingAccount || {}).createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    const nextAccounts = values.originalUsername
-      ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
-      : [...accounts, nextAccount];
-
-    saveSupplierAccounts(nextAccounts);
-    resetSupplierAccessForm();
-    setSupplierAccessDrawerOpen(false);
-    renderSupplierAccountList();
-    setSupplierAccessStatus('Akses supplier tersimpan lokal, mengirim sync...', 'success');
+    catsoftSupplierAccessSaving = true;
+    setAccessSaveBusy('supplierAccessSave', true);
 
     try {
-      await pushSupplierAccountsToApi(nextAccounts);
-      setSupplierAccessStatus('Akses supplier tersimpan dan tersinkron.', 'success');
+      const values = getSupplierAccessFormValues();
+
+      const accounts = loadSupplierAccounts();
+      const usernameTaken = accounts.some((account) => (
+        normalizeAdminValue(account.username) === normalizeAdminValue(values.username)
+        && normalizeAdminValue(account.username) !== normalizeAdminValue(values.originalUsername)
+      ));
+
+      if (usernameTaken) {
+        setSupplierAccessStatus('Username supplier sudah terdaftar. Buka data supplier tersebut untuk mengedit.');
+        return;
+      }
+
+      const admin = getCurrentAdmin();
+      const existingAccount = values.originalUsername
+        ? accounts.find((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername))
+        : null;
+
+      if (!values.username || (!values.password && !existingAccount)) {
+        setSupplierAccessStatus('Username dan password wajib diisi untuk supplier baru.');
+        return;
+      }
+
+      const passwordHash = values.password ? await createPasswordHash(values.password) : (existingAccount ? existingAccount.passwordHash : '');
+      const nextAccount = {
+        username: values.username,
+        password: values.password || (existingAccount ? existingAccount.password : ''),
+        passwordHash,
+        tools: values.tools,
+        allowedDomains: values.allowedDomains.length ? values.allowedDomains : [CATSOFT_SUPPLIER_DOMAINS[0]],
+        inboxAccessAll: values.inboxAccessAll,
+        inboxRules: values.inboxRules,
+        createdBy: admin ? admin.username : '',
+        lastLoginAt: existingAccount ? existingAccount.lastLoginAt : '',
+        activeAt: existingAccount ? existingAccount.activeAt : '',
+        loginCountToday: existingAccount ? existingAccount.loginCountToday : 0,
+        loginCountDate: existingAccount ? existingAccount.loginCountDate : '',
+        createdAt: values.originalUsername ? (existingAccount || {}).createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      const nextAccounts = values.originalUsername
+        ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
+        : [...accounts, nextAccount];
+
+      saveSupplierAccounts(nextAccounts);
+      resetSupplierAccessForm();
+      setSupplierAccessDrawerOpen(false);
+      renderSupplierAccountList();
+      setSupplierAccessStatus('Akses supplier tersimpan lokal, mengirim sync...', 'success');
+
+      try {
+        await pushSupplierAccountsToApi([{ ...nextAccount, originalUsername: values.originalUsername || nextAccount.username }]);
+        renderSupplierAccountList();
+        setSupplierAccessStatus('Akses supplier tersimpan dan tersinkron.', 'success');
+      } catch (error) {
+        setSupplierAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+      }
     } catch (error) {
-      setSupplierAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+      setSupplierAccessStatus(`Gagal menyimpan supplier: ${error.message}`);
+    } finally {
+      catsoftSupplierAccessSaving = false;
+      setAccessSaveBusy('supplierAccessSave', false);
     }
   });
 }
@@ -3729,7 +3863,7 @@ async function deleteSupplierAccount(username) {
   setSupplierAccessStatus('Supplier dihapus lokal, mengirim sync...', 'success');
 
   try {
-    await pushSupplierAccountsToApi(nextAccounts);
+    await pushSupplierAccountsToApi([{ username, originalUsername: username, password: 'deleted', deleted: true }]);
     setSupplierAccessStatus('Supplier dihapus dan tersinkron.', 'success');
   } catch (error) {
     setSupplierAccessStatus(`Hapus belum tersinkron ke device lain. Sync web gagal: ${error.message}`);
@@ -3780,7 +3914,7 @@ async function deleteAdminAccount(username) {
   setAccessStatus('Admin dihapus lokal, mengirim sync...', 'success');
 
   try {
-    await pushAdminAccountsToApi(nextAccounts);
+    await pushAdminAccountsToApi([{ username, originalUsername: username, password: 'deleted', deleted: true }]);
     setAccessStatus('Admin dihapus dan tersinkron.', 'success');
   } catch (error) {
       setAccessStatus(`Hapus belum tersinkron ke device lain. Sync web gagal: ${error.message}`);

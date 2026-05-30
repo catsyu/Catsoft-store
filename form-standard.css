@@ -50,10 +50,12 @@ input[type="date"] {
 input[type="date"].soft-date-input {
   position: relative;
   color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
 }
 
 input[type="date"].soft-date-input:not(.has-date-value) {
   color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit,
@@ -80,6 +82,10 @@ input[type="date"].soft-date-input:not(.has-date-value)::before {
   pointer-events: none;
 }
 
+input[type="date"].soft-date-input.has-date-value::before {
+  content: none;
+}
+
 input[type="date"].soft-date-input:not(.has-date-value):focus::before {
   color: #94a3b8;
 }
@@ -92,7 +98,19 @@ input[type="date"].soft-date-input::-webkit-calendar-picker-indicator {
 }
 
 input[type="date"]::-webkit-date-and-time-value {
+  display: block;
+  min-height: 1.25em;
+  margin: 0;
+  line-height: 1.25;
   text-align: left;
+}
+
+input[type="date"].soft-date-input::-webkit-datetime-edit,
+input[type="date"].soft-date-input::-webkit-datetime-edit-fields-wrapper {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  line-height: 1.25;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):focus,

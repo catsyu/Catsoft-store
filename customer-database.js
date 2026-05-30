@@ -37,6 +37,7 @@ const activationFieldLabel = document.getElementById('activationFieldLabel');
 const activatedEmailInput = document.getElementById('activatedEmail');
 const stockAccountInput = document.getElementById('stockAccount');
 const stockAccountList = document.getElementById('stockAccountList');
+const incomeAmountInput = document.getElementById('incomeAmount');
 const whatsappNumberInput = document.getElementById('whatsappNumber');
 const orderNumberInput = document.getElementById('orderNumber');
 const orderSourceSelect = document.getElementById('orderSource');
@@ -725,6 +726,20 @@ function normalizeExternalUrl(value) {
   return `https://${text}`;
 }
 
+function parseCurrencyAmount(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  }
+
+  const text = String(value || '').replace(/[^\d,-]/g, '').replace(',', '.');
+  const amount = Number(text);
+  return Number.isFinite(amount) ? Math.max(0, Math.round(amount)) : 0;
+}
+
+function formatCurrencyAmount(value) {
+  return `Rp ${new Intl.NumberFormat('id-ID').format(Number(value) || 0)}`;
+}
+
 function renderActivationValue(record) {
   const value = record.activatedEmail || '';
 
@@ -793,6 +808,7 @@ function normalizeStoredRecord(record) {
     customerName: String(record.customerName ?? record.customer_name ?? '').trim(),
     activatedEmail: String(record.activatedEmail ?? record.activated_email ?? '').trim(),
     stockAccount: String(record.stockAccount ?? record.stock_account ?? '').trim(),
+    incomeAmount: parseCurrencyAmount(record.incomeAmount ?? record.income_amount),
     whatsappNumber: String(record.whatsappNumber ?? record.whatsapp_number ?? '').trim(),
     orderNumber: String(record.orderNumber ?? record.order_number ?? '').trim(),
     orderSource,
@@ -1382,6 +1398,10 @@ function getRecordSortValue(record, sortBy, duplicateIndex = getDuplicateIndex(r
     return getRecordStatusSummary(record, duplicateIndex);
   }
 
+  if (sortBy === 'incomeAmount') {
+    return Number(record.incomeAmount) || 0;
+  }
+
   return normalizeSearch(record[sortBy]);
 }
 
@@ -1625,6 +1645,7 @@ function getRecordsCsv(recordList) {
     'Nama/User',
     'Target',
     'Stok',
+    'Penghasilan',
     'Sumber Order',
     'WhatsApp',
     'No Pesanan',
@@ -1640,6 +1661,7 @@ function getRecordsCsv(recordList) {
     record.customerName,
     record.activatedEmail,
     record.stockAccount,
+    record.incomeAmount,
     orderSourceLabels[getRecordOrderSource(record)] || '',
     record.whatsappNumber,
     record.orderNumber,
@@ -1956,6 +1978,7 @@ function getFormRecord() {
     customerName: customerNameInput.value.trim(),
     activatedEmail: activatedEmailInput.value.trim(),
     stockAccount: stockAccountInput?.value.trim() || '',
+    incomeAmount: parseCurrencyAmount(incomeAmountInput?.value || ''),
     whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
     orderNumber: orderSource === 'shopee' ? orderReference : '',
     orderSource,
@@ -1977,6 +2000,7 @@ function fillForm(record) {
   customerNameInput.value = record.customerName || '';
   activatedEmailInput.value = record.activatedEmail || '';
   if (stockAccountInput) stockAccountInput.value = record.stockAccount || '';
+  if (incomeAmountInput) incomeAmountInput.value = record.incomeAmount ? formatCurrencyAmount(record.incomeAmount) : '';
   whatsappNumberInput.value = record.whatsappNumber || '';
   orderNumberInput.value = record.orderNumber || '';
   updateOrderReferenceField(getRecordOrderSource(record), getOrderReferenceValue(record) || '');
@@ -2016,6 +2040,10 @@ function renderInlineEditForm(record, status) {
       <label class="field-group">
         <span>Stok</span>
         <input data-edit-field="stockAccount" type="text" list="stockAccountList" placeholder="Pilih akun stok" value="${escapeHtml(record.stockAccount || '')}" />
+      </label>
+      <label class="field-group">
+        <span>Penghasilan</span>
+        <input data-edit-field="incomeAmount" type="text" inputmode="numeric" value="${escapeHtml(record.incomeAmount ? formatCurrencyAmount(record.incomeAmount) : '')}" />
       </label>
       <label class="field-group">
         <span>Channel</span>
@@ -2146,6 +2174,7 @@ function getInlineEditRecord(recordCard, previousRecord) {
     customerName: getInlineEditField(editor, 'customerName')?.value.trim() || '',
     activatedEmail: getInlineEditField(editor, 'activatedEmail')?.value.trim() || '',
     stockAccount: getInlineEditField(editor, 'stockAccount')?.value.trim() || '',
+    incomeAmount: parseCurrencyAmount(getInlineEditField(editor, 'incomeAmount')?.value || ''),
     whatsappNumber: orderSource === 'whatsapp' ? orderReference : '',
     orderNumber: orderSource === 'shopee' ? orderReference : '',
     orderSource,
@@ -2354,6 +2383,7 @@ function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
       record.customerName,
       record.activatedEmail,
       record.stockAccount,
+      record.incomeAmount,
       record.whatsappNumber,
       record.orderNumber,
       record.productName,
@@ -2468,8 +2498,9 @@ function renderRecords() {
           <div><span>Expire</span>${escapeHtml(formatDate(record.expiryDate))}</div>
           <div><span>Mulai</span>${escapeHtml(formatDate(record.startDate))}</div>
           <div><span>Durasi</span>${escapeHtml(getDurationLabel(record.durationDays))}</div>
-		          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
+	          <div><span>${escapeHtml(activationConfig.label)}</span>${renderActivationValue(record)}</div>
           <div><span>Stok</span>${escapeHtml(record.stockAccount || '-')}</div>
+          <div><span>Penghasilan</span>${escapeHtml(formatCurrencyAmount(record.incomeAmount))}</div>
           <div><span>${escapeHtml(orderReferenceTitle)}</span>${escapeHtml(orderReference || '-')}</div>
           <div><span>Last Update</span>${escapeHtml(formatDateTime(record.updatedAt || record.createdAt))}</div>
           ${missingFields.length ? `<div class="record-missing"><span>Kurang</span>${escapeHtml(missingFields.join(', '))}</div>` : ''}
@@ -3048,6 +3079,14 @@ function buildShopeeRecord(row, existingRecord = {}) {
     customerName: username || existingRecord.customerName || receiverName,
     activatedEmail: existingRecord.activatedEmail || '',
     stockAccount: existingRecord.stockAccount || '',
+    incomeAmount: existingRecord.incomeAmount || parseCurrencyAmount(getShopeeCell(row, [
+      'Penghasilan Akhir',
+      'Estimasi Total Penghasilan',
+      'Total Penghasilan',
+      'Harga Setelah Diskon',
+      'Total Harga Produk',
+      'Subtotal Produk'
+    ])),
     whatsappNumber: phone || existingRecord.whatsappNumber || '',
     orderNumber: orderNumber || existingRecord.orderNumber || '',
     orderSource: 'shopee',
@@ -3068,6 +3107,7 @@ const shopeeImportCompareFields = [
   'customerName',
   'activatedEmail',
   'stockAccount',
+  'incomeAmount',
   'whatsappNumber',
   'orderNumber',
   'orderSource',
@@ -3714,6 +3754,10 @@ productNameInput.addEventListener('input', () => {
 productNameInput.addEventListener('change', () => {
   updateActivationFieldMode();
   addRegisteredProduct(productNameInput.value);
+});
+incomeAmountInput?.addEventListener('blur', (event) => {
+  const amount = parseCurrencyAmount(event.target.value);
+  event.target.value = amount ? formatCurrencyAmount(amount) : '';
 });
 editRegisteredProductsBtn?.addEventListener('click', openRegisteredProductEditor);
 saveRegisteredProductsBtn?.addEventListener('click', saveRegisteredProductEditor);

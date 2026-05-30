@@ -2165,10 +2165,16 @@ function resizeConsoleToolFrame(frame) {
     doc.body.scrollHeight,
     doc.body.offsetHeight
   );
+  const openDrawer = doc.body.classList.contains('admin-drawer-open')
+    ? doc.querySelector('.admin-detail-drawer:not([hidden])')
+    : null;
+  const drawerHeight = openDrawer
+    ? Math.max(openDrawer.scrollHeight, openDrawer.getBoundingClientRect().bottom - bodyRect.top)
+    : 0;
   const contentHeight = childContentHeight > 0
     ? frame.classList.contains('is-stock-frame')
-      ? childContentHeight
-      : Math.max(childContentHeight, Math.min(measuredScrollHeight, childContentHeight + 120))
+      ? Math.max(childContentHeight, drawerHeight)
+      : Math.max(childContentHeight, drawerHeight, Math.min(measuredScrollHeight, childContentHeight + 120))
     : measuredScrollHeight;
   const minHeight = getConsoleFrameMinimumHeight(frame);
   const nextHeight = Math.ceil(Math.max(minHeight, contentHeight + 12));

@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS customer_records (
   customer_name TEXT,
   activated_email TEXT,
   stock_account TEXT,
+  income_amount INTEGER NOT NULL DEFAULT 0,
   whatsapp_number TEXT,
   order_number TEXT,
   order_source TEXT NOT NULL DEFAULT 'shopee',
@@ -118,11 +119,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_records_order_number_unique
 
 CREATE TABLE IF NOT EXISTS product_stock_accounts (
   id TEXT PRIMARY KEY,
+  stock_type TEXT NOT NULL DEFAULT 'account',
   product_name TEXT NOT NULL,
   account_name TEXT NOT NULL,
   account_target TEXT,
   login_username TEXT,
   login_password TEXT,
+  stock_cost INTEGER NOT NULL DEFAULT 0,
   capacity INTEGER NOT NULL DEFAULT 7,
   status TEXT NOT NULL DEFAULT 'active',
   reset_at TEXT,

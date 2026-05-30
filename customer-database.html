@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="form-standard.css?v=20260529-upload-icon-center" />
-  <link rel="stylesheet" href="customer-database.css?v=20260530-stock-field" />
+  <link rel="stylesheet" href="customer-database.css?v=20260530-stock-revenue" />
 </head>
 <body>
   <main class="customer-page">
@@ -88,6 +88,11 @@
               <span>Stok</span>
               <input id="stockAccount" type="text" list="stockAccountList" placeholder="Pilih akun stok" autocomplete="off" />
               <datalist id="stockAccountList"></datalist>
+            </label>
+
+            <label class="field-group">
+              <span>Penghasilan</span>
+              <input id="incomeAmount" type="text" inputmode="numeric" placeholder="Rp 0" autocomplete="off" />
             </label>
 
             <input id="whatsappNumber" type="hidden" />
@@ -277,6 +282,7 @@
               <option value="customerName">Nama</option>
               <option value="activatedEmail">Target</option>
               <option value="stockAccount">Stok</option>
+              <option value="incomeAmount">Penghasilan</option>
               <option value="productName">Produk</option>
               <option value="status">Status</option>
             </select>
@@ -377,9 +383,9 @@
     </section>
   </div>
 
-  <script src="admin-auth.js?v=20260530-stock-field" defer></script>
+  <script src="admin-auth.js?v=20260530-stock-revenue" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260530-stock-field" defer></script>
+  <script src="customer-database.js?v=20260530-stock-revenue" defer></script>
 </body>
 </html>

@@ -259,18 +259,18 @@ a {
 
 .step-list {
   display: grid;
-  gap: 14px;
-  margin-top: 24px;
+  gap: 10px;
+  margin-top: 18px;
   list-style: none;
   counter-reset: tutorial-step;
 }
 
 .step-list li {
   position: relative;
-  min-height: 94px;
-  padding: 18px 18px 18px 82px;
+  min-height: 0;
+  padding: 14px 14px 14px 64px;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #f8fafc;
   counter-increment: tutorial-step;
 }
@@ -278,29 +278,32 @@ a {
 .step-list li::before {
   content: counter(tutorial-step);
   position: absolute;
-  top: 18px;
-  left: 18px;
+  top: 14px;
+  left: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   background: #2563eb;
   color: #fff;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 900;
 }
 
 .step-list strong {
   display: block;
   color: #0f172a;
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.25;
 }
 
 .step-list p {
-  margin-top: 6px;
+  margin-top: 4px;
   color: #475569;
+  font-size: 14px;
+  line-height: 1.42;
 }
 
 .download-link-row {
@@ -310,23 +313,78 @@ a {
   margin-top: 12px;
 }
 
+.office-version-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.office-version-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-content: start;
+  align-items: center;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.office-version-card div {
+  display: grid;
+  gap: 1px;
+}
+
+.office-version-card span {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.office-version-card strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.office-version-card p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .download-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 30px;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #075985;
-  padding: 8px 14px;
-  font-size: 14px;
+  border: 1px solid #d8e2ef;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 6px 11px;
+  font-size: 12px;
   font-weight: 900;
   text-decoration: none;
-  transition: background 0.18s ease, transform 0.18s ease;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.office-version-card .download-link {
+  grid-column: 2;
+  grid-row: 1;
+  width: fit-content;
+  margin-top: 0;
 }
 
 .download-link:hover {
-  background: #bae6fd;
+  border-color: #94a3b8;
+  background: #fff;
   transform: translateY(-1px);
 }
 
@@ -761,12 +819,24 @@ a {
   .note-panel,
   .tutorial-card,
   .reference-panel {
-    padding: 20px;
+    padding: 16px;
   }
 
   .step-list li {
     min-height: 0;
-    padding: 72px 16px 16px;
+    padding: 12px 12px 12px 54px;
+  }
+
+  .office-version-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .office-version-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .office-version-card .download-link {
+    width: fit-content;
   }
 
   .help-grid {

@@ -7,9 +7,9 @@
   <title>Catsoft Product Stock</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260530-stock-field" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260530-stock-edit-bulk" />
   <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="product-stock.css?v=20260530-stock-field" />
+  <link rel="stylesheet" href="product-stock.css?v=20260530-stock-visual-clean" />
 </head>
 <body class="product-stock-body">
   <main class="product-stock-page">
@@ -33,7 +33,7 @@
           <label class="admin-spectrum-search">
             <span>Cari</span>
             <span class="admin-spectrum-search-field">
-              <input type="search" data-stock-search autocomplete="off" placeholder="Produk, akun, atau login" />
+              <input type="search" data-stock-search autocomplete="off" placeholder="Produk, Akun, Atau Login" />
             </span>
           </label>
           <div class="admin-spectrum-actions">
@@ -42,6 +42,22 @@
           </div>
         </div>
         <p class="admin-access-status" data-stock-status aria-live="polite"></p>
+        <div class="stock-bulk-toolbar" data-stock-bulk-toolbar>
+          <label class="stock-select-all">
+            <input type="checkbox" data-stock-select-visible />
+            <span>Pilih Semua</span>
+          </label>
+          <span class="stock-selected-count" data-stock-selected-count>0 Dipilih</span>
+          <select data-stock-bulk-status aria-label="Status Bulk">
+            <option value="">Ubah Status</option>
+            <option value="active">Aktif</option>
+            <option value="full">Penuh</option>
+            <option value="reset">Perlu Reset</option>
+            <option value="paused">Jeda</option>
+          </select>
+          <button class="admin-spectrum-secondary" type="button" data-stock-bulk-apply disabled>Terapkan</button>
+          <button class="admin-spectrum-secondary stock-danger-action" type="button" data-stock-bulk-delete disabled>Hapus</button>
+        </div>
         <div class="admin-account-list" data-stock-list></div>
       </div>
     </section>
@@ -74,6 +90,7 @@
               <option value="Canva Pro"></option>
               <option value="CapCut Pro"></option>
               <option value="Microsoft Office"></option>
+              <option value="Redeem Code"></option>
             </datalist>
           </label>
           <label>
@@ -81,6 +98,17 @@
             <input type="text" data-stock-account-name placeholder="ChatGPT Sharing 1" required />
           </label>
           <div class="stock-inline-grid">
+            <label>
+              Tipe Stok
+              <select data-stock-type>
+                <option value="account">Akun</option>
+                <option value="redeem_code">Redeem Code</option>
+              </select>
+            </label>
+            <label>
+              Biaya Stok
+              <input type="text" inputmode="numeric" data-stock-cost value="Rp 0" />
+            </label>
             <label>
               Kapasitas
               <input type="number" min="1" max="500" step="1" data-stock-capacity value="7" required />
@@ -135,7 +163,7 @@
       </form>
     </aside>
   </main>
-  <script src="admin-auth.js?v=20260530-stock-field" defer></script>
-  <script src="product-stock.js?v=20260530-stock-field" defer></script>
+  <script src="admin-auth.js?v=20260530-stock-edit-bulk" defer></script>
+  <script src="product-stock.js?v=20260530-stock-edit-bulk" defer></script>
 </body>
 </html>

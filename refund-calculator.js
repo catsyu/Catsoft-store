@@ -85,6 +85,28 @@ function toDateInputValue(date) {
   return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
 }
 
+function syncDateInputVisual(input) {
+  if (!input) {
+    return;
+  }
+
+  if (!input.dataset.emptyLabel) {
+    input.dataset.emptyLabel = 'Pilih Tanggal';
+  }
+
+  input.classList.add('soft-date-input');
+  input.classList.toggle('has-date-value', Boolean(input.value));
+}
+
+function setDateInputValue(input, value) {
+  if (!input) {
+    return;
+  }
+
+  input.value = value || '';
+  syncDateInputVisual(input);
+}
+
 function fromDateInput(value) {
   if (!value) {
     return null;
@@ -321,7 +343,7 @@ function syncDurationPreset() {
 }
 
 function setTodayStopDate() {
-  stopDateInput.value = toDateInputValue(new Date());
+  setDateInputValue(stopDateInput, toDateInputValue(new Date()));
   renderCalculation();
 }
 
@@ -485,7 +507,7 @@ function applyOcrText(rawText) {
   }
 
   if (startDate) {
-    startDateInput.value = toDateInputValue(startDate);
+    setDateInputValue(startDateInput, toDateInputValue(startDate));
   }
 
   if (productName) {
@@ -552,7 +574,7 @@ function resetForm() {
   paymentMethodSelect.value = 'regular';
   refundCutInput.value = '30';
   setTodayStopDate();
-  startDateInput.value = '';
+  setDateInputValue(startDateInput, '');
   screenshotInput.value = '';
   screenshotPreviewWrap.classList.add('is-hidden');
   screenshotPreview.removeAttribute('src');
@@ -598,6 +620,10 @@ form.addEventListener('submit', (event) => {
   orderNumberInput
 ].forEach((input) => {
   input.addEventListener('input', () => {
+    if (input.type === 'date') {
+      syncDateInputVisual(input);
+    }
+
     if (input === durationDaysInput) {
       syncDurationPreset();
     }
@@ -606,6 +632,10 @@ form.addEventListener('submit', (event) => {
   });
 
   input.addEventListener('change', () => {
+    if (input.type === 'date') {
+      syncDateInputVisual(input);
+    }
+
     if (input === durationDaysInput) {
       syncDurationPreset();
     }
@@ -614,6 +644,8 @@ form.addEventListener('submit', (event) => {
   });
 });
 
+syncDateInputVisual(startDateInput);
+syncDateInputVisual(stopDateInput);
 packagePresetSelect.addEventListener('change', syncPackagePreset);
 todayBtn.addEventListener('click', setTodayStopDate);
 resetBtn.addEventListener('click', resetForm);

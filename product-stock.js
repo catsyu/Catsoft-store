@@ -4,16 +4,26 @@ if (!window.CATSOFT_ADMIN_AUTHORIZED) {
 
 const PRODUCT_STOCK_API = window.CATSOFT_PRODUCT_STOCK_API || getDefaultProductStockApiEndpoint();
 const productStockPageSizeOptions = [5, 10, 20, 50];
+const productStockAutoRefreshMs = 10000;
 let productStockAccounts = [];
 let productStockPageSize = 10;
 let activeStockDrawerAccount = null;
 let isStockJoinedExpanded = false;
+let selectedStockIds = new Set();
+let productStockAutoRefreshTimerId = null;
+let isProductStockFetching = false;
+let isProductStockMutating = false;
 
 const stockStatusLabels = {
   active: 'Aktif',
   full: 'Penuh',
   reset: 'Perlu Reset',
   paused: 'Jeda'
+};
+
+const stockTypeLabels = {
+  account: 'Akun',
+  redeem_code: 'Redeem Code'
 };
 
 function getDefaultProductStockApiEndpoint() {
@@ -45,6 +55,33 @@ function getStockInitials(value) {
   const parts = clean.split(/\s+/).filter(Boolean);
   const initials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : clean.replace(/[^a-z0-9]/gi, '').slice(0, 2);
   return (initials || 'ST').toUpperCase();
+}
+
+function formatStockCurrency(value) {
+  const amount = Number(value) || 0;
+  return `Rp ${new Intl.NumberFormat('id-ID').format(amount)}`;
+}
+
+function parseStockCurrency(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  }
+
+  const amount = Number(String(value || '').replace(/[^\d]/g, ''));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function normalizeStockType(value) {
+  const type = String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return stockTypeLabels[type] ? type : 'account';
+}
+
+function createStockAccountId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+
+  return `stock-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function formatStockDate(value) {
@@ -83,12 +120,14 @@ function isStockResetDue(account) {
 
 function normalizeStockAccount(account) {
   return {
-    id: String(account.id || crypto.randomUUID()),
+    id: String(account.id || createStockAccountId()),
+    stockType: normalizeStockType(account.stockType || account.stock_type),
     productName: String(account.productName || account.product_name || '').trim(),
     accountName: String(account.accountName || account.account_name || '').trim(),
     accountTarget: String(account.accountTarget || account.account_target || '').trim(),
     loginUsername: String(account.loginUsername || account.login_username || '').trim(),
     loginPassword: String(account.loginPassword || account.login_password || '').trim(),
+    stockCost: Number(account.stockCost || account.stock_cost || 0),
     capacity: Number(account.capacity || 7),
     status: stockStatusLabels[account.status] ? account.status : 'active',
     resetAt: String(account.resetAt || account.reset_at || '').slice(0, 10),
@@ -98,6 +137,8 @@ function normalizeStockAccount(account) {
     joinedExpired: Number(account.joinedExpired || account.joined_expired || 0),
     joinedProblem: Number(account.joinedProblem || account.joined_problem || 0),
     openSlots: Number(account.openSlots || account.open_slots || 0),
+    totalRevenue: Number(account.totalRevenue || account.total_revenue || 0),
+    netRevenue: Number(account.netRevenue || account.net_revenue || 0),
     joinedCustomers: Array.isArray(account.joinedCustomers) ? account.joinedCustomers : [],
     createdAt: account.createdAt || account.created_at || '',
     updatedAt: account.updatedAt || account.updated_at || ''
@@ -119,8 +160,34 @@ function getFilteredStockAccounts() {
     account.productName,
     account.accountName,
     account.loginUsername,
+    stockTypeLabels[account.stockType] || '',
     account.status
   ].join(' ')).includes(term));
+}
+
+function isStockDrawerOpen() {
+  return document.body.classList.contains('admin-drawer-open');
+}
+
+function pruneSelectedStockIds() {
+  const accountIds = new Set(productStockAccounts.map((account) => account.id));
+  selectedStockIds.forEach((id) => {
+    if (!accountIds.has(id)) {
+      selectedStockIds.delete(id);
+    }
+  });
+}
+
+function getVisibleStockAccounts() {
+  return getFilteredStockAccounts().slice(0, productStockPageSize);
+}
+
+function getVisibleStockIds() {
+  return getVisibleStockAccounts().map((account) => account.id);
+}
+
+function getSelectedStockAccounts() {
+  return productStockAccounts.filter((account) => selectedStockIds.has(account.id));
 }
 
 function setStockStatus(message, type = '') {
@@ -148,30 +215,46 @@ function mergeProductStockAccounts(accounts) {
     const secondTime = Date.parse(second.updatedAt || second.createdAt || '') || 0;
     return secondTime - firstTime;
   });
+  pruneSelectedStockIds();
   renderProductStockAccounts();
 }
 
-async function fetchProductStockAccounts() {
-  const response = await fetch(`${PRODUCT_STOCK_API}?_=${Date.now()}`, {
-    cache: 'no-store',
-    headers: { 'Cache-Control': 'no-cache' }
-  });
-
-  if (!response.ok) {
-    throw new Error(`API stok ${response.status}`);
+async function fetchProductStockAccounts(options = {}) {
+  if (options.auto && (isProductStockMutating || isStockDrawerOpen())) {
+    return productStockAccounts;
   }
 
-  const data = await response.json();
-  productStockAccounts = (Array.isArray(data) ? data : data.accounts || []).map(normalizeStockAccount);
-  renderProductStockAccounts();
-  return productStockAccounts;
+  if (isProductStockFetching) {
+    return productStockAccounts;
+  }
+
+  isProductStockFetching = true;
+
+  try {
+    const response = await fetch(`${PRODUCT_STOCK_API}?_=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API stok ${response.status}`);
+    }
+
+    const data = await response.json();
+    productStockAccounts = (Array.isArray(data) ? data : data.accounts || []).map(normalizeStockAccount);
+    pruneSelectedStockIds();
+    renderProductStockAccounts();
+    return productStockAccounts;
+  } finally {
+    isProductStockFetching = false;
+  }
 }
 
-async function pushProductStockAccount(account) {
+async function pushProductStockAccounts(accounts) {
   const response = await fetch(PRODUCT_STOCK_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ account })
+    body: JSON.stringify({ accounts })
   });
 
   if (!response.ok) {
@@ -180,6 +263,134 @@ async function pushProductStockAccount(account) {
   }
 
   return response.json();
+}
+
+async function pushProductStockAccount(account) {
+  return pushProductStockAccounts([account]);
+}
+
+function updateStockBulkState() {
+  const toolbar = document.querySelector('[data-stock-bulk-toolbar]');
+  const count = document.querySelector('[data-stock-selected-count]');
+  const selectAll = document.querySelector('[data-stock-select-visible]');
+  const statusSelect = document.querySelector('[data-stock-bulk-status]');
+  const applyButton = document.querySelector('[data-stock-bulk-apply]');
+  const deleteButton = document.querySelector('[data-stock-bulk-delete]');
+  const selectedCount = selectedStockIds.size;
+  const visibleIds = getVisibleStockIds();
+  const visibleSelected = visibleIds.filter((id) => selectedStockIds.has(id)).length;
+
+  if (toolbar) {
+    toolbar.hidden = !getFilteredStockAccounts().length;
+    toolbar.classList.toggle('has-selection', selectedCount > 0);
+  }
+
+  if (count) {
+    count.textContent = `${selectedCount} Dipilih`;
+  }
+
+  if (selectAll) {
+    selectAll.checked = Boolean(visibleIds.length && visibleSelected === visibleIds.length);
+    selectAll.indeterminate = Boolean(visibleSelected && visibleSelected < visibleIds.length);
+    selectAll.disabled = !visibleIds.length;
+  }
+
+  if (applyButton) {
+    applyButton.disabled = !selectedCount || !statusSelect?.value;
+  }
+
+  if (deleteButton) {
+    deleteButton.disabled = !selectedCount;
+  }
+}
+
+function toggleVisibleStockSelection(isSelected) {
+  getVisibleStockIds().forEach((id) => {
+    if (isSelected) {
+      selectedStockIds.add(id);
+    } else {
+      selectedStockIds.delete(id);
+    }
+  });
+  renderProductStockAccounts();
+}
+
+async function applyBulkStockStatus() {
+  const statusSelect = document.querySelector('[data-stock-bulk-status]');
+  const nextStatus = statusSelect?.value || '';
+  const selectedAccounts = getSelectedStockAccounts();
+
+  if (!nextStatus || !selectedAccounts.length) {
+    updateStockBulkState();
+    return;
+  }
+
+  isProductStockMutating = true;
+  setStockStatus('Memperbarui stok terpilih...');
+
+  try {
+    const updatedAt = new Date().toISOString();
+    const result = await pushProductStockAccounts(selectedAccounts.map((account) => ({
+      ...account,
+      status: nextStatus,
+      updatedAt
+    })));
+
+    if (Array.isArray(result.accounts)) {
+      productStockAccounts = result.accounts.map(normalizeStockAccount);
+    } else {
+      mergeProductStockAccounts(selectedAccounts.map((account) => ({ ...account, status: nextStatus, updatedAt })));
+    }
+
+    selectedStockIds.clear();
+    if (statusSelect) statusSelect.value = '';
+    pruneSelectedStockIds();
+    renderProductStockAccounts();
+    setStockStatus('Bulk action selesai.', 'success');
+  } catch (error) {
+    setStockStatus(`Gagal bulk action: ${error.message}`);
+  } finally {
+    isProductStockMutating = false;
+  }
+}
+
+async function deleteSelectedStockAccounts() {
+  const selectedAccounts = getSelectedStockAccounts();
+
+  if (!selectedAccounts.length) {
+    updateStockBulkState();
+    return;
+  }
+
+  const shouldDelete = window.confirm(`Hapus ${selectedAccounts.length} akun stok terpilih?`);
+  if (!shouldDelete) {
+    return;
+  }
+
+  isProductStockMutating = true;
+  setStockStatus('Menghapus stok terpilih...');
+
+  try {
+    const result = await pushProductStockAccounts(selectedAccounts.map((account) => ({
+      id: account.id,
+      deleted: true
+    })));
+
+    if (Array.isArray(result.accounts)) {
+      productStockAccounts = result.accounts.map(normalizeStockAccount);
+    } else {
+      productStockAccounts = productStockAccounts.filter((account) => !selectedStockIds.has(account.id));
+    }
+
+    selectedStockIds.clear();
+    pruneSelectedStockIds();
+    renderProductStockAccounts();
+    setStockStatus('Stok terpilih dihapus.', 'success');
+  } catch (error) {
+    setStockStatus(`Gagal menghapus: ${error.message}`);
+  } finally {
+    isProductStockMutating = false;
+  }
 }
 
 async function deleteProductStockAccount(id) {
@@ -217,6 +428,7 @@ function renderProductStockAccounts() {
         </div>
       </div>
     `;
+    updateStockBulkState();
     return;
   }
 
@@ -224,17 +436,23 @@ function renderProductStockAccounts() {
     const usageText = `${account.joinedActive}/${account.capacity}`;
     const resetText = isStockResetDue(account) ? 'Perlu Reset' : formatStockDate(account.resetAt);
     const statusText = stockStatusLabels[account.status] || 'Aktif';
+    const typeText = stockTypeLabels[account.stockType] || 'Akun';
+    const isSelected = selectedStockIds.has(account.id);
     const joinedDetail = account.joinedExpired
       ? `${account.joinedExpired} Habis`
       : `${account.openSlots} Slot Kosong`;
 
     return `
-      <div class="admin-spectrum-row stock-spectrum-row" role="row">
-        <span class="admin-spectrum-check">
+      <div class="admin-spectrum-row stock-spectrum-row ${isSelected ? 'is-selected' : ''}" role="row">
+        <span class="admin-spectrum-check stock-row-leading">
+          <label class="stock-row-select" aria-label="Pilih ${escapeStockHtml(account.accountName)}">
+            <input type="checkbox" data-select-stock="${escapeStockHtml(account.id)}" ${isSelected ? 'checked' : ''} />
+            <span aria-hidden="true"></span>
+          </label>
           <span class="admin-spectrum-avatar stock" aria-hidden="true">${escapeStockHtml(getStockInitials(account.productName))}</span>
         </span>
         <span class="admin-spectrum-name">
-          <span><strong>${escapeStockHtml(account.accountName)}</strong><small>${escapeStockHtml(account.productName)}</small></span>
+          <span><strong>${escapeStockHtml(account.accountName)}</strong><small>${escapeStockHtml(account.productName)} · ${escapeStockHtml(typeText)}</small></span>
         </span>
         <span class="stock-target-cell">
           <strong>${escapeStockHtml(account.loginUsername || 'Login Belum Diisi')}</strong>
@@ -245,11 +463,15 @@ function renderProductStockAccounts() {
           <small>${escapeStockHtml(joinedDetail)}</small>
         </span>
         <span>
+          <b>${escapeStockHtml(formatStockCurrency(account.totalRevenue))}</b>
+          <small>Biaya ${escapeStockHtml(formatStockCurrency(account.stockCost))}</small>
+        </span>
+        <span>
           <b>${escapeStockHtml(statusText)}</b>
           <small>${escapeStockHtml(resetText)}</small>
         </span>
         <span class="admin-spectrum-row-actions">
-          <button class="admin-spectrum-open" type="button" data-open-stock="${escapeStockHtml(account.id)}" aria-label="Edit ${escapeStockHtml(account.accountName)}"></button>
+          <button class="admin-spectrum-open stock-edit-button" type="button" data-open-stock="${escapeStockHtml(account.id)}" aria-label="Edit ${escapeStockHtml(account.accountName)}"><span>Edit</span></button>
         </span>
       </div>
     `;
@@ -262,6 +484,7 @@ function renderProductStockAccounts() {
         <span>Akun Stok</span>
         <span>Login</span>
         <span>Join</span>
+        <span>Penghasilan</span>
         <span>Status</span>
         <span></span>
       </div>
@@ -286,10 +509,29 @@ function renderProductStockAccounts() {
     button.addEventListener('click', () => openStockDrawer(button.dataset.openStock));
   });
 
+  list.querySelectorAll('[data-select-stock]').forEach((input) => {
+    input.addEventListener('click', (event) => event.stopPropagation());
+    input.addEventListener('change', (event) => {
+      const id = event.currentTarget.dataset.selectStock;
+      if (!id) return;
+
+      if (event.currentTarget.checked) {
+        selectedStockIds.add(id);
+      } else {
+        selectedStockIds.delete(id);
+      }
+
+      event.currentTarget.closest('.stock-spectrum-row')?.classList.toggle('is-selected', event.currentTarget.checked);
+      updateStockBulkState();
+    });
+  });
+
   list.querySelector('[data-stock-page-size]')?.addEventListener('change', (event) => {
     productStockPageSize = Number(event.target.value) || 10;
     renderProductStockAccounts();
   });
+
+  updateStockBulkState();
 }
 
 function setStockDrawerOpen(isOpen) {
@@ -299,6 +541,7 @@ function setStockDrawerOpen(isOpen) {
   if (drawer) drawer.hidden = !isOpen;
   if (scrim) scrim.hidden = !isOpen;
   document.body.classList.toggle('admin-drawer-open', isOpen);
+  window.dispatchEvent(new Event('resize'));
 }
 
 function updateStockDrawerTitle(label = 'Tambah Akun Stok') {
@@ -320,6 +563,8 @@ function resetStockForm() {
   isStockJoinedExpanded = false;
   document.querySelector('[data-stock-id]').value = '';
   document.querySelector('[data-stock-capacity]').value = '7';
+  document.querySelector('[data-stock-type]').value = 'account';
+  document.querySelector('[data-stock-cost]').value = 'Rp 0';
   document.querySelector('[data-stock-status-field]').value = 'active';
   document.querySelector('[data-stock-delete-section]').hidden = true;
   renderJoinedCustomers(null);
@@ -363,7 +608,7 @@ function renderJoinedCustomers(account) {
         </span>
         <span>
           <b>${escapeStockHtml(statusText)}</b>
-          <small>${escapeStockHtml(formatStockDate(customer.expiryDate))}</small>
+          <small>${escapeStockHtml(formatStockCurrency(customer.incomeAmount || 0))} · ${escapeStockHtml(formatStockDate(customer.expiryDate))}</small>
         </span>
       </div>
     `;
@@ -380,9 +625,11 @@ function openStockDrawer(id = '') {
     isStockJoinedExpanded = false;
     document.querySelector('[data-stock-id]').value = account.id;
     document.querySelector('[data-stock-product]').value = account.productName;
+    document.querySelector('[data-stock-type]').value = account.stockType;
     document.querySelector('[data-stock-account-name]').value = account.accountName;
     document.querySelector('[data-stock-login-username]').value = account.loginUsername;
     document.querySelector('[data-stock-login-password]').value = account.loginPassword;
+    document.querySelector('[data-stock-cost]').value = formatStockCurrency(account.stockCost);
     document.querySelector('[data-stock-capacity]').value = account.capacity;
     document.querySelector('[data-stock-status-field]').value = account.status;
     document.querySelector('[data-stock-reset-at]').value = account.resetAt;
@@ -411,12 +658,14 @@ function getStockFormValues() {
 
   return {
     ...(existing || {}),
-    id: id || crypto.randomUUID(),
+    id: id || createStockAccountId(),
+    stockType: document.querySelector('[data-stock-type]').value,
     productName: document.querySelector('[data-stock-product]').value.trim(),
     accountName: document.querySelector('[data-stock-account-name]').value.trim(),
     accountTarget: '',
     loginUsername: document.querySelector('[data-stock-login-username]').value.trim(),
     loginPassword: document.querySelector('[data-stock-login-password]').value.trim(),
+    stockCost: parseStockCurrency(document.querySelector('[data-stock-cost]').value || ''),
     capacity: Number(document.querySelector('[data-stock-capacity]').value || 7),
     status: document.querySelector('[data-stock-status-field]').value,
     resetAt: document.querySelector('[data-stock-reset-at]').value,
@@ -436,16 +685,25 @@ async function saveStockForm(event) {
   }
 
   setStockStatus('Menyimpan stok produk...');
+  isProductStockMutating = true;
 
   try {
     const result = await pushProductStockAccount(values);
-    const savedAccounts = Array.isArray(result.saved) && result.saved.length ? result.saved : [values];
-    mergeProductStockAccounts(savedAccounts);
+    if (Array.isArray(result.accounts)) {
+      productStockAccounts = result.accounts.map(normalizeStockAccount);
+      pruneSelectedStockIds();
+      renderProductStockAccounts();
+    } else {
+      const savedAccounts = Array.isArray(result.saved) && result.saved.length ? result.saved : [values];
+      mergeProductStockAccounts(savedAccounts);
+      await fetchProductStockAccounts();
+    }
     setStockStatus('Stok produk tersimpan.', 'success');
     setStockDrawerOpen(false);
-    fetchProductStockAccounts().catch(() => {});
   } catch (error) {
     setStockStatus(`Gagal menyimpan: ${error.message}`);
+  } finally {
+    isProductStockMutating = false;
   }
 }
 
@@ -457,16 +715,37 @@ async function deleteCurrentStockAccount() {
   }
 
   setStockStatus('Menghapus akun stok...');
+  isProductStockMutating = true;
 
   try {
     await deleteProductStockAccount(id);
     productStockAccounts = productStockAccounts.filter((account) => account.id !== id);
+    selectedStockIds.delete(id);
     renderProductStockAccounts();
+    await fetchProductStockAccounts({ silent: true });
     setStockStatus('Akun stok dihapus.', 'success');
     setStockDrawerOpen(false);
   } catch (error) {
     setStockStatus(`Gagal menghapus: ${error.message}`);
+  } finally {
+    isProductStockMutating = false;
   }
+}
+
+function autoRefreshProductStock() {
+  if (document.hidden) {
+    return;
+  }
+
+  fetchProductStockAccounts({ auto: true, silent: true }).catch(() => {});
+}
+
+function startProductStockAutoRefresh() {
+  if (productStockAutoRefreshTimerId) {
+    window.clearInterval(productStockAutoRefreshTimerId);
+  }
+
+  productStockAutoRefreshTimerId = window.setInterval(autoRefreshProductStock, productStockAutoRefreshMs);
 }
 
 function bindProductStock() {
@@ -481,6 +760,12 @@ function bindProductStock() {
       setStockStatus(`Gagal refresh: ${error.message}`);
     }
   });
+  document.querySelector('[data-stock-select-visible]')?.addEventListener('change', (event) => {
+    toggleVisibleStockSelection(event.currentTarget.checked);
+  });
+  document.querySelector('[data-stock-bulk-status]')?.addEventListener('change', updateStockBulkState);
+  document.querySelector('[data-stock-bulk-apply]')?.addEventListener('click', applyBulkStockStatus);
+  document.querySelector('[data-stock-bulk-delete]')?.addEventListener('click', deleteSelectedStockAccounts);
   document.querySelector('[data-stock-close]')?.addEventListener('click', () => setStockDrawerOpen(false));
   document.querySelector('[data-stock-scrim]')?.addEventListener('click', () => setStockDrawerOpen(false));
   document.querySelector('[data-stock-form]')?.addEventListener('submit', saveStockForm);
@@ -489,6 +774,11 @@ function bindProductStock() {
   document.querySelectorAll('[data-stock-product], [data-stock-account-name]').forEach((input) => {
     input.addEventListener('input', () => updateStockDrawerTitle());
   });
+  document.querySelector('[data-stock-cost]')?.addEventListener('blur', (event) => {
+    event.target.value = formatStockCurrency(parseStockCurrency(event.target.value));
+  });
+  window.addEventListener('focus', autoRefreshProductStock);
+  document.addEventListener('visibilitychange', autoRefreshProductStock);
 }
 
 async function initProductStock() {
@@ -503,6 +793,7 @@ async function initProductStock() {
   try {
     await fetchProductStockAccounts();
     setStockStatus('');
+    startProductStockAutoRefresh();
   } catch (error) {
     setStockStatus(`Gagal memuat stok: ${error.message}`);
   }

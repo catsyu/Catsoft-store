@@ -5,7 +5,7 @@ if (!window.CATSOFT_ADMIN_AUTHORIZED) {
 const PRODUCT_STOCK_API = window.CATSOFT_PRODUCT_STOCK_API || getDefaultProductStockApiEndpoint();
 const CUSTOMER_RECORDS_API = window.CATSOFT_CUSTOMER_RECORDS_API || getDefaultCustomerRecordsApiEndpoint();
 const productStockPageSizeOptions = [5, 10, 20, 50];
-const productStockAutoRefreshMs = 30000;
+const productStockAutoRefreshMs = 5000;
 const productStockCacheKey = 'catsoft.productStock.accounts.v1';
 let productStockAccounts = [];
 let productStockPageSize = 10;

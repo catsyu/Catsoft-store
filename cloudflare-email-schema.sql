@@ -149,6 +149,9 @@ CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_target
 CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_status
   ON product_stock_accounts (status);
 
+CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_updated_at
+  ON product_stock_accounts (updated_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_reset_at
   ON product_stock_accounts (reset_at);
 
@@ -175,6 +178,12 @@ CREATE INDEX IF NOT EXISTS idx_finance_transactions_source
 
 CREATE INDEX IF NOT EXISTS idx_finance_transactions_date
   ON finance_transactions (transaction_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_updated_at
+  ON finance_transactions (updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_month_date
+  ON finance_transactions (month_key, transaction_date DESC, updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS customer_accounts (
   username TEXT PRIMARY KEY,

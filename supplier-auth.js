@@ -2,7 +2,9 @@ const CATSOFT_SUPPLIER_SESSION_KEY = 'catsoftSupplierSession';
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
 const CATSOFT_SUPPLIER_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_API || getDefaultSessionActivityApiEndpoint();
+const CATSOFT_SUPPLIER_ACCOUNTS_REFRESH_MS = 3000;
 let catsoftSupplierHeartbeatTimer = null;
+let catsoftSupplierAccountsRefreshTimer = null;
 
 const CATSOFT_SUPPLIER_TOOLS = [
   { id: 'supplier-email', label: 'Email', path: 'supplier-email.html', route: '/mail' }
@@ -935,6 +937,35 @@ function startSupplierHeartbeat() {
   }, 60000);
 }
 
+function startSupplierAccountsAutoRefresh() {
+  window.clearInterval(catsoftSupplierAccountsRefreshTimer);
+
+  const refresh = async () => {
+    if (!getCurrentSupplier()) {
+      return;
+    }
+
+    await syncSupplierAccountsFromApi();
+    const supplier = getCurrentSupplier();
+
+    if (!supplier) {
+      renderSupplierLogin();
+      return;
+    }
+
+    filterSupplierToolCards();
+  };
+
+  catsoftSupplierAccountsRefreshTimer = window.setInterval(refresh, CATSOFT_SUPPLIER_ACCOUNTS_REFRESH_MS);
+  window.addEventListener('focus', refresh);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refresh();
+    }
+  });
+  refresh();
+}
+
 function filterSupplierToolCards() {
   const supplier = getCurrentSupplier();
   let visibleCount = 0;
@@ -983,6 +1014,7 @@ function initSupplierAuth() {
   window.CATSOFT_SUPPLIER_AUTHORIZED = true;
   addSupplierSessionControls();
   filterSupplierToolCards();
+  startSupplierAccountsAutoRefresh();
   startSupplierHeartbeat();
 }
 

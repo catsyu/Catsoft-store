@@ -1,5 +1,6 @@
 const marketingSettingsKey = 'catsoftMarketingCalculatorSettings';
 const marketingSettingsApi = window.CATSOFT_TOOL_SETTINGS_API || getDefaultMarketingSettingsApiEndpoint();
+const marketingSettingsRefreshMs = 10000;
 const defaultMarketingSettings = {
   adminFeeRate: 6.75,
   programFeeRate: 4.5,
@@ -212,6 +213,17 @@ async function loadMarketingSettings() {
   }
 }
 
+function refreshMarketingSettingsIfIdle() {
+  const activeElement = document.activeElement;
+  const isEditing = activeElement && Object.values(marketingInputs).includes(activeElement);
+
+  if (document.hidden || isEditing) {
+    return;
+  }
+
+  loadMarketingSettings();
+}
+
 async function saveMarketingSettings() {
   const settings = getSettingsFromInputs();
   localStorage.setItem(marketingSettingsKey, JSON.stringify(settings));
@@ -266,7 +278,7 @@ function calculateMinimumPrice(costPrice, targetProfit, settings, quantity, sell
       + settings.otherCost;
 
     if (netRevenueDenominator <= 0 || quantity <= 0) {
-      return 0;
+      return Number.NaN;
     }
 
     return (fixedCosts / netRevenueDenominator + sellerDiscount) / quantity;
@@ -323,7 +335,9 @@ function renderSimulatorSuggestions(result) {
     return;
   }
 
-  if (result.costPrice > 0 && result.targetProfit >= 0 && result.suggestedPrice > 0) {
+  if (result.targetMode === 'netMargin' && !result.canReachTargetPrice) {
+    priceSuggestionText.textContent = 'Target margin bersih terlalu tinggi untuk biaya dan fee saat ini.';
+  } else if (result.costPrice > 0 && result.targetProfit >= 0 && result.suggestedPrice > 0) {
     const delta = result.suggestedPrice - result.salePrice;
     const targetLabel = result.targetMode === 'netMargin'
       ? `target margin bersih ${percent(result.targetPercent)}`
@@ -340,7 +354,9 @@ function renderSimulatorSuggestions(result) {
   if (result.netRevenue > 0 && result.costPrice > 0) {
     const adsPercent = percent(result.suggestedAdsPercent);
     const roasText = result.suggestedRoas ? `${result.suggestedRoas.toFixed(2)}x` : '-';
-    adsSuggestionText.textContent = result.canHitTargetBeforeAds
+    adsSuggestionText.textContent = !result.canReachTargetPrice && result.targetMode === 'netMargin'
+      ? 'Turunkan target margin bersih agar ruang iklan bisa dihitung.'
+      : result.canHitTargetBeforeAds
       ? `Batas iklan: ${adsPercent} / ROAS ${roasText}. Budget aman ${money(result.suggestedAdsBudget)}.`
       : `Naikkan harga ke ${money(result.suggestedPrice)} dulu. Belum ada ruang iklan aman.`;
   } else {
@@ -390,10 +406,12 @@ function renderCalculation() {
   const safeAdsRate = canHitTargetBeforeAds
     ? adRecommendations.targetAdsPercent
     : 0;
+  const canReachTargetPrice = Number.isFinite(minimumPrice) && minimumPrice > 0;
   const suggestedPrice = roundedPrice(minimumPrice);
   const suggestedAdsPercent = Number(Math.max(safeAdsRate, 0).toFixed(2));
   const suggestedRoas = adRecommendations.targetRoas ? Number(adRecommendations.targetRoas.toFixed(2)) : 0;
   const suggestedAdsValue = adsMethod === 'roas' ? suggestedRoas : suggestedAdsPercent;
+  const displayMinimumPrice = canReachTargetPrice ? (suggestedPrice || minimumPrice) : null;
 
   document.getElementById('netRevenue').textContent = money(netRevenue);
   document.getElementById('shopeeIncome').textContent = money(shopeeIncome);
@@ -402,13 +420,15 @@ function renderCalculation() {
   document.getElementById('platformCost').textContent = money(platformCost + extraCost);
   document.getElementById('adsBudget').textContent = money(adsBudget);
   document.getElementById('roasAdsBudget').textContent = effectiveRoas ? `${effectiveRoas.toFixed(2)}x` : '-';
-  document.getElementById('minimumPrice').textContent = money(suggestedPrice || minimumPrice);
+  document.getElementById('minimumPrice').textContent = displayMinimumPrice ? money(displayMinimumPrice) : '-';
   document.getElementById('breakEvenRoas').textContent = breakEvenRoas ? `${breakEvenRoas.toFixed(2)}x` : '-';
   defaultFeeSummary.textContent = percent(settings.adminFeeRate + settings.programFeeRate + (effectiveAdsRate * (1 + fixedAdsVatRate / 100)) + settings.affiliateRate + settings.cashbackRate);
   adsVatBadge.hidden = adsMethod !== 'percent';
 
   const advice = [];
-  advice.push(`Harga aman ${money(suggestedPrice || minimumPrice)}.`);
+  advice.push(displayMinimumPrice
+    ? `Harga aman ${money(displayMinimumPrice)}.`
+    : 'Target margin bersih belum realistis.');
   advice.push(canHitTargetBeforeAds
     ? `Iklan ${percent(suggestedAdsPercent)} / ROAS ${suggestedRoas ? suggestedRoas.toFixed(2) : '-'}x.`
     : 'Naikkan harga dulu sebelum menambah iklan.');
@@ -486,6 +506,7 @@ function renderCalculation() {
     suggestedAdsBudget: canHitTargetBeforeAds ? adRecommendations.targetAdsBudget : 0,
     breakEvenAdsPercent: adRecommendations.breakEvenAdsPercent,
     breakEvenRoasVatAware: adRecommendations.breakEvenRoas,
+    canReachTargetPrice,
     canHitTargetBeforeAds
   };
 
@@ -628,5 +649,8 @@ document.getElementById('resetMarketingSettings').addEventListener('click', () =
   saveMarketingSettings();
 });
 document.getElementById('exportMarketingCsv').addEventListener('click', exportMarketingCsv);
+window.addEventListener('focus', refreshMarketingSettingsIfIdle);
+document.addEventListener('visibilitychange', refreshMarketingSettingsIfIdle);
+window.setInterval(refreshMarketingSettingsIfIdle, marketingSettingsRefreshMs);
 
 loadMarketingSettings();

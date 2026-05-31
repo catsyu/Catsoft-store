@@ -4,7 +4,7 @@ const CATSOFT_ADMIN_SESSION_KEY = 'catsoftAdminSession';
 const CATSOFT_ADMIN_ACCOUNTS_KEY = 'catsoftAdminAccounts';
 const CATSOFT_ADMIN_ACCOUNTS_SYNC_KEY = 'catsoftAdminAccountsLastSync';
 const CATSOFT_ADMIN_ACCOUNTS_API = window.CATSOFT_ADMIN_ACCOUNTS_API || getDefaultAdminAccountsApiEndpoint();
-const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 10000;
+const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 3000;
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
 const CATSOFT_CUSTOMER_ACCOUNTS_API = window.CATSOFT_CUSTOMER_ACCOUNTS_API || getDefaultCustomerAccountsApiEndpoint();
@@ -3993,6 +3993,12 @@ function startAdminAccountsAutoRefresh() {
   };
 
   catsoftAdminAccountsRefreshTimer = window.setInterval(refresh, CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS);
+  window.addEventListener('focus', refresh);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refresh();
+    }
+  });
   refresh();
 }
 

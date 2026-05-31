@@ -435,6 +435,17 @@ async function withToolsStaticHeaders(response, toolsHost, pathname = '', source
     headers.set('Cache-Control', 'no-store');
   }
 
+  const staticContentType = headers.get('Content-Type') || '';
+  const shouldBypassStaticCache = staticContentType.includes('text/html')
+    || staticContentType.includes('javascript')
+    || staticContentType.includes('text/css');
+
+  if (shouldBypassStaticCache) {
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
+  }
+
   const embeddedToolHtmlFiles = new Set([
     '/customer-database',
     '/customer-database.html',
@@ -2042,6 +2053,11 @@ async function ensureProductStockTable(db) {
   `).run();
 
   await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_updated_at
+    ON product_stock_accounts (updated_at DESC)
+  `).run();
+
+  await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_reset_at
     ON product_stock_accounts (reset_at)
   `).run();
@@ -2520,6 +2536,16 @@ async function ensureFinanceTransactionsTable(db) {
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_finance_transactions_date
     ON finance_transactions (transaction_date DESC)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_finance_transactions_updated_at
+    ON finance_transactions (updated_at DESC)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_finance_transactions_month_date
+    ON finance_transactions (month_key, transaction_date DESC, updated_at DESC)
   `).run();
 }
 
@@ -3162,6 +3188,16 @@ async function ensureCustomerRecordsSchema(customerDb) {
 
   await addColumnIfMissing(customerDb, 'customer_records', 'stock_account', 'TEXT');
   await addColumnIfMissing(customerDb, 'customer_records', 'income_amount', 'INTEGER NOT NULL DEFAULT 0');
+  await customerDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_records_updated_at
+    ON customer_records (updated_at DESC)
+  `).run();
+
+  await customerDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_records_status
+    ON customer_records (status)
+  `).run();
+
   await customerDb.prepare(`
     CREATE INDEX IF NOT EXISTS idx_customer_records_stock_account
     ON customer_records (LOWER(stock_account))

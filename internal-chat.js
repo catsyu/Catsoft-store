@@ -42,7 +42,7 @@
   refreshKnownAdmins();
   bindEvents();
   loadMessages();
-  state.pollTimer = window.setInterval(() => loadMessages({ silent: true }), 5000);
+  state.pollTimer = window.setInterval(() => loadMessages({ silent: true }), 3000);
 
   function getDefaultInternalChatApiEndpoint() {
     const hostname = window.location.hostname.toLowerCase();

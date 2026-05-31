@@ -8,7 +8,7 @@ const readStorageKey = 'catsoftEmailInboxReadIds';
 const deletedStorageKey = 'catsoftEmailInboxDeletedIds';
 const spamStorageKey = 'catsoftEmailInboxSpamIds';
 const notSpamStorageKey = 'catsoftEmailInboxNotSpamIds';
-const autoRefreshMs = 15000;
+const autoRefreshMs = 5000;
 const emailFetchLimit = 500;
 
 const refreshBtn = document.getElementById('refreshBtn');

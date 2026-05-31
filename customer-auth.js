@@ -1,6 +1,8 @@
 const CATSOFT_CUSTOMER_SESSION_KEY = 'catsoftCustomerSession';
 const CATSOFT_CUSTOMER_ACCOUNTS_KEY = 'catsoftCustomerAccounts';
 const CUSTOMER_AUTH_ACCOUNTS_API = window.CATSOFT_CUSTOMER_ACCOUNTS_API || getDefaultCustomerAccountsApiEndpoint();
+const CATSOFT_CUSTOMER_ACCOUNTS_REFRESH_MS = 4000;
+let catsoftCustomerAccountsRefreshTimer = null;
 
 function normalizeCustomerValue(value) {
   return String(value || '').trim().toLowerCase();
@@ -375,6 +377,30 @@ function markCustomerAuthorized() {
   }));
 }
 
+function startCustomerAccountsAutoRefresh() {
+  window.clearInterval(catsoftCustomerAccountsRefreshTimer);
+
+  const refresh = async () => {
+    if (!loadCustomerSession()) {
+      return;
+    }
+
+    await syncCustomerAccountsFromApi();
+
+    if (!getCurrentCustomer()) {
+      window.location.reload();
+    }
+  };
+
+  catsoftCustomerAccountsRefreshTimer = window.setInterval(refresh, CATSOFT_CUSTOMER_ACCOUNTS_REFRESH_MS);
+  window.addEventListener('focus', refresh);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refresh();
+    }
+  });
+}
+
 function getCustomerInboxAccess() {
   const customer = getCurrentCustomer();
 
@@ -403,6 +429,7 @@ async function initCustomerAuth() {
   if (getCurrentCustomer()) {
     markCustomerAuthorized();
     syncCustomerAccountsFromApi().catch(() => {});
+    startCustomerAccountsAutoRefresh();
     return;
   }
 
@@ -414,6 +441,7 @@ async function initCustomerAuth() {
   }
 
   markCustomerAuthorized();
+  startCustomerAccountsAutoRefresh();
 }
 
 window.CatsoftCustomerAuth = {

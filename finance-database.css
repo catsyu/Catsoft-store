@@ -539,6 +539,110 @@ html {
   padding: 0 16px 12px;
 }
 
+.finance-table {
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.finance-month-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--finance-border);
+  border-radius: 8px;
+  padding: 13px;
+  background: #fbfbfb;
+}
+
+.finance-month-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #dedede;
+  padding-bottom: 12px;
+}
+
+.finance-month-card-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.finance-month-card-head div:last-child {
+  text-align: right;
+}
+
+.finance-month-card-head span,
+.finance-month-flow span,
+.finance-month-formula {
+  color: var(--finance-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.finance-month-card-head h4,
+.finance-month-card-head strong {
+  margin: 0;
+  color: #222;
+  font-size: 18px;
+  font-weight: 560;
+  line-height: 1.2;
+}
+
+.finance-month-card-head strong {
+  font-size: 20px;
+}
+
+.finance-month-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.finance-month-flow div {
+  display: grid;
+  align-content: space-between;
+  gap: 7px;
+  min-height: 76px;
+  border: 1px solid #e1e1e1;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.finance-month-flow b {
+  color: #222;
+  font-size: 15px;
+  font-weight: 560;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.finance-month-flow .is-total {
+  border-color: #c7c7c7;
+  background: #f5f5f5;
+}
+
+.finance-month-flow .is-cost {
+  border-color: #dcc8c2;
+  background: #fff7f5;
+}
+
+.finance-month-flow .is-profit {
+  border-color: #a9b9af;
+  background: #f4faf6;
+}
+
+.finance-month-flow .is-profit b {
+  color: #1f5c3c;
+}
+
+.finance-month-formula {
+  margin: 0;
+  border-top: 1px solid #e4e4e4;
+  padding-top: 10px;
+  line-height: 1.45;
+}
+
 .finance-row,
 .finance-record-row,
 .finance-preview-row {
@@ -785,6 +889,19 @@ html {
 
   .finance-chart {
     grid-template-columns: repeat(6, minmax(38px, 1fr));
+  }
+
+  .finance-month-card-head {
+    display: grid;
+    gap: 10px;
+  }
+
+  .finance-month-card-head div:last-child {
+    text-align: left;
+  }
+
+  .finance-month-flow {
+    grid-template-columns: 1fr;
   }
 
   .finance-actions {

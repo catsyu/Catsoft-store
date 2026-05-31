@@ -7,7 +7,7 @@ const FINANCE_STOCK_API = window.CATSOFT_PRODUCT_STOCK_API || getDefaultFinanceS
 const financeStorageKey = 'catsoftFinanceTransactions';
 const financeFetchLimit = 500;
 const financeFetchMaxPages = 120;
-const financeAutoRefreshMs = 10000;
+const financeAutoRefreshMs = 5000;
 let financeRecords = [];
 let financeStockAccounts = [];
 let stagedFinanceImport = null;
@@ -664,23 +664,46 @@ function renderFinanceMonthly() {
   }
 
   financeEls.monthly.innerHTML = `
-    <div class="finance-row is-head">
-      <span>Bulan</span>
-      <span>Shopee</span>
-      <span>GoPay</span>
-      <span>Penarikan</span>
-      <span>Biaya Stok</span>
-      <span>Profit</span>
-    </div>
     ${rows.map((row) => `
-      <div class="finance-row">
-        <b class="finance-row-month">${escapeFinanceHtml(formatFinanceMonth(row.monthKey))}</b>
-        <span class="finance-row-item" data-label="Shopee">${formatFinanceCurrency(row.shopee)}</span>
-        <span class="finance-row-item" data-label="GoPay">${formatFinanceCurrency(row.gopay)}</span>
-        <b class="finance-row-item is-total" data-label="Total Penarikan">${formatFinanceCurrency(row.totalWithdrawal)}</b>
-        <span class="finance-row-item" data-label="Biaya Stok">${formatFinanceCurrency(row.stockCost)}</span>
-        <b class="finance-row-item is-profit" data-label="Profit Bersih">${formatFinanceCurrency(row.profit)}</b>
-      </div>
+      <article class="finance-month-card">
+        <div class="finance-month-card-head">
+          <div>
+            <span>Bulan laporan</span>
+            <h4>${escapeFinanceHtml(formatFinanceMonth(row.monthKey))}</h4>
+          </div>
+          <div>
+            <span>Profit bersih</span>
+            <strong>${formatFinanceCurrency(row.profit)}</strong>
+          </div>
+        </div>
+
+        <div class="finance-month-flow" aria-label="Rumus profit bulanan">
+          <div>
+            <span>Uang masuk dari Shopee</span>
+            <b>${formatFinanceCurrency(row.shopee)}</b>
+          </div>
+          <div>
+            <span>Uang masuk dari GoPay</span>
+            <b>${formatFinanceCurrency(row.gopay)}</b>
+          </div>
+          <div class="is-total">
+            <span>Total uang masuk</span>
+            <b>${formatFinanceCurrency(row.totalWithdrawal)}</b>
+          </div>
+          <div class="is-cost">
+            <span>Dikurangi biaya stok</span>
+            <b>${formatFinanceCurrency(row.stockCost)}</b>
+          </div>
+          <div class="is-profit">
+            <span>Hasil akhir / profit bersih</span>
+            <b>${formatFinanceCurrency(row.profit)}</b>
+          </div>
+        </div>
+
+        <p class="finance-month-formula">
+          Profit bersih = total uang masuk ${formatFinanceCurrency(row.totalWithdrawal)} - biaya stok ${formatFinanceCurrency(row.stockCost)}
+        </p>
+      </article>
     `).join('')}
   `;
 }

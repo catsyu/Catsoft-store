@@ -42,6 +42,8 @@ const CUSTOMER_INBOX_PRESETS = [
 let customerAccessAccounts = [];
 let customerAccessPageSize = 10;
 let customerAccessSaving = false;
+let customerAccessRefreshTimer = null;
+const customerAccessRefreshMs = 4000;
 
 function getDefaultCustomerAccessApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
@@ -175,6 +177,23 @@ async function fetchCustomerAccounts() {
   customerAccessAccounts = (Array.isArray(data) ? data : data.accounts || []).map(normalizeCustomerAccessAccount);
   renderCustomerAccounts();
   return customerAccessAccounts;
+}
+
+function refreshCustomerAccessIfIdle() {
+  if (document.hidden || customerAccessSaving) {
+    return;
+  }
+
+  fetchCustomerAccounts().catch((error) => {
+    setCustomerAccessStatus(`Gagal refresh akun customer: ${error.message}`);
+  });
+}
+
+function startCustomerAccessAutoRefresh() {
+  window.clearInterval(customerAccessRefreshTimer);
+  customerAccessRefreshTimer = window.setInterval(refreshCustomerAccessIfIdle, customerAccessRefreshMs);
+  window.addEventListener('focus', refreshCustomerAccessIfIdle);
+  document.addEventListener('visibilitychange', refreshCustomerAccessIfIdle);
 }
 
 async function pushCustomerAccounts(accounts) {
@@ -597,6 +616,7 @@ async function initCustomerAccess() {
   }
 
   bindCustomerAccess();
+  startCustomerAccessAutoRefresh();
 
   try {
     await fetchCustomerAccounts();

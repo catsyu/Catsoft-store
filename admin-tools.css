@@ -1505,8 +1505,9 @@ body.catsoft-embedded-tool .dashboard-summary {
 }
 
 .content-editor-shell {
-  grid-template-columns: minmax(520px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: minmax(640px, 1.08fr) minmax(360px, 0.92fr);
   gap: 12px;
+  align-items: start;
 }
 
 .content-database-panel,
@@ -1523,6 +1524,7 @@ body.catsoft-embedded-tool .dashboard-summary {
 .content-database-panel {
   gap: 10px;
   padding: 12px;
+  min-width: 0;
 }
 
 .content-database-head {
@@ -1598,6 +1600,7 @@ body.catsoft-embedded-tool .dashboard-summary {
   max-height: calc(100vh - 190px);
   border-color: #d8d8d8;
   border-radius: 10px;
+  background: #fff;
 }
 
 .content-product-table {
@@ -1614,7 +1617,7 @@ body.catsoft-embedded-tool .dashboard-summary {
 .content-product-table thead tr,
 .content-product-table tbody tr {
   display: grid;
-  grid-template-columns: minmax(150px, 1.45fr) 86px 42px 86px 148px;
+  grid-template-columns: minmax(230px, 1.52fr) 96px 54px minmax(104px, 0.72fr) 142px;
   align-items: center;
 }
 
@@ -1622,7 +1625,7 @@ body.catsoft-embedded-tool .dashboard-summary {
 .content-product-table td {
   width: auto !important;
   min-width: 0;
-  padding: 8px 9px;
+  padding: 9px 10px;
   border-color: #e5e5e5;
 }
 
@@ -1658,7 +1661,7 @@ body.catsoft-embedded-tool .dashboard-summary {
 }
 
 .content-product-table code {
-  max-width: 84px;
+  max-width: 92px;
   border-color: #d8d8d8;
   background: #f8f8f7;
   color: #242424;
@@ -1672,17 +1675,17 @@ body.catsoft-embedded-tool .dashboard-summary {
 .content-row-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: 5px;
 }
 
 .content-row-actions .ghost-button {
   min-width: 0;
-  min-height: 28px;
+  min-height: 30px;
   border-color: #d8d8d8;
   border-radius: 999px;
   background: #fff;
   color: #242424;
-  padding: 4px 7px;
+  padding: 4px 6px;
   font-size: 11px;
   font-weight: 520;
 }
@@ -1693,24 +1696,25 @@ body.catsoft-embedded-tool .dashboard-summary {
 
 .content-workspace {
   gap: 12px;
+  min-width: 0;
 }
 
 .content-empty-state {
   align-content: start;
-  min-height: 220px;
-  padding: 24px;
+  min-height: 174px;
+  padding: 22px 24px;
   background: #fff;
 }
 
 .content-empty-state h2 {
   margin-top: 4px;
   color: #242424;
-  font-size: 25px;
+  font-size: 23px;
   font-weight: 520;
 }
 
 .content-empty-state p {
-  max-width: 420px;
+  max-width: 460px;
   margin-top: 8px;
   color: #5f5f5f;
   font-size: 13px;
@@ -1864,6 +1868,9 @@ body.catsoft-embedded-tool .dashboard-summary {
 
   .content-table-wrap {
     max-height: none;
+    overflow: visible;
+    border: 0;
+    background: transparent;
   }
 
   .content-product-table thead tr,
@@ -1871,8 +1878,44 @@ body.catsoft-embedded-tool .dashboard-summary {
     display: block;
   }
 
+  .content-product-table thead {
+    display: none;
+  }
+
+  .content-product-table tbody tr {
+    margin-bottom: 10px;
+    overflow: hidden;
+    border: 1px solid #d8d8d8;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .content-product-table td {
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+  }
+
+  .content-product-table td:nth-child(5) {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .content-product-table td:nth-child(5)::before {
+    display: block;
+  }
+
   .content-row-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 7px;
+  }
+
+  .content-row-actions .ghost-button {
+    width: 100%;
+    min-width: 0;
   }
 
   .content-empty-state {
@@ -1898,7 +1941,12 @@ body.catsoft-embedded-tool .dashboard-summary {
   }
 
   .content-row-actions {
-    gap: 5px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .content-row-actions .danger-button {
+    grid-column: 1 / -1;
   }
 }
 

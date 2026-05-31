@@ -6,6 +6,7 @@ const CATSOFT_SUPPLIER_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_AP
 const CATSOFT_SUPPLIER_ACCOUNTS_REFRESH_MS = 3000;
 let catsoftSupplierHeartbeatTimer = null;
 let catsoftSupplierAccountsRefreshTimer = null;
+let supplierUnauthorizedHandled = false;
 
 const CATSOFT_SUPPLIER_TOOLS = [
   { id: 'supplier-email', label: 'Email', path: 'supplier-email.html', route: '/mail' }
@@ -142,6 +143,23 @@ function saveSupplierAccounts(accounts) {
   localStorage.setItem(CATSOFT_SUPPLIER_ACCOUNTS_KEY, JSON.stringify(accounts.map(normalizeSupplierAccount)));
 }
 
+function createSupplierApiError(response, label) {
+  const error = new Error(response.status === 401 ? 'Sesi supplier berakhir. Silakan login ulang.' : `API ${label} ${response.status}`);
+  error.status = response.status;
+  return error;
+}
+
+function handleSupplierUnauthorized(error) {
+  if (Number(error?.status) !== 401 || supplierUnauthorizedHandled) {
+    return false;
+  }
+
+  supplierUnauthorizedHandled = true;
+  clearSupplierSession();
+  window.setTimeout(() => window.location.reload(), 700);
+  return true;
+}
+
 async function pushSupplierAccountsToApi(accounts) {
   const response = await fetch(CATSOFT_SUPPLIER_ACCOUNTS_API, {
     method: 'POST',
@@ -151,7 +169,7 @@ async function pushSupplierAccountsToApi(accounts) {
   });
 
   if (!response.ok) {
-    throw new Error(`API supplier ${response.status}`);
+    throw createSupplierApiError(response, 'supplier');
   }
 }
 
@@ -169,13 +187,16 @@ async function syncSupplierAccountsFromApi() {
     });
 
     if (!response.ok) {
-      throw new Error(`API supplier ${response.status}`);
+      throw createSupplierApiError(response, 'supplier');
     }
 
     const accounts = parseSupplierAccountsResponse(await response.json());
     saveSupplierAccounts(accounts);
     return accounts;
   } catch (error) {
+    if (handleSupplierUnauthorized(error)) {
+      return [];
+    }
     return loadSupplierAccounts();
   }
 }
@@ -354,7 +375,7 @@ async function recordSupplierSessionActivity(username, eventType = 'active') {
     });
 
     if (!response.ok) {
-      throw new Error(`API activity ${response.status}`);
+      throw createSupplierApiError(response, 'activity');
     }
 
     const payload = await response.json();
@@ -464,16 +485,19 @@ async function updateCurrentSupplierPassword(supplier) {
     }
   });
 
-  saveSupplierAccounts(nextAccounts);
-  status.textContent = 'Password tersimpan lokal, sinkronisasi...';
+  status.textContent = 'Menyimpan password ke database...';
 
   try {
     await pushSupplierAccountsToApi(nextAccounts);
+    saveSupplierAccounts(nextAccounts);
     status.classList.add('success');
     status.textContent = 'Password berhasil diganti.';
     setTimeout(closeSupplierPasswordDialog, 900);
   } catch (error) {
-    status.textContent = `Password lokal berubah, sync web gagal: ${error.message}`;
+    if (handleSupplierUnauthorized(error)) {
+      return;
+    }
+    status.textContent = `Password belum berubah: ${error.message}`;
   }
 }
 

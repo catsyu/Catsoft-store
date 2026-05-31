@@ -953,6 +953,10 @@ async function findCustomerRecordByJoinQuery(query) {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleStockUnauthorized();
+      throw new Error('Sesi admin berakhir. Silakan login ulang.');
+    }
     throw new Error(`API customer ${response.status}`);
   }
 
@@ -982,6 +986,10 @@ async function patchCustomerRecordStock(record, targetAccount) {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleStockUnauthorized();
+      throw new Error('Sesi admin berakhir. Silakan login ulang.');
+    }
     const data = await response.json().catch(() => ({}));
     throw new Error(data.error || `API customer ${response.status}`);
   }
@@ -1122,6 +1130,10 @@ async function unlinkJoinedCustomer(customerId) {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        handleStockUnauthorized();
+        throw new Error('Sesi admin berakhir. Silakan login ulang.');
+      }
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error || `API customer ${response.status}`);
     }
@@ -1997,15 +2009,7 @@ async function initProductStock() {
   }
 
   bindProductStock();
-  const cachedAccounts = readProductStockCache();
-
-  if (cachedAccounts.length) {
-    productStockAccounts = cachedAccounts;
-    renderProductStockAccounts();
-    setStockStatus('Memuat pembaruan stok...');
-  } else {
-    setStockStatus('Memuat stok produk...');
-  }
+  setStockStatus('Memuat stok produk dari database...');
 
   try {
     await fetchProductStockAccounts();

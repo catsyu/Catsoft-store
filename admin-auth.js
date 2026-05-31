@@ -234,6 +234,17 @@ function getDefaultAuthApiEndpoint() {
   return '/api/auth/login';
 }
 
+function getDefaultAuthSessionApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage) {
+    return 'https://catsoft.store/api/admin-accounts';
+  }
+
+  return '/api/admin-accounts';
+}
+
 function getDefaultSessionActivityApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
@@ -381,7 +392,7 @@ async function syncSupplierAccountsFromApi(options = {}) {
     });
 
     if (!response.ok) {
-      throw new Error(`API supplier ${response.status}`);
+      throw createAdminApiError(response, 'supplier');
     }
 
     const accounts = parseSupplierAccountsResponse(await response.json());
@@ -393,6 +404,9 @@ async function syncSupplierAccountsFromApi(options = {}) {
 
     return accounts;
   } catch (error) {
+    if (handleAdminApiUnauthorized(error, setSupplierAccessStatus)) {
+      return [];
+    }
     if (!options.silent) {
       setSupplierAccessStatus(`Gagal sinkron supplier: ${error.message}`);
     }
@@ -416,7 +430,7 @@ async function pushSupplierAccountsToApi(accounts) {
   });
 
   if (!response.ok) {
-    throw new Error(`API supplier ${response.status}`);
+    throw createAdminApiError(response, 'supplier');
   }
 
   const data = await response.json().catch(() => ({}));
@@ -438,7 +452,7 @@ async function syncAdminAccountsFromApi(options = {}) {
     });
 
     if (!response.ok) {
-      throw new Error(`API admin ${response.status}`);
+      throw createAdminApiError(response, 'admin');
     }
 
     const accounts = parseAdminAccountsResponse(await response.json());
@@ -451,6 +465,9 @@ async function syncAdminAccountsFromApi(options = {}) {
 
     return accounts;
   } catch (error) {
+    if (handleAdminApiUnauthorized(error, setAccessStatus)) {
+      return [];
+    }
     if (!options.silent) {
       setAccessStatus(`Gagal sinkron admin: ${error.message}`);
     }
@@ -474,7 +491,7 @@ async function pushAdminAccountsToApi(accounts) {
   });
 
   if (!response.ok) {
-    throw new Error(`API admin ${response.status}`);
+    throw createAdminApiError(response, 'admin');
   }
 
   const data = await response.json().catch(() => ({}));
@@ -507,7 +524,7 @@ async function recordSessionActivity(role, username, eventType = 'active') {
     });
 
     if (!response.ok) {
-      throw new Error(`API activity ${response.status}`);
+      throw createAdminApiError(response, 'activity');
     }
 
     const payload = await response.json();
@@ -567,6 +584,27 @@ function saveAdminSession(session) {
 function clearAdminSession() {
   sessionStorage.removeItem(CATSOFT_ADMIN_SESSION_KEY);
   fetch('/api/auth/logout', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
+}
+
+function createAdminApiError(response, label) {
+  const error = new Error(response.status === 401 ? 'Sesi admin berakhir. Silakan login ulang.' : `API ${label} ${response.status}`);
+  error.status = response.status;
+  return error;
+}
+
+function handleAdminApiUnauthorized(error, statusSetter = null) {
+  if (Number(error?.status) !== 401) {
+    return false;
+  }
+
+  const setter = typeof statusSetter === 'function' ? statusSetter : typeof setAccessStatus === 'function' ? setAccessStatus : null;
+  if (setter) {
+    setter('Sesi admin berakhir. Silakan login ulang.');
+  }
+
+  clearAdminSession();
+  window.setTimeout(() => window.location.reload(), 700);
+  return true;
 }
 
 function isOwnerCredential(username, password) {
@@ -807,6 +845,29 @@ async function loginAdmin(username, password) {
   }
   recordSessionActivity(payload.role === 'owner' ? 'admin' : 'admin', account.username || CATSOFT_OWNER_USERNAME, 'login');
   return { ok: true };
+}
+
+async function validateAdminServerSession() {
+  if (window.location.protocol === 'file:') {
+    return true;
+  }
+
+  try {
+    const response = await fetch(`${getDefaultAuthSessionApiEndpoint()}?_=${Date.now()}`, {
+      cache: 'no-store',
+      credentials: 'include',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      clearAdminSession();
+      return false;
+    }
+
+    return response.ok;
+  } catch (error) {
+    return true;
+  }
 }
 
 function injectAuthStyles() {
@@ -2010,19 +2071,24 @@ async function updateCurrentAdminPassword(admin) {
     }
   });
 
-  saveAdminAccounts(nextAccounts);
-  status.textContent = 'Password tersimpan lokal, sinkronisasi...';
+  status.textContent = 'Menyimpan password ke database...';
 
   try {
     const updatedAccount = nextAccounts.find((item) => normalizeAdminValue(item.username) === normalizeAdminValue(admin.username));
     if (updatedAccount) {
       await pushAdminAccountsToApi([{ ...updatedAccount, originalUsername: updatedAccount.username }]);
     }
+    saveAdminAccounts(nextAccounts);
     status.classList.add('success');
     status.textContent = 'Password berhasil diganti.';
     setTimeout(closeAdminPasswordDialog, 900);
   } catch (error) {
-    status.textContent = `Password lokal berubah, sync web gagal: ${error.message}`;
+    if (handleAdminApiUnauthorized(error, (message) => {
+      status.textContent = message;
+    })) {
+      return;
+    }
+    status.textContent = `Password belum berubah: ${error.message}`;
   }
 }
 
@@ -3217,18 +3283,20 @@ function wireOwnerAccessPanel() {
         ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
         : [...accounts, nextAccount];
 
-      saveAdminAccounts(nextAccounts);
-      resetAccessForm();
-      setAdminAccessDrawerOpen(false);
-      renderAdminAccountList();
-      setAccessStatus('Akses admin tersimpan lokal, mengirim sync...', 'success');
+      setAccessStatus('Menyimpan admin ke database pusat...');
 
       try {
         await pushAdminAccountsToApi([{ ...nextAccount, originalUsername: values.originalUsername || nextAccount.username }]);
+        saveAdminAccounts(nextAccounts);
+        resetAccessForm();
+        setAdminAccessDrawerOpen(false);
         renderAdminAccountList();
         setAccessStatus('Akses admin tersimpan dan tersinkron.', 'success');
       } catch (error) {
-        setAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+        if (handleAdminApiUnauthorized(error, setAccessStatus)) {
+          return;
+        }
+        setAccessStatus(`Admin belum tersimpan: ${error.message}`);
       }
     } catch (error) {
       setAccessStatus(`Gagal menyimpan admin: ${error.message}`);
@@ -3778,18 +3846,20 @@ function wireSupplierAccessPanel() {
         ? accounts.map((account) => normalizeAdminValue(account.username) === normalizeAdminValue(values.originalUsername) ? nextAccount : account)
         : [...accounts, nextAccount];
 
-      saveSupplierAccounts(nextAccounts);
-      resetSupplierAccessForm();
-      setSupplierAccessDrawerOpen(false);
-      renderSupplierAccountList();
-      setSupplierAccessStatus('Akses supplier tersimpan lokal, mengirim sync...', 'success');
+      setSupplierAccessStatus('Menyimpan supplier ke database pusat...');
 
       try {
         await pushSupplierAccountsToApi([{ ...nextAccount, originalUsername: values.originalUsername || nextAccount.username }]);
+        saveSupplierAccounts(nextAccounts);
+        resetSupplierAccessForm();
+        setSupplierAccessDrawerOpen(false);
         renderSupplierAccountList();
         setSupplierAccessStatus('Akses supplier tersimpan dan tersinkron.', 'success');
       } catch (error) {
-        setSupplierAccessStatus(`Belum bisa login di device lain. Sync web gagal: ${error.message}`);
+        if (handleAdminApiUnauthorized(error, setSupplierAccessStatus)) {
+          return;
+        }
+        setSupplierAccessStatus(`Supplier belum tersimpan: ${error.message}`);
       }
     } catch (error) {
       setSupplierAccessStatus(`Gagal menyimpan supplier: ${error.message}`);
@@ -4019,15 +4089,18 @@ function editSupplierAccount(username) {
 
 async function deleteSupplierAccount(username) {
   const nextAccounts = loadSupplierAccounts().filter((account) => normalizeAdminValue(account.username) !== normalizeAdminValue(username));
-  saveSupplierAccounts(nextAccounts);
-  renderSupplierAccountList();
-  setSupplierAccessStatus('Supplier dihapus lokal, mengirim sync...', 'success');
+  setSupplierAccessStatus('Menghapus supplier dari database pusat...');
 
   try {
     await pushSupplierAccountsToApi([{ username, originalUsername: username, password: 'deleted', deleted: true }]);
+    saveSupplierAccounts(nextAccounts);
+    renderSupplierAccountList();
     setSupplierAccessStatus('Supplier dihapus dan tersinkron.', 'success');
   } catch (error) {
-    setSupplierAccessStatus(`Hapus belum tersinkron ke device lain. Sync web gagal: ${error.message}`);
+    if (handleAdminApiUnauthorized(error, setSupplierAccessStatus)) {
+      return;
+    }
+    setSupplierAccessStatus(`Supplier belum dihapus: ${error.message}`);
   }
 }
 
@@ -4064,21 +4137,23 @@ function editAdminAccount(username) {
 
 async function deleteAdminAccount(username) {
   const nextAccounts = loadAdminAccounts().filter((account) => normalizeAdminValue(account.username) !== normalizeAdminValue(username));
-  saveAdminAccounts(nextAccounts);
 
   const currentAdmin = getCurrentAdmin();
-  if (currentAdmin && normalizeAdminValue(currentAdmin.username) === normalizeAdminValue(username)) {
-    clearAdminSession();
-  }
-
-  renderAdminAccountList();
-  setAccessStatus('Admin dihapus lokal, mengirim sync...', 'success');
+  setAccessStatus('Menghapus admin dari database pusat...');
 
   try {
     await pushAdminAccountsToApi([{ username, originalUsername: username, password: 'deleted', deleted: true }]);
+    saveAdminAccounts(nextAccounts);
+    if (currentAdmin && normalizeAdminValue(currentAdmin.username) === normalizeAdminValue(username)) {
+      clearAdminSession();
+    }
+    renderAdminAccountList();
     setAccessStatus('Admin dihapus dan tersinkron.', 'success');
   } catch (error) {
-      setAccessStatus(`Hapus belum tersinkron ke device lain. Sync web gagal: ${error.message}`);
+    if (handleAdminApiUnauthorized(error, setAccessStatus)) {
+      return;
+    }
+    setAccessStatus(`Admin belum dihapus: ${error.message}`);
   }
 }
 
@@ -4174,7 +4249,7 @@ function startSoftDateInputObserver() {
   });
 }
 
-function initAdminAuth() {
+async function initAdminAuth() {
   if (new URLSearchParams(window.location.search).get('embedded') === '1') {
     document.body.classList.add('catsoft-embedded-tool');
   }
@@ -4188,10 +4263,16 @@ function initAdminAuth() {
   injectAuthStyles();
 
   const currentToolId = getCurrentAdminToolId();
-  const admin = getCurrentAdmin();
+  let admin = getCurrentAdmin();
 
   if (!admin) {
     renderLogin();
+    return;
+  }
+
+  if (!(await validateAdminServerSession())) {
+    admin = null;
+    renderLogin('Sesi admin berakhir. Silakan login ulang.');
     return;
   }
 

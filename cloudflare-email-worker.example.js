@@ -1748,6 +1748,18 @@ async function saveSessionActivity(request, env, authContext = null) {
     return json({ ok: false, error: 'Username wajib diisi.' }, 400, request);
   }
 
+  if (role === 'admin' && normalizeSearch(username) === normalizeSearch(CATSOFT_OWNER_USERNAME)) {
+    return json({
+      ok: true,
+      role: 'owner',
+      username: CATSOFT_OWNER_USERNAME,
+      activeAt,
+      loginCountToday: 0,
+      loginCountDate: loginDate,
+      adminAccounts: []
+    }, 200, request);
+  }
+
   if (role === 'supplier') {
     await ensureSupplierAccountsTable(adminDb);
   } else {

@@ -4,6 +4,7 @@ const CUSTOMER_AUTH_ACCOUNTS_API = window.CATSOFT_CUSTOMER_ACCOUNTS_API || getDe
 const CUSTOMER_AUTH_LOGIN_API = window.CATSOFT_AUTH_API || getDefaultCustomerAuthApiEndpoint();
 const CATSOFT_CUSTOMER_ACCOUNTS_REFRESH_MS = 4000;
 let catsoftCustomerAccountsRefreshTimer = null;
+let customerUnauthorizedHandled = false;
 
 function normalizeCustomerValue(value) {
   return String(value || '').trim().toLowerCase();
@@ -81,6 +82,17 @@ function saveCustomerAccounts(accounts) {
   localStorage.setItem(CATSOFT_CUSTOMER_ACCOUNTS_KEY, JSON.stringify(accounts.map(normalizeCustomerAccount)));
 }
 
+function handleCustomerUnauthorized(error) {
+  if (Number(error?.status) !== 401 || customerUnauthorizedHandled) {
+    return false;
+  }
+
+  customerUnauthorizedHandled = true;
+  clearCustomerSession();
+  window.setTimeout(() => window.location.reload(), 700);
+  return true;
+}
+
 async function syncCustomerAccountsFromApi() {
   try {
     const response = await fetch(`${CUSTOMER_AUTH_ACCOUNTS_API}?_=${Date.now()}`, {
@@ -90,7 +102,9 @@ async function syncCustomerAccountsFromApi() {
     });
 
     if (!response.ok) {
-      throw new Error(`API customer ${response.status}`);
+      const error = new Error(response.status === 401 ? 'Sesi customer berakhir. Silakan login ulang.' : `API customer ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
 
     const data = await response.json();
@@ -100,6 +114,9 @@ async function syncCustomerAccountsFromApi() {
     saveCustomerAccounts(accounts);
     return accounts;
   } catch (error) {
+    if (handleCustomerUnauthorized(error)) {
+      return [];
+    }
     return loadCustomerAccounts();
   }
 }

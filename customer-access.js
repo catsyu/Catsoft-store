@@ -43,6 +43,7 @@ let customerAccessAccounts = [];
 let customerAccessPageSize = 10;
 let customerAccessSaving = false;
 let customerAccessRefreshTimer = null;
+let customerAccessUnauthorizedHandled = false;
 const customerAccessRefreshMs = 4000;
 
 function getDefaultCustomerAccessApiEndpoint() {
@@ -163,6 +164,18 @@ function setCustomerAccessStatus(message, type = '') {
   status.classList.toggle('success', type === 'success');
 }
 
+function handleCustomerAccessUnauthorized(error) {
+  if (Number(error?.status) !== 401 || customerAccessUnauthorizedHandled) {
+    return false;
+  }
+
+  customerAccessUnauthorizedHandled = true;
+  setCustomerAccessStatus('Sesi admin berakhir. Silakan login ulang.');
+  window.CatsoftAdminAuth?.logout?.();
+  window.setTimeout(() => window.location.reload(), 700);
+  return true;
+}
+
 async function fetchCustomerAccounts() {
   const response = await fetch(`${CUSTOMER_ACCESS_API}?_=${Date.now()}`, {
     cache: 'no-store',
@@ -171,7 +184,9 @@ async function fetchCustomerAccounts() {
   });
 
   if (!response.ok) {
-    throw new Error(`API customer ${response.status}`);
+    const error = new Error(response.status === 401 ? 'Sesi admin berakhir. Silakan login ulang.' : `API customer ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   const data = await response.json();
@@ -186,6 +201,9 @@ function refreshCustomerAccessIfIdle() {
   }
 
   fetchCustomerAccounts().catch((error) => {
+    if (handleCustomerAccessUnauthorized(error)) {
+      return;
+    }
     setCustomerAccessStatus(`Gagal refresh akun customer: ${error.message}`);
   });
 }
@@ -212,7 +230,9 @@ async function pushCustomerAccounts(accounts) {
   });
 
   if (!response.ok) {
-    throw new Error(`API customer ${response.status}`);
+    const error = new Error(response.status === 401 ? 'Sesi admin berakhir. Silakan login ulang.' : `API customer ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   return response.json().catch(() => ({}));
@@ -549,6 +569,7 @@ async function saveCustomerAccountForm(event) {
     setCustomerAccessStatus('Customer tersimpan dan tersinkron.', 'success');
     setCustomerDrawerOpen(false);
   } catch (error) {
+    handleCustomerAccessUnauthorized(error);
     setCustomerAccessStatus(`Gagal menyimpan: ${error.message}`);
   } finally {
     customerAccessSaving = false;
@@ -576,6 +597,7 @@ async function deleteSelectedCustomers() {
     renderCustomerAccounts();
     setCustomerAccessStatus('Customer dihapus dan tersinkron.', 'success');
   } catch (error) {
+    handleCustomerAccessUnauthorized(error);
     setCustomerAccessStatus(`Gagal menghapus: ${error.message}`);
   }
 }

@@ -278,7 +278,9 @@ const defaultRegisteredProducts = [
 ];
 
 let localStorageWarning = '';
-let records = loadRecords();
+let customerDatabaseUnauthorizedHandled = false;
+loadRecords();
+let records = [];
 let registeredProducts = loadRegisteredProducts();
 let stockAccountOptions = [];
 let customerMarketingSettings = loadCustomerMarketingSettings();
@@ -1439,7 +1441,7 @@ function wait(ms) {
 
 function getCustomerApiErrorMessage(status) {
   const messages = {
-    401: 'API 401 unauthorized, cek Cloudflare Access atau ALLOW_UNAUTHENTICATED_API',
+    401: 'Sesi login berakhir. Silakan login ulang.',
     403: 'API 403 forbidden, cek permission Access/route Worker',
     404: 'API 404, route /api/customer-records belum menuju Worker',
     409: 'Data duplikat',
@@ -1447,6 +1449,24 @@ function getCustomerApiErrorMessage(status) {
   };
 
   return messages[status] || `API ${status}`;
+}
+
+function isUnauthorizedApiError(error) {
+  return Number(error?.status) === 401 || /(^|\s)401(\s|$)|unauthorized/i.test(String(error?.message || ''));
+}
+
+function handleCustomerDatabaseUnauthorized(error) {
+  if (!isUnauthorizedApiError(error) || customerDatabaseUnauthorizedHandled) {
+    return false;
+  }
+
+  customerDatabaseUnauthorizedHandled = true;
+  setSyncStatus('Sesi berakhir', 'warning');
+  syncStatus.title = 'Sesi Worker sudah tidak valid. Login ulang agar data tersimpan ke database pusat.';
+  window.CatsoftAdminAuth?.logout?.();
+  window.CatsoftCustomerAuth?.logout?.();
+  window.setTimeout(() => window.location.reload(), 700);
+  return true;
 }
 
 async function getApiErrorMessage(response) {
@@ -1698,6 +1718,9 @@ async function syncRecordsWithApi(options = {}) {
     setSyncStatus(`Live Web (${records.length})`, 'success');
     syncStatus.title = 'Cloudflare D1 menjadi database pusat. Cache lokal hanya dipakai saat offline.';
   } catch (error) {
+    if (handleCustomerDatabaseUnauthorized(error)) {
+      return;
+    }
     setSyncStatus(records.length ? 'Cache Lokal' : 'Web Offline', 'warning');
     syncStatus.title = error.message;
   } finally {
@@ -1716,6 +1739,7 @@ async function syncSingleRecord(record) {
     await syncRecordsWithApi({ silent: true });
     return true;
   } catch (error) {
+    handleCustomerDatabaseUnauthorized(error);
     setSyncStatus('Gagal simpan web', 'warning');
     syncStatus.title = error.message;
     return false;
@@ -1730,6 +1754,7 @@ async function removeSingleRecordFromApi(id) {
     await syncRecordsWithApi({ silent: true });
     return true;
   } catch (error) {
+    handleCustomerDatabaseUnauthorized(error);
     setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
     return false;
@@ -1973,6 +1998,7 @@ async function bulkApplyStatus() {
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1200);
     window.setTimeout(() => syncRecordsWithApi({ silent: true }), 1300);
   } catch (error) {
+    handleCustomerDatabaseUnauthorized(error);
     setSyncStatus('Gagal Bulk Web', 'warning');
     syncStatus.title = error.message;
     updateXlsxImportOverlay({
@@ -2162,6 +2188,7 @@ async function bulkDeleteSelected() {
     xlsxImportHideTimerId = window.setTimeout(hideXlsxImportOverlay, 1200);
     window.setTimeout(() => syncRecordsWithApi({ silent: true }), 1300);
   } catch (error) {
+    handleCustomerDatabaseUnauthorized(error);
     setSyncStatus('Gagal hapus web', 'warning');
     syncStatus.title = error.message;
     updateXlsxImportOverlay({
@@ -2650,6 +2677,7 @@ async function saveInlineEdit(recordCard, previousRecord) {
     syncStatus.title = 'Perubahan data tersimpan di Cloudflare D1.';
     window.setTimeout(() => syncRecordsWithApi({ silent: true }), 600);
   } catch (error) {
+    handleCustomerDatabaseUnauthorized(error);
     setInlineEditStatus(recordCard, error.message, 'error');
     setSyncStatus(error.status === 409 ? 'Data duplikat' : 'Gagal simpan web', 'warning');
     syncStatus.title = error.message;
@@ -2760,6 +2788,7 @@ async function submitRecord(event) {
     beginRecordsMutation();
     await pushRecordToApi(nextRecord);
   } catch (error) {
+    handleCustomerDatabaseUnauthorized(error);
     if (error.status === 409) {
       ocrStatus.textContent = error.message;
       setSyncStatus('Data duplikat', 'warning');
@@ -4083,6 +4112,9 @@ async function executePendingImportJob() {
     try {
       await replaceRecordsFromApi({ timeoutMs: xlsxApiTimeoutMs });
     } catch (finalSyncError) {
+      if (handleCustomerDatabaseUnauthorized(finalSyncError)) {
+        throw finalSyncError;
+      }
       finalSyncMessage = ' Final sync dilewati karena koneksi lambat; upload tetap selesai.';
       syncStatus.title = finalSyncError.message;
     }
@@ -4549,7 +4581,7 @@ registerProductsFromRecords(records);
 renderStockAccountOptions();
 renderRecords();
 setCustomerWorkspaceMode('input');
-setSyncStatus(localStorageWarning || (records.length ? 'Cache Lokal' : 'Menghubungkan Web'), localStorageWarning || records.length ? 'warning' : '');
+setSyncStatus(localStorageWarning || 'Menghubungkan Web', localStorageWarning ? 'warning' : '');
 syncCustomerMarketingSettings();
 syncStockAccountOptions();
 syncRecordsWithApi();

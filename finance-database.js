@@ -13,6 +13,7 @@ let financeStockAccounts = [];
 let stagedFinanceImport = null;
 let isFinanceBusy = false;
 let financeAutoRefreshTimerId = null;
+let financeUnauthorizedHandled = false;
 
 const financeEls = {
   total: document.querySelector('[data-finance-total]'),
@@ -243,6 +244,18 @@ function setFinanceBusy(isBusy, label = 'Memproses') {
   }
 }
 
+function handleFinanceUnauthorized(error) {
+  if (Number(error?.status) !== 401 || financeUnauthorizedHandled) {
+    return false;
+  }
+
+  financeUnauthorizedHandled = true;
+  setFinanceStatus('Sesi admin berakhir. Silakan login ulang.', 'warning');
+  window.CatsoftAdminAuth?.logout?.();
+  window.setTimeout(() => window.location.reload(), 700);
+  return true;
+}
+
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -263,7 +276,11 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(payload.error || `Request gagal (${response.status}).`);
+      const error = new Error(response.status === 401
+        ? 'Sesi admin berakhir. Silakan login ulang.'
+        : payload.error || `Request gagal (${response.status}).`);
+      error.status = response.status;
+      throw error;
     }
 
     return payload;
@@ -314,6 +331,9 @@ async function fetchFinanceStockAccounts() {
     const payload = await fetchJsonWithTimeout(`${FINANCE_STOCK_API}?limit=300&_=${Date.now()}`);
     financeStockAccounts = Array.isArray(payload.accounts) ? payload.accounts : [];
   } catch (error) {
+    if (handleFinanceUnauthorized(error)) {
+      throw error;
+    }
     financeStockAccounts = [];
   }
 }
@@ -327,9 +347,12 @@ async function refreshFinanceData(showMessage = false) {
       setFinanceStatus('Database keuangan diperbarui.', 'success');
     }
   } catch (error) {
-    financeRecords = loadLocalFinanceRecords();
+    if (handleFinanceUnauthorized(error)) {
+      return;
+    }
+    financeRecords = [];
     await fetchFinanceStockAccounts();
-    setFinanceStatus(`Memakai cache lokal. ${error.message}`, 'warning');
+    setFinanceStatus(`Database belum tersinkron: ${error.message}`, 'warning');
   } finally {
     setFinanceBusy(false);
     renderFinance();
@@ -942,6 +965,7 @@ async function uploadStagedFinanceImport() {
     setFinanceStatus(`${records.length} transaksi Shopee tersimpan.`, 'success');
     await syncFinanceDataFromApi();
   } catch (error) {
+    handleFinanceUnauthorized(error);
     setFinanceStatus(error.message || 'Upload gagal.', 'warning');
   } finally {
     setFinanceBusy(false);
@@ -988,6 +1012,7 @@ async function saveGopayWithdrawal(event) {
     setFinanceStatus('Penarikan GoPay tersimpan.', 'success');
     await syncFinanceDataFromApi();
   } catch (error) {
+    handleFinanceUnauthorized(error);
     setFinanceStatus(error.message || 'GoPay gagal disimpan.', 'warning');
   } finally {
     setFinanceBusy(false);
@@ -1024,7 +1049,6 @@ function setupFinanceEvents() {
 }
 
 setupFinanceEvents();
-financeRecords = loadLocalFinanceRecords();
 renderFinance();
 refreshFinanceData(false);
 startFinanceAutoRefresh();

@@ -114,6 +114,7 @@ let isLoadingEmails = false;
 let autoRefreshTimer;
 let embeddedDetailRaf = 0;
 let embeddedDetailTrackingBound = false;
+let inboxUnauthorizedHandled = false;
 
 function canUseDemoFallback() {
   return window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname.toLowerCase());
@@ -589,6 +590,19 @@ function getFreshStatus() {
   return updatedAt;
 }
 
+function handleInboxUnauthorized() {
+  if (inboxUnauthorizedHandled) {
+    return;
+  }
+
+  inboxUnauthorizedHandled = true;
+  setStatus('Sesi berakhir', 'warning');
+  window.CatsoftAdminAuth?.logout?.();
+  window.CatsoftSupplierAuth?.logout?.();
+  window.CatsoftCustomerAuth?.logout?.();
+  window.setTimeout(() => window.location.reload(), 700);
+}
+
 async function loadEmails(options = {}) {
   if (isLoadingEmails) {
     return;
@@ -612,6 +626,9 @@ async function loadEmails(options = {}) {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        handleInboxUnauthorized();
+      }
       throw new Error(getApiErrorMessage(response.status));
     }
 
@@ -907,6 +924,9 @@ async function selectEmail(id) {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        handleInboxUnauthorized();
+      }
       return;
     }
 
@@ -935,6 +955,8 @@ function markRead(email) {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ read: true })
+    }).then((response) => {
+      if (response.status === 401) handleInboxUnauthorized();
     }).catch(() => {});
   }
 }
@@ -950,6 +972,8 @@ function markUnread(email) {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ read: false })
+    }).then((response) => {
+      if (response.status === 401) handleInboxUnauthorized();
     }).catch(() => {});
   }
 }
@@ -966,6 +990,8 @@ function deleteEmail(email) {
     fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
       method: 'DELETE',
       credentials: 'include'
+    }).then((response) => {
+      if (response.status === 401) handleInboxUnauthorized();
     }).catch(() => {});
   }
 }
@@ -990,6 +1016,8 @@ function updateEmailCategory(email, category) {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category })
+    }).then((response) => {
+      if (response.status === 401) handleInboxUnauthorized();
     }).catch(() => {});
   }
 }

@@ -233,8 +233,7 @@ function refreshMarketingSettingsIfIdle() {
 
 async function saveMarketingSettings() {
   const settings = getSettingsFromInputs();
-  localStorage.setItem(marketingSettingsKey, JSON.stringify(settings));
-  marketingStatus.textContent = 'Setting tersimpan lokal, mengirim ke database...';
+  marketingStatus.textContent = 'Menyimpan setting ke database...';
 
   try {
     const response = await fetch(marketingSettingsApi, {
@@ -248,11 +247,12 @@ async function saveMarketingSettings() {
       throw new Error(`API setting ${response.status}`);
     }
 
+    localStorage.setItem(marketingSettingsKey, JSON.stringify(settings));
     marketingSyncStatus.textContent = 'Database';
     marketingStatus.textContent = 'Setting marketing tersimpan di database.';
   } catch (error) {
     marketingSyncStatus.textContent = 'Lokal';
-    marketingStatus.textContent = `Setting lokal tersimpan. Sync database gagal: ${error.message}`;
+    marketingStatus.textContent = `Setting belum tersimpan ke database: ${error.message}`;
   }
 }
 

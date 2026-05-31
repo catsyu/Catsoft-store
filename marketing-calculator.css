@@ -999,13 +999,15 @@ body.catsoft-embedded-tool .marketing-note p {
 
 .marketing-main-grid .order-quantity-field input,
 .marketing-main-grid .target-profit-field .joined-control {
-  min-height: 42px;
-  border-radius: 10px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 9px;
 }
 
 .marketing-main-grid .target-profit-field .joined-control input,
 .marketing-main-grid .target-profit-field .joined-control select {
-  min-height: 40px;
+  height: 38px;
+  min-height: 38px;
 }
 
 .marketing-form-grid label {
@@ -1069,12 +1071,12 @@ body.catsoft-embedded-tool .marketing-note p {
 #priceSuggestion,
 #adsSuggestion {
   grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 32px;
+  min-height: 40px;
   border-color: #d8d8d8;
   border-radius: 9px;
   background: #f8f8f7;
   color: #2f2f2f;
-  padding: 5px 7px;
+  padding: 4px 8px 4px 12px;
   font-size: 11px;
   font-weight: 540;
   line-height: 1.25;
@@ -1086,12 +1088,13 @@ body.catsoft-embedded-tool .marketing-note p {
 }
 
 .suggestion-button {
-  min-height: 26px;
+  min-height: 32px;
   border-color: #cfcfcf;
   border-radius: 999px;
   color: #242424;
-  padding: 4px 10px;
+  padding: 4px 14px;
   font-size: 11px;
+  line-height: 1;
   font-weight: 520;
 }
 

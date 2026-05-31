@@ -126,6 +126,18 @@
   text-align: right;
 }
 
+.marketing-form-grid input[type="number"]::-webkit-outer-spin-button,
+.marketing-form-grid input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.marketing-form-grid input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
 .marketing-form-grid select {
   width: 100%;
   min-height: 38px;
@@ -939,7 +951,7 @@ body.catsoft-embedded-tool .marketing-note p {
 }
 
 .marketing-main-grid {
-  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) 116px;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) 96px;
   align-items: end;
 }
 
@@ -970,8 +982,19 @@ body.catsoft-embedded-tool .marketing-note p {
   padding-inline: 8px;
 }
 
+.marketing-main-grid .order-quantity-field input:focus {
+  border-color: #d4d4d4;
+  box-shadow: none;
+  outline: none;
+}
+
 .marketing-main-grid .target-profit-field .joined-control {
   min-width: 0;
+}
+
+.marketing-main-grid .target-profit-field .joined-control select#targetProfitMode {
+  width: 96px;
+  min-width: 96px;
 }
 
 .marketing-main-grid .order-quantity-field input,

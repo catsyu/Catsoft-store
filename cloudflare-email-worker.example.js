@@ -278,6 +278,9 @@ const staticRouteFallbacks = new Map([
   ['/product-stock.html', '/product-stock.html'],
   ['/finance-database', '/finance-database.html'],
   ['/finance-database.html', '/finance-database.html'],
+  ['/adobemaker-team', '/adobemaker-team.html'],
+  ['/adobemaker-team.html', '/adobemaker-team.html'],
+  ['/sp/team', '/adobemaker-team.html'],
   ['/tutorial/office', '/office-tutorial.html'],
   ['/tutorial/lutapplelog', '/tutorial-lut-apple-log.html'],
   ['/tutorial/lut-apple-log', '/tutorial-lut-apple-log.html'],
@@ -331,6 +334,12 @@ const customerHostRouteFallbacks = new Map([
   ['/subscriptions', '/customer-center.html'],
   ['/mail', '/customer-center.html'],
   ['/tool/email-inbox', '/email-inbox.html']
+]);
+
+const adobeMakerHostRouteFallbacks = new Map([
+  ['/', '/adobemaker-team.html'],
+  ['/sp', '/adobemaker-team.html'],
+  ['/sp/team', '/adobemaker-team.html']
 ]);
 
 async function serveStaticAsset(request, env) {
@@ -436,7 +445,9 @@ async function withToolsStaticHeaders(response, toolsHost, pathname = '', source
     '/product-stock',
     '/product-stock.html',
     '/finance-database',
-    '/finance-database.html'
+    '/finance-database.html',
+    '/adobemaker-team',
+    '/adobemaker-team.html'
   ]);
   const normalizedPathname = String(pathname || '').split('?')[0].replace(/\/+$/, '');
   const shouldInjectBaseHref = toolsHost
@@ -472,7 +483,8 @@ function isToolsHostname(hostname) {
   const normalizedHost = String(hostname || '').toLowerCase();
   return normalizedHost === 'admin.catsoft.store'
     || normalizedHost === 'supplier.catsoft.store'
-    || normalizedHost === 'customer.catsoft.store';
+    || normalizedHost === 'customer.catsoft.store'
+    || normalizedHost === 'adobemaker.catsoft.store';
 }
 
 function getHostRoutedStaticRequest(request, url) {
@@ -501,6 +513,10 @@ function getHostRoutedStaticPath(pathname, hostname) {
 
   if (normalizedHost === 'customer.catsoft.store' && customerHostRouteFallbacks.has(normalizedPath)) {
     return customerHostRouteFallbacks.get(normalizedPath);
+  }
+
+  if (normalizedHost === 'adobemaker.catsoft.store' && adobeMakerHostRouteFallbacks.has(normalizedPath)) {
+    return adobeMakerHostRouteFallbacks.get(normalizedPath);
   }
 
   return '';
@@ -577,6 +593,7 @@ function getStaticContentType(pathname) {
     'content-editor',
     'product-stock',
     'finance-database',
+    'adobemaker-team',
     'supplier-center',
     'supplier-email'
   ]);
@@ -2094,46 +2111,145 @@ function isCustomerRecordExpired(record, today = new Date().toISOString().slice(
 }
 
 async function getProductStockJoinedCustomers(customerDb, account) {
-  const productName = normalizeCustomerProductName(account.productName);
-  const stockKeys = uniqueValues([
+  const joinedMap = await getProductStockJoinedCustomersMap(customerDb, [account]);
+  return joinedMap.get(account.id) || [];
+}
+
+function getProductStockAccountKeys(account) {
+  return uniqueValues([
     account.id,
     account.accountName,
     account.loginUsername,
     account.accountTarget
   ].map(normalizeCustomerUniqueEmail).filter(Boolean));
+}
 
-  if (!productName || !stockKeys.length) {
-    return [];
+function getProductStockCustomerMatchKey(productName, stockKey) {
+  return `${normalizeCustomerProductName(productName).toLowerCase()}::${normalizeCustomerUniqueEmail(stockKey)}`;
+}
+
+function sortProductStockJoinedCustomers(first, second) {
+  const firstExpiry = first.expiryDate || '9999-99-99';
+  const secondExpiry = second.expiryDate || '9999-99-99';
+  if (firstExpiry !== secondExpiry) {
+    return firstExpiry.localeCompare(secondExpiry);
+  }
+
+  return String(second.updatedAt || second.createdAt || '').localeCompare(String(first.updatedAt || first.createdAt || ''));
+}
+
+async function getProductStockJoinedCustomersMap(customerDb, accounts) {
+  const normalizedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
+  const accountIds = new Set(normalizedAccounts.map((account) => account.id).filter(Boolean));
+  const joinedByAccountId = new Map(normalizedAccounts.map((account) => [account.id, []]));
+  const seenByAccountId = new Map(normalizedAccounts.map((account) => [account.id, new Set()]));
+  const keyToAccountIds = new Map();
+  const allStockKeys = [];
+
+  for (const account of normalizedAccounts) {
+    const productName = normalizeCustomerProductName(account.productName);
+    const stockKeys = getProductStockAccountKeys(account);
+
+    if (!account.id || !productName || !stockKeys.length) {
+      continue;
+    }
+
+    for (const stockKey of stockKeys) {
+      const matchKey = getProductStockCustomerMatchKey(productName, stockKey);
+      if (!keyToAccountIds.has(matchKey)) {
+        keyToAccountIds.set(matchKey, new Set());
+      }
+      keyToAccountIds.get(matchKey).add(account.id);
+      allStockKeys.push(stockKey);
+    }
+  }
+
+  const uniqueStockKeys = uniqueValues(allStockKeys);
+  if (!accountIds.size || !uniqueStockKeys.length) {
+    return joinedByAccountId;
   }
 
   await ensureCustomerRecordsSchema(customerDb);
-  const placeholders = stockKeys.map(() => '?').join(', ');
-  const result = await customerDb.prepare(`
-    SELECT id, customer_name, activated_email, stock_account, income_amount, whatsapp_number, order_number,
-      order_source, product_name, duration_days, start_date, expiry_date,
-      status, notes, created_at, updated_at
-    FROM customer_records
-    WHERE LOWER(product_name) = ?
-      AND (
-        LOWER(COALESCE(stock_account, '')) IN (${placeholders})
-        OR (
-          (stock_account IS NULL OR TRIM(stock_account) = '')
-          AND LOWER(COALESCE(activated_email, '')) IN (${placeholders})
-        )
-      )
-      AND status NOT IN ('removed', 'refund')
-    ORDER BY
-      CASE WHEN expiry_date IS NULL OR expiry_date = '' THEN 1 ELSE 0 END,
-      expiry_date ASC,
-      updated_at DESC
-    LIMIT 120
-  `).bind(productName.toLowerCase(), ...stockKeys, ...stockKeys).all();
+  const rowsById = new Map();
+  const chunkSize = 80;
 
-  return (result.results || []).map(mapCustomerRecordRow);
+  for (let index = 0; index < uniqueStockKeys.length; index += chunkSize) {
+    const chunk = uniqueStockKeys.slice(index, index + chunkSize);
+    const placeholders = chunk.map(() => '?').join(', ');
+    const result = await customerDb.prepare(`
+      SELECT id, customer_name, activated_email, stock_account, income_amount, whatsapp_number, order_number,
+        order_source, product_name, duration_days, start_date, expiry_date,
+        status, notes, created_at, updated_at
+      FROM customer_records
+      WHERE status NOT IN ('removed', 'refund')
+        AND (
+          (
+            stock_account IS NOT NULL
+            AND TRIM(stock_account) != ''
+            AND LOWER(stock_account) IN (${placeholders})
+          )
+          OR (
+            (stock_account IS NULL OR TRIM(stock_account) = '')
+            AND activated_email IS NOT NULL
+            AND TRIM(activated_email) != ''
+            AND LOWER(activated_email) IN (${placeholders})
+          )
+        )
+      ORDER BY
+        CASE WHEN expiry_date IS NULL OR expiry_date = '' THEN 1 ELSE 0 END,
+        expiry_date ASC,
+        updated_at DESC
+      LIMIT 2000
+    `).bind(...chunk, ...chunk).all();
+
+    for (const row of result.results || []) {
+      const recordId = row.id || `${row.order_number || ''}-${row.activated_email || ''}`;
+      if (recordId) {
+        rowsById.set(recordId, row);
+      }
+    }
+  }
+
+  for (const row of rowsById.values()) {
+    const record = mapCustomerRecordRow(row);
+    const recordProductName = normalizeCustomerProductName(record.productName);
+    const directStockKey = normalizeCustomerUniqueEmail(record.stockAccount);
+    const fallbackEmailKey = normalizeCustomerUniqueEmail(record.activatedEmail);
+    const candidateKeys = directStockKey
+      ? [directStockKey]
+      : fallbackEmailKey
+        ? [fallbackEmailKey]
+        : [];
+
+    for (const candidateKey of candidateKeys) {
+      const accountMatches = keyToAccountIds.get(getProductStockCustomerMatchKey(recordProductName, candidateKey));
+      if (!accountMatches) {
+        continue;
+      }
+
+      for (const accountId of accountMatches) {
+        const seen = seenByAccountId.get(accountId);
+        const joinedRows = joinedByAccountId.get(accountId);
+        const recordKey = record.id || `${record.orderNumber || ''}-${record.activatedEmail || ''}`;
+
+        if (!seen || !joinedRows || seen.has(recordKey)) {
+          continue;
+        }
+
+        seen.add(recordKey);
+        joinedRows.push(record);
+      }
+    }
+  }
+
+  for (const [accountId, joinedRows] of joinedByAccountId.entries()) {
+    joinedByAccountId.set(accountId, joinedRows.sort(sortProductStockJoinedCustomers));
+  }
+
+  return joinedByAccountId;
 }
 
-async function hydrateProductStockAccount(customerDb, account) {
-  const joinedCustomers = await getProductStockJoinedCustomers(customerDb, account);
+function hydrateProductStockAccountWithCustomers(account, joinedCustomers) {
   const today = new Date().toISOString().slice(0, 10);
   const activeCustomers = joinedCustomers.filter((record) => record.status === 'active' && !isCustomerRecordExpired(record, today));
   const expiredCustomers = joinedCustomers.filter((record) => isCustomerRecordExpired(record, today));
@@ -2157,6 +2273,21 @@ async function hydrateProductStockAccount(customerDb, account) {
       isExpired: isCustomerRecordExpired(record, today)
     }))
   };
+}
+
+async function hydrateProductStockAccounts(customerDb, accounts) {
+  const normalizedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
+  const joinedMap = await getProductStockJoinedCustomersMap(customerDb, normalizedAccounts);
+
+  return normalizedAccounts.map((account) => hydrateProductStockAccountWithCustomers(
+    account,
+    joinedMap.get(account.id) || []
+  ));
+}
+
+async function hydrateProductStockAccount(customerDb, account) {
+  const hydrated = await hydrateProductStockAccounts(customerDb, [account]);
+  return hydrated[0] || account;
 }
 
 async function listProductStockAccounts(request, env) {
@@ -2196,10 +2327,10 @@ async function listProductStockAccounts(request, env) {
     LIMIT ? OFFSET ?
   `).bind(...bindings, limit, offset).all();
 
-  const accounts = [];
-  for (const row of result.results || []) {
-    accounts.push(await hydrateProductStockAccount(customerDb, mapProductStockRow(row)));
-  }
+  const accounts = await hydrateProductStockAccounts(
+    customerDb,
+    (result.results || []).map(mapProductStockRow)
+  );
 
   return json({ accounts }, 200, request);
 }
@@ -2320,11 +2451,10 @@ async function saveProductStockAccounts(request, env) {
     ORDER BY updated_at DESC
     LIMIT 300
   `).all();
-  const accounts = [];
-
-  for (const row of listResult.results || []) {
-    accounts.push(await hydrateProductStockAccount(customerDb, mapProductStockRow(row)));
-  }
+  const accounts = await hydrateProductStockAccounts(
+    customerDb,
+    (listResult.results || []).map(mapProductStockRow)
+  );
 
   return json({
     ok: true,
@@ -3024,6 +3154,12 @@ async function ensureCustomerRecordsSchema(customerDb) {
     CREATE INDEX IF NOT EXISTS idx_customer_records_stock_account
     ON customer_records (LOWER(stock_account))
     WHERE stock_account IS NOT NULL AND stock_account != ''
+  `).run();
+
+  await customerDb.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_customer_records_activated_email
+    ON customer_records (LOWER(activated_email))
+    WHERE activated_email IS NOT NULL AND activated_email != ''
   `).run();
 }
 

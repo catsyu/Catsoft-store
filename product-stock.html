@@ -8,9 +8,9 @@
   <script src="admin-tool-redirect.js?v=20260531-single-console"></script>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260530-search-icon-align" />
-  <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="product-stock.css?v=20260531-reset-summary" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260531-date-sync" />
+  <link rel="stylesheet" href="form-standard.css?v=20260601-month-filter" />
+  <link rel="stylesheet" href="product-stock.css?v=20260601-month-filter" />
 </head>
 <body class="product-stock-body">
   <main class="product-stock-page">
@@ -97,7 +97,7 @@
               </label>
               <label>
                 <span>Bulan Stok</span>
-                <input type="month" data-stock-filter-month />
+                <input type="month" data-stock-filter-month data-empty-label="Pilih Bulan" />
               </label>
               <label>
                 <span>Urut</span>
@@ -140,6 +140,7 @@
             <option value="reset">Perlu Reset</option>
             <option value="paused">Jeda</option>
           </select>
+          <button class="admin-spectrum-secondary" type="button" data-stock-bulk-copy disabled>Salin</button>
           <button class="admin-spectrum-secondary" type="button" data-stock-bulk-apply disabled>Terapkan</button>
           <button class="admin-spectrum-secondary stock-danger-action" type="button" data-stock-bulk-delete disabled>Hapus</button>
         </div>
@@ -275,7 +276,8 @@
       </form>
     </aside>
   </main>
+  <script src="form-standard.js?v=20260601-month-filter"></script>
   <script src="admin-auth.js?v=20260531-single-console" defer></script>
-  <script src="product-stock.js?v=20260531-reset-summary" defer></script>
+  <script src="product-stock.js?v=20260601-month-filter" defer></script>
 </body>
 </html>

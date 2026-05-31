@@ -5,7 +5,8 @@ if (!window.CATSOFT_ADMIN_AUTHORIZED) {
 const PRODUCT_STOCK_API = window.CATSOFT_PRODUCT_STOCK_API || getDefaultProductStockApiEndpoint();
 const CUSTOMER_RECORDS_API = window.CATSOFT_CUSTOMER_RECORDS_API || getDefaultCustomerRecordsApiEndpoint();
 const productStockPageSizeOptions = [5, 10, 20, 50];
-const productStockAutoRefreshMs = 10000;
+const productStockAutoRefreshMs = 30000;
+const productStockCacheKey = 'catsoft.productStock.accounts.v1';
 let productStockAccounts = [];
 let productStockPageSize = 10;
 let activeStockDrawerAccount = null;
@@ -83,6 +84,23 @@ function getStockInitials(value) {
 function formatStockCurrency(value) {
   const amount = Number(value) || 0;
   return `Rp ${new Intl.NumberFormat('id-ID').format(amount)}`;
+}
+
+function readProductStockCache() {
+  try {
+    const cached = JSON.parse(window.localStorage.getItem(productStockCacheKey) || '[]');
+    return Array.isArray(cached) ? cached.map(normalizeStockAccount) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function writeProductStockCache(accounts) {
+  try {
+    window.localStorage.setItem(productStockCacheKey, JSON.stringify(accounts || []));
+  } catch (error) {
+    // Cache hanya membantu render awal. Jika storage penuh, abaikan.
+  }
 }
 
 function getStockTeamMemberCount(account) {
@@ -567,6 +585,7 @@ function mergeProductStockAccounts(accounts) {
     const secondTime = Date.parse(second.updatedAt || second.createdAt || '') || 0;
     return secondTime - firstTime;
   });
+  writeProductStockCache(productStockAccounts);
   pruneSelectedStockIds();
   renderProductStockAccounts();
 }
@@ -602,6 +621,7 @@ async function fetchProductStockAccounts(options = {}) {
 
     const data = await response.json();
     productStockAccounts = (Array.isArray(data) ? data : data.accounts || []).map(normalizeStockAccount);
+    writeProductStockCache(productStockAccounts);
     pruneSelectedStockIds();
     renderProductStockAccounts();
     return productStockAccounts;
@@ -629,11 +649,84 @@ async function pushProductStockAccount(account) {
   return pushProductStockAccounts([account]);
 }
 
+function buildStockCopyText(accounts) {
+  const selectedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
+
+  return selectedAccounts.map((account, index) => {
+    const lines = [];
+    if (selectedAccounts.length > 1) {
+      lines.push(`${index + 1}. ${account.accountName || 'Akun Stok'}`);
+    } else {
+      lines.push(account.accountName || 'Akun Stok');
+    }
+
+    lines.push(`Produk: ${account.productName || '-'}`);
+    lines.push(`Login: ${account.loginUsername || '-'}`);
+    lines.push(`Password: ${account.loginPassword || '-'}`);
+    lines.push(`Status: ${stockStatusLabels[account.status] || account.status || '-'}`);
+    lines.push(`Reset: ${formatStockDate(account.resetAt)}`);
+    return lines.join('\n');
+  }).join('\n\n');
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+
+  if (!copied) {
+    throw new Error('Clipboard tidak tersedia.');
+  }
+}
+
+async function copyStockAccounts(accounts) {
+  const selectedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
+
+  if (!selectedAccounts.length) {
+    updateStockBulkState();
+    return;
+  }
+
+  try {
+    await copyTextToClipboard(buildStockCopyText(selectedAccounts));
+    setStockStatus(
+      selectedAccounts.length > 1
+        ? `${selectedAccounts.length} akun stok disalin.`
+        : 'Akun stok disalin.',
+      'success'
+    );
+  } catch (error) {
+    setStockStatus(`Gagal menyalin: ${error.message}`);
+  }
+}
+
+function copySelectedStockAccounts() {
+  return copyStockAccounts(getSelectedStockAccounts());
+}
+
+function copyStockAccountById(id) {
+  const account = productStockAccounts.find((item) => item.id === id);
+  return copyStockAccounts(account ? [account] : []);
+}
+
 function updateStockBulkState() {
   const toolbar = document.querySelector('[data-stock-bulk-toolbar]');
   const count = document.querySelector('[data-stock-selected-count]');
   const selectAll = document.querySelector('[data-stock-select-visible]');
   const statusSelect = document.querySelector('[data-stock-bulk-status]');
+  const copyButton = document.querySelector('[data-stock-bulk-copy]');
   const applyButton = document.querySelector('[data-stock-bulk-apply]');
   const deleteButton = document.querySelector('[data-stock-bulk-delete]');
   const selectedCount = selectedStockIds.size;
@@ -657,6 +750,10 @@ function updateStockBulkState() {
 
   if (applyButton) {
     applyButton.disabled = !selectedCount || !statusSelect?.value;
+  }
+
+  if (copyButton) {
+    copyButton.disabled = !selectedCount;
   }
 
   if (deleteButton) {
@@ -698,6 +795,7 @@ async function applyBulkStockStatus() {
 
     if (Array.isArray(result.accounts)) {
       productStockAccounts = result.accounts.map(normalizeStockAccount);
+      writeProductStockCache(productStockAccounts);
     } else {
       mergeProductStockAccounts(selectedAccounts.map((account) => ({ ...account, status: nextStatus, updatedAt })));
     }
@@ -738,8 +836,10 @@ async function deleteSelectedStockAccounts() {
 
     if (Array.isArray(result.accounts)) {
       productStockAccounts = result.accounts.map(normalizeStockAccount);
+      writeProductStockCache(productStockAccounts);
     } else {
       productStockAccounts = productStockAccounts.filter((account) => !selectedStockIds.has(account.id));
+      writeProductStockCache(productStockAccounts);
     }
 
     selectedStockIds.clear();
@@ -1088,6 +1188,7 @@ function renderProductStockAccounts() {
           <small>${escapeStockHtml(`${resetText} · Stok ${stockDateText}`)}</small>
         </span>
         <span class="admin-spectrum-row-actions">
+          <button class="admin-spectrum-open stock-copy-button" type="button" data-copy-stock="${escapeStockHtml(account.id)}" aria-label="Salin ${escapeStockHtml(account.accountName)}"><span>Salin</span></button>
           <button class="admin-spectrum-open stock-edit-button" type="button" data-open-stock="${escapeStockHtml(account.id)}" aria-label="Edit ${escapeStockHtml(account.accountName)}"><span>Edit</span></button>
         </span>
       </div>
@@ -1124,6 +1225,13 @@ function renderProductStockAccounts() {
 
   list.querySelectorAll('[data-open-stock]').forEach((button) => {
     button.addEventListener('click', () => openStockDrawer(button.dataset.openStock));
+  });
+
+  list.querySelectorAll('[data-copy-stock]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      copyStockAccountById(button.dataset.copyStock);
+    });
   });
 
   list.querySelectorAll('[data-select-stock]').forEach((input) => {
@@ -1663,6 +1771,7 @@ async function saveStockForm(event) {
     const result = await pushProductStockAccounts(savePayload);
     if (Array.isArray(result.accounts)) {
       productStockAccounts = result.accounts.map(normalizeStockAccount);
+      writeProductStockCache(productStockAccounts);
       pruneSelectedStockIds();
       renderProductStockAccounts();
     } else {
@@ -1693,6 +1802,7 @@ async function deleteCurrentStockAccount() {
   try {
     await deleteProductStockAccount(id);
     productStockAccounts = productStockAccounts.filter((account) => account.id !== id);
+    writeProductStockCache(productStockAccounts);
     selectedStockIds.delete(id);
     renderProductStockAccounts();
     await fetchProductStockAccounts({ silent: true });
@@ -1777,6 +1887,7 @@ function bindProductStock() {
     toggleVisibleStockSelection(event.currentTarget.checked);
   });
   document.querySelector('[data-stock-bulk-status]')?.addEventListener('change', updateStockBulkState);
+  document.querySelector('[data-stock-bulk-copy]')?.addEventListener('click', copySelectedStockAccounts);
   document.querySelector('[data-stock-bulk-apply]')?.addEventListener('click', applyBulkStockStatus);
   document.querySelector('[data-stock-bulk-delete]')?.addEventListener('click', deleteSelectedStockAccounts);
   document.querySelector('[data-stock-close]')?.addEventListener('click', () => setStockDrawerOpen(false));
@@ -1819,7 +1930,15 @@ async function initProductStock() {
   }
 
   bindProductStock();
-  setStockStatus('Memuat stok produk...');
+  const cachedAccounts = readProductStockCache();
+
+  if (cachedAccounts.length) {
+    productStockAccounts = cachedAccounts;
+    renderProductStockAccounts();
+    setStockStatus('Memuat pembaruan stok...');
+  } else {
+    setStockStatus('Memuat stok produk...');
+  }
 
   try {
     await fetchProductStockAccounts();

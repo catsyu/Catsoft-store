@@ -7,8 +7,8 @@
   <title>Catsoft Admin Console</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
-  <link rel="stylesheet" href="admin-tools.css?v=20260531-finance-layout" />
-  <link rel="stylesheet" href="form-standard.css" />
+  <link rel="stylesheet" href="admin-tools.css?v=20260531-date-sync" />
+  <link rel="stylesheet" href="form-standard.css?v=20260601-month-filter" />
 </head>
 <body class="admin-console-body">
   <main class="admin-console-page">
@@ -205,10 +205,10 @@
                 <iframe class="console-tool-frame is-compact-tool" title="Customer Access" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-access?embedded=1&v=20260531-single-console"></iframe>
               </section>
               <section class="console-access-pane console-tool-pane" data-console-tool-pane="customer-database" hidden>
-                <iframe class="console-tool-frame" title="Customer Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-database?embedded=1&v=20260531-stock-dropdown"></iframe>
+                <iframe class="console-tool-frame" title="Customer Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/customer-database?embedded=1&v=20260601-month-filter"></iframe>
               </section>
               <section class="console-access-pane console-tool-pane" data-console-tool-pane="refund-calculator" hidden>
-                <iframe class="console-tool-frame is-compact-tool" title="Refund Calculator" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/refund-calculator?embedded=1&v=20260531-single-console"></iframe>
+                <iframe class="console-tool-frame is-compact-tool" title="Refund Calculator" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/refund-calculator?embedded=1&v=20260531-date-sync"></iframe>
               </section>
               <section class="console-access-pane console-tool-pane" data-console-tool-pane="office-activation" hidden>
                 <iframe class="console-tool-frame is-compact-tool" title="Office Activation" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/office-activation?embedded=1&v=20260531-single-console"></iframe>
@@ -266,7 +266,7 @@
               <p>Pantau akun stok, kapasitas sharing, customer yang join, dan jadwal reset dari satu database.</p>
             </div>
           </div>
-          <iframe class="console-tool-frame is-compact-tool is-stock-frame" title="Product Stock" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/product-stock?embedded=1&v=20260531-reset-summary"></iframe>
+          <iframe class="console-tool-frame is-compact-tool is-stock-frame" title="Product Stock" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/product-stock?embedded=1&v=20260601-month-filter"></iframe>
         </section>
 
         <section class="console-module-view" data-console-view="finance" data-admin-tool-module="finance-database" hidden>
@@ -277,7 +277,7 @@
               <p>Rekap penarikan Shopee, GoPay, biaya stok, dan profit bulanan dari satu console.</p>
             </div>
           </div>
-          <iframe class="console-tool-frame is-compact-tool is-finance-frame" title="Finance Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/finance-database?embedded=1&v=20260531-finance-status"></iframe>
+          <iframe class="console-tool-frame is-compact-tool is-finance-frame" title="Finance Database" scrolling="no" allow="clipboard-write" data-console-frame data-src="/tool/finance-database?embedded=1&v=20260601-month-filter"></iframe>
         </section>
       </div>
 
@@ -338,6 +338,7 @@
       <span>2026 Catsoft Digital</span>
     </footer>
   </main>
+  <script src="form-standard.js?v=20260601-month-filter" defer></script>
   <script src="admin-auth.js?v=20260531-single-console" defer></script>
 </body>
 </html>

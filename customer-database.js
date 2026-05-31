@@ -85,6 +85,7 @@ const duplicateCount = document.getElementById('duplicateCount');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const dateFilter = document.getElementById('dateFilter');
+const monthFilter = document.getElementById('monthFilter');
 const statusFilter = document.getElementById('statusFilter');
 const sortBySelect = document.getElementById('sortBy');
 const sortDirectionSelect = document.getElementById('sortDirection');
@@ -302,6 +303,10 @@ function toDateInputValue(date) {
   return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
 }
 
+function toMonthInputValue(date) {
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}`;
+}
+
 function fromDateInput(value) {
   if (!value) {
     return null;
@@ -309,6 +314,21 @@ function fromDateInput(value) {
 
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day);
+}
+
+function getRecordMonthValue(record) {
+  const startMonth = String(record?.startDate || '').slice(0, 7);
+  const expiryMonth = String(record?.expiryDate || '').slice(0, 7);
+
+  if (/^\d{4}-\d{2}$/.test(startMonth)) {
+    return startMonth;
+  }
+
+  if (/^\d{4}-\d{2}$/.test(expiryMonth)) {
+    return expiryMonth;
+  }
+
+  return '';
 }
 
 function addDays(date, days) {
@@ -513,6 +533,8 @@ function renderStatusMenu(currentStatus) {
 }
 
 function closeStatusMenus(exceptMenu) {
+  let didClose = false;
+
   recordsList.querySelectorAll('.status-menu.is-open').forEach((menu) => {
     if (menu === exceptMenu) {
       return;
@@ -521,7 +543,12 @@ function closeStatusMenus(exceptMenu) {
     menu.classList.remove('is-open');
     menu.closest('.record-card')?.classList.remove('is-menu-open');
     menu.querySelector('.status-trigger')?.setAttribute('aria-expanded', 'false');
+    didClose = true;
   });
+
+  if (didClose) {
+    refreshWorkspaceHeight();
+  }
 }
 
 function toggleStatusMenu(menu) {
@@ -530,6 +557,7 @@ function toggleStatusMenu(menu) {
   menu.classList.toggle('is-open', shouldOpen);
   menu.closest('.record-card')?.classList.toggle('is-menu-open', shouldOpen);
   menu.querySelector('.status-trigger')?.setAttribute('aria-expanded', String(shouldOpen));
+  refreshWorkspaceHeight();
 }
 
 function loadRecords() {
@@ -1765,6 +1793,10 @@ function renderResultSummary(filteredRecords) {
     filters.push('Expire');
   }
 
+  if (monthFilter?.value) {
+    filters.push('Bulan');
+  }
+
   if (statusFilter.value !== 'all') {
     filters.push(resultSummaryFilterLabels[statusFilter.value] || statusFilterLabels[statusFilter.value] || statusFilter.value);
   }
@@ -2771,6 +2803,7 @@ function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
   const term = normalizeSearch(searchInput.value);
   const statusValue = statusFilter.value;
   const dateValue = dateFilter.value;
+  const monthValue = monthFilter?.value || '';
   const lookupEmails = getLookupEmailSet();
   const stockOptions = getStockAccountSearchOptions();
   return records.filter((record) => {
@@ -2799,7 +2832,9 @@ function getFilteredRecords(duplicateIndex = getDuplicateIndex(records)) {
       matchesDate = isSameDate(expiryDate, fromDateInput(dateValue));
     }
 
-    return matchesSearch && matchesLookup && matchesStatus && matchesDate;
+    const matchesMonth = !monthValue || getRecordMonthValue(record) === monthValue;
+
+    return matchesSearch && matchesLookup && matchesStatus && matchesDate && matchesMonth;
   });
 }
 
@@ -2824,21 +2859,39 @@ function applyStatsFilter(mode) {
   if (mode === 'all') {
     statusFilter.value = 'all';
     dateFilter.value = '';
+    if (monthFilter) {
+      monthFilter.value = '';
+    }
   } else if (mode === 'active') {
     statusFilter.value = 'active';
     dateFilter.value = '';
+    if (monthFilter) {
+      monthFilter.value = '';
+    }
   } else if (mode === 'expired') {
     statusFilter.value = 'expired';
     dateFilter.value = '';
+    if (monthFilter) {
+      monthFilter.value = '';
+    }
   } else if (mode === 'today') {
     statusFilter.value = 'all';
     dateFilter.value = toDateInputValue(todayDate());
+    if (monthFilter) {
+      monthFilter.value = toMonthInputValue(todayDate());
+    }
   } else if (mode === 'incomplete') {
     statusFilter.value = 'incomplete';
     dateFilter.value = '';
+    if (monthFilter) {
+      monthFilter.value = '';
+    }
   } else if (mode === 'duplicate') {
     statusFilter.value = 'duplicate';
     dateFilter.value = '';
+    if (monthFilter) {
+      monthFilter.value = '';
+    }
   }
 
   renderRecords();
@@ -4239,6 +4292,7 @@ orderReferenceInput.addEventListener('input', syncOrderReferenceInput);
 searchInput.addEventListener('input', renderRecords);
 searchBtn.addEventListener('click', renderRecords);
 dateFilter.addEventListener('change', renderRecords);
+monthFilter?.addEventListener('change', renderRecords);
 statusFilter.addEventListener('change', renderRecords);
 sortBySelect.addEventListener('change', renderRecords);
 sortDirectionSelect.addEventListener('change', renderRecords);

@@ -14,7 +14,7 @@ TARGET_WORKER = os.environ.get("TARGET_WORKER", "catsoft")
 DNS_TARGET = os.environ.get("CATSOFT_SUBDOMAIN_TARGET", "192.0.2.1")
 SUBDOMAINS = tuple(
     item.strip()
-    for item in os.environ.get("CATSOFT_SUBDOMAINS", "admin,supplier,customer").split(",")
+    for item in os.environ.get("CATSOFT_SUBDOMAINS", "admin,supplier,customer,adobemaker").split(",")
     if item.strip()
 )
 
@@ -142,7 +142,7 @@ def main():
         upsert_worker_route(zone_id, f"{hostname}/")
         upsert_worker_route(zone_id, f"{hostname}/*")
 
-    print("Done. Tunggu propagasi DNS Cloudflare beberapa menit, lalu buka admin/supplier/customer subdomain.")
+    print("Done. Tunggu propagasi DNS Cloudflare beberapa menit, lalu buka admin/supplier/customer/adobemaker subdomain.")
 
 
 if __name__ == "__main__":

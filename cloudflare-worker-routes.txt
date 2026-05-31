@@ -83,6 +83,9 @@ supplier.catsoft.store/*
 customer.catsoft.store
 customer.catsoft.store/
 customer.catsoft.store/*
+adobemaker.catsoft.store
+adobemaker.catsoft.store/
+adobemaker.catsoft.store/*
 catsoft.digital/api/email-messages*
 www.catsoft.digital/api/email-messages*
 catsoft.digital/api/customer-records*

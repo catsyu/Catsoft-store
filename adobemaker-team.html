@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Adobe Maker Team | Catsoft</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/form-standard.css?v=20260601-month-filter" />
+  <link rel="stylesheet" href="/adobemaker-team.css?v=20260601-owner-checkout" />
+</head>
+<body class="adobe-maker-body">
+  <main class="adobe-maker-shell" data-adobe-maker-root hidden>
+    <header class="adobe-maker-topbar">
+      <a class="adobe-maker-brand" href="https://admin.catsoft.store/" aria-label="Catsoft Admin Console">
+        <img src="/logo.png" alt="Catsoft" />
+      </a>
+      <div class="adobe-maker-profile" data-owner-label>OwnerCatsoft</div>
+    </header>
+
+    <section class="adobe-maker-hero">
+      <div>
+        <span class="adobe-maker-kicker">Adobe Maker</span>
+        <h1>Adobe Team Checkout</h1>
+        <p>Buat link order Adobe resmi dari Catsoft, lalu lanjutkan checkout dan 3DS langsung di halaman Adobe.</p>
+      </div>
+      <div class="adobe-maker-mark" aria-hidden="true">
+        <span>AM</span>
+      </div>
+    </section>
+
+    <section class="adobe-maker-card" data-owner-panel>
+      <div class="adobe-maker-card-head">
+        <div>
+          <span class="adobe-maker-kicker">Order</span>
+          <h2>Team seats Adobe</h2>
+        </div>
+        <span class="adobe-maker-badge">Owner only</span>
+      </div>
+
+      <form class="adobe-maker-form" id="adobeMakerForm">
+        <label class="adobe-maker-field adobe-maker-field-wide">
+          <span>Produk</span>
+          <input id="adobeProductName" type="text" value="Adobe Creative Cloud Team" readonly />
+        </label>
+
+        <label class="adobe-maker-field">
+          <span>Jumlah seat</span>
+          <input id="adobeQuantity" type="number" min="1" max="50" value="10" inputmode="numeric" />
+        </label>
+
+        <label class="adobe-maker-field">
+          <span>Negara checkout</span>
+          <select id="adobeCountry">
+            <option value="ES" selected>Spain</option>
+            <option value="US">United States</option>
+            <option value="ID">Indonesia</option>
+            <option value="SG">Singapore</option>
+          </select>
+        </label>
+
+        <label class="adobe-maker-field">
+          <span>Bahasa</span>
+          <select id="adobeLanguage">
+            <option value="es" selected>Spanish</option>
+            <option value="en">English</option>
+            <option value="id">Indonesia</option>
+          </select>
+        </label>
+
+        <label class="adobe-maker-field adobe-maker-field-wide">
+          <span>Link checkout</span>
+          <input id="adobeCheckoutUrl" type="text" readonly />
+        </label>
+
+        <div class="adobe-maker-actions">
+          <button class="adobe-maker-primary" type="submit" id="openAdobeCheckout">Buka Checkout Adobe</button>
+          <button class="adobe-maker-secondary" type="button" id="copyAdobeCheckout">Salin Link</button>
+        </div>
+      </form>
+
+      <p class="adobe-maker-status" id="adobeMakerStatus" aria-live="polite">Checkout akan dibuka di tab Adobe resmi agar 3DS/verifikasi pembayaran tetap berjalan normal.</p>
+    </section>
+
+    <section class="adobe-maker-card adobe-maker-note">
+      <div class="adobe-maker-note-icon" aria-hidden="true">3DS</div>
+      <div>
+        <h2>Verifikasi pembayaran</h2>
+        <p>Jika bank meminta OTP, 3DS, atau verifikasi kartu, prosesnya muncul di halaman Adobe yang dibuka dari tombol checkout.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/admin-auth.js?v=20260601-owner-checkout" defer></script>
+  <script src="/adobemaker-team.js?v=20260601-owner-checkout" defer></script>
+</body>
+</html>

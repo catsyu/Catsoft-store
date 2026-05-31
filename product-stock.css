@@ -488,8 +488,10 @@ html {
   -webkit-appearance: none;
   display: inline-grid;
   place-items: center;
+  position: relative;
   width: 18px;
   height: 18px;
+  flex: 0 0 18px;
   margin: 0;
   border: 1.6px solid #c8c8c8;
   border-radius: 999px;
@@ -502,7 +504,35 @@ html {
 .stock-row-select input:checked {
   border-color: #111;
   background: #111;
-  box-shadow: inset 0 0 0 4px #fff;
+  box-shadow: none;
+}
+
+.stock-select-all input::after,
+.stock-row-select input::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  opacity: 0;
+  transform: translate(-50%, -62%) rotate(-45deg);
+}
+
+.stock-select-all input:checked::after,
+.stock-row-select input:checked::after {
+  opacity: 1;
+}
+
+.stock-select-all input:indeterminate::after {
+  width: 8px;
+  height: 0;
+  border-left: 0;
+  border-bottom: 2px solid #fff;
+  opacity: 1;
+  transform: translate(-50%, -50%);
 }
 
 .stock-select-all input:disabled {
@@ -627,7 +657,7 @@ html {
 }
 
 .stock-spectrum-table .stock-spectrum-row {
-  grid-template-columns: 74px minmax(160px, 1.05fr) minmax(170px, 1.05fr) minmax(86px, 0.52fr) minmax(120px, 0.72fr) minmax(108px, 0.62fr) 76px;
+  grid-template-columns: 74px minmax(160px, 1.05fr) minmax(170px, 1.05fr) minmax(86px, 0.52fr) minmax(120px, 0.72fr) minmax(108px, 0.62fr) 130px;
   min-height: 54px;
   padding: 8px 12px;
 }
@@ -716,7 +746,7 @@ html {
 
 .product-stock-body .admin-spectrum-open {
   width: auto;
-  min-width: 60px;
+  min-width: 56px;
   height: 31px;
   border-color: var(--stock-border);
   background-color: #fff;
@@ -727,6 +757,13 @@ html {
   color: #333;
   font-size: 12px;
   font-weight: 520;
+}
+
+.product-stock-body .admin-spectrum-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .product-stock-body .admin-spectrum-open:hover,
@@ -1371,7 +1408,7 @@ html {
   }
 
   .stock-spectrum-table .stock-spectrum-row {
-    grid-template-columns: 66px minmax(0, 1fr) 62px;
+    grid-template-columns: 66px minmax(0, 1fr) 104px;
     gap: 10px;
     min-height: 56px;
     padding: 8px 10px;

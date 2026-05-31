@@ -2533,6 +2533,43 @@ body {
   max-width: 184px;
 }
 
+.database-panel .record-card.is-menu-open {
+  z-index: 60;
+  overflow: visible;
+}
+
+.database-panel .record-card.is-menu-open .record-actions {
+  align-items: flex-start;
+  overflow: visible;
+}
+
+.database-panel .status-menu.is-open {
+  overflow: visible;
+}
+
+.database-panel .status-options {
+  position: static;
+  inset: auto;
+  display: none;
+  max-height: 0;
+  margin-top: 0;
+  padding: 0 6px;
+  border-width: 0;
+  overflow: hidden;
+  transform: none;
+  box-shadow: none;
+}
+
+.database-panel .status-menu.is-open .status-options {
+  display: grid;
+  max-height: none;
+  margin-top: 6px;
+  padding: 6px;
+  border-width: 1px;
+  overflow: visible;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
 .mobile-collapse-toggle {
   display: none !important;
 }

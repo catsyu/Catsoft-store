@@ -43,61 +43,113 @@ select {
   background-size: 14px;
 }
 
-input[type="date"] {
+input[type="date"],
+input[type="month"] {
   min-width: 0;
 }
 
-input[type="date"].soft-date-input {
+.soft-date-shell {
   position: relative;
-  color: #0f172a;
-  -webkit-text-fill-color: #0f172a;
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 
-input[type="date"].soft-date-input:not(.has-date-value) {
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+input[type="date"].soft-date-input,
+input[type="month"].soft-date-input {
+  position: relative;
+  overflow: hidden;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
 }
 
-input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit,
-input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit-fields-wrapper,
-input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit-text,
-input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit-month-field,
-input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit-day-field,
-input[type="date"].soft-date-input:not(.has-date-value)::-webkit-datetime-edit-year-field {
-  color: transparent;
+.soft-date-shell > input[type="date"].soft-date-input,
+.soft-date-shell > input[type="month"].soft-date-input {
+  display: block;
+  width: 100%;
+  padding-right: 38px;
 }
 
-input[type="date"].soft-date-input:not(.has-date-value)::before {
-  content: attr(data-empty-label);
+.soft-date-display {
   position: absolute;
   top: 50%;
   left: 10px;
-  max-width: calc(100% - 42px);
+  right: 38px;
+  z-index: 2;
   transform: translateY(-50%);
-  color: #6b7280;
-  font-weight: 650;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
 }
 
-input[type="date"].soft-date-input.has-date-value::before {
-  content: none;
+.soft-date-shell:not(.has-date-value) .soft-date-display {
+  color: #6b7280;
+  font-weight: 700;
 }
 
-input[type="date"].soft-date-input:not(.has-date-value):focus::before {
+input[type="date"].soft-date-input::-webkit-datetime-edit,
+input[type="date"].soft-date-input::-webkit-datetime-edit-fields-wrapper,
+input[type="date"].soft-date-input::-webkit-datetime-edit-text,
+input[type="date"].soft-date-input::-webkit-datetime-edit-month-field,
+input[type="date"].soft-date-input::-webkit-datetime-edit-day-field,
+input[type="date"].soft-date-input::-webkit-datetime-edit-year-field,
+input[type="month"].soft-date-input::-webkit-datetime-edit,
+input[type="month"].soft-date-input::-webkit-datetime-edit-fields-wrapper,
+input[type="month"].soft-date-input::-webkit-datetime-edit-text,
+input[type="month"].soft-date-input::-webkit-datetime-edit-month-field,
+input[type="month"].soft-date-input::-webkit-datetime-edit-year-field {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+input[type="date"].soft-date-input::before,
+input[type="month"].soft-date-input::before {
+  content: attr(data-date-display);
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  max-width: calc(100% - 42px);
+  transform: translateY(-50%);
+  color: #0f172a;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+input[type="date"].soft-date-input:not(.has-date-value)::before,
+input[type="month"].soft-date-input:not(.has-date-value)::before {
+  color: #6b7280;
+}
+
+input[type="date"].soft-date-input.has-date-value::before,
+input[type="month"].soft-date-input.has-date-value::before {
+  color: #0f172a;
+  font-weight: 750;
+}
+
+input[type="date"].soft-date-input:not(.has-date-value):focus::before,
+input[type="month"].soft-date-input:not(.has-date-value):focus::before {
   color: #94a3b8;
 }
 
-input[type="date"].soft-date-input::-webkit-calendar-picker-indicator {
+input[type="date"].soft-date-input::-webkit-calendar-picker-indicator,
+input[type="month"].soft-date-input::-webkit-calendar-picker-indicator {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   opacity: 0.78;
   cursor: pointer;
 }
 
-input[type="date"]::-webkit-date-and-time-value {
+input[type="date"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value {
   display: block;
   min-height: 1.25em;
   margin: 0;
@@ -106,7 +158,9 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 input[type="date"].soft-date-input::-webkit-datetime-edit,
-input[type="date"].soft-date-input::-webkit-datetime-edit-fields-wrapper {
+input[type="date"].soft-date-input::-webkit-datetime-edit-fields-wrapper,
+input[type="month"].soft-date-input::-webkit-datetime-edit,
+input[type="month"].soft-date-input::-webkit-datetime-edit-fields-wrapper {
   display: block;
   min-width: 0;
   padding: 0;

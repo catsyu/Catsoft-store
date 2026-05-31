@@ -10,6 +10,7 @@ const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
 const CATSOFT_CUSTOMER_ACCOUNTS_API = window.CATSOFT_CUSTOMER_ACCOUNTS_API || getDefaultCustomerAccountsApiEndpoint();
 const CATSOFT_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_API || getDefaultSessionActivityApiEndpoint();
+const CATSOFT_RECENT_LOGIN_GRACE_MS = 120000;
 let catsoftAdminAccountsRefreshTimer = null;
 let catsoftAdminHeartbeatTimer = null;
 let catsoftAdminPageSize = 10;
@@ -581,6 +582,11 @@ function saveAdminSession(session) {
   sessionStorage.setItem(CATSOFT_ADMIN_SESSION_KEY, JSON.stringify(session));
 }
 
+function isRecentAdminLogin(session) {
+  const loggedInAt = session?.loggedInAt ? new Date(session.loggedInAt).getTime() : 0;
+  return Boolean(loggedInAt && Date.now() - loggedInAt < CATSOFT_RECENT_LOGIN_GRACE_MS);
+}
+
 function clearAdminLocalSession() {
   sessionStorage.removeItem(CATSOFT_ADMIN_SESSION_KEY);
 }
@@ -843,15 +849,21 @@ async function loginAdmin(username, password) {
   if (payload.role !== 'owner') {
     saveAdminAccounts([normalizeAdminAccount(account)]);
   }
-  saveAdminSession({ username: account.username, role: 'admin', loggedInAt: new Date().toISOString() });
+  const loggedInAt = new Date().toISOString();
+  saveAdminSession({ username: account.username, role: 'admin', loggedInAt, serverValidatedAt: loggedInAt });
   if (payload.role === 'owner') {
-    saveAdminSession({ username: CATSOFT_OWNER_USERNAME, role: 'owner', loggedInAt: new Date().toISOString() });
+    saveAdminSession({ username: CATSOFT_OWNER_USERNAME, role: 'owner', loggedInAt, serverValidatedAt: loggedInAt });
   }
   recordSessionActivity(payload.role === 'owner' ? 'admin' : 'admin', account.username || CATSOFT_OWNER_USERNAME, 'login');
   return { ok: true };
 }
 
 async function validateAdminServerSession(admin = getCurrentAdmin()) {
+  const localSession = loadAdminSession();
+  if (isRecentAdminLogin(localSession)) {
+    return true;
+  }
+
   if (window.location.protocol === 'file:') {
     return true;
   }
@@ -4290,7 +4302,7 @@ async function initAdminAuth() {
 
   if (!(await validateAdminServerSession(admin))) {
     admin = null;
-    renderLogin('Sesi admin berakhir. Silakan login ulang.');
+    renderLogin();
     return;
   }
 

@@ -258,26 +258,26 @@ const staticRouteFallbacks = new Map([
   ['/admin-access.html', '/admin-tools.html'],
   ['/supplier-access', '/admin-tools.html'],
   ['/supplier-access.html', '/admin-tools.html'],
-  ['/customer-access', '/admin-tools.html'],
-  ['/customer-access.html', '/admin-tools.html'],
-  ['/customer-database', '/admin-tools.html'],
-  ['/customer-database.html', '/admin-tools.html'],
-  ['/refund-calculator', '/admin-tools.html'],
-  ['/refund-calculator.html', '/admin-tools.html'],
-  ['/office-activation', '/admin-tools.html'],
-  ['/office-activation.html', '/admin-tools.html'],
-  ['/email-inbox', '/admin-tools.html'],
-  ['/email-inbox.html', '/admin-tools.html'],
-  ['/internal-chat', '/admin-tools.html'],
-  ['/internal-chat.html', '/admin-tools.html'],
-  ['/marketing-calculator', '/admin-tools.html'],
-  ['/marketing-calculator.html', '/admin-tools.html'],
-  ['/content-editor', '/admin-tools.html'],
-  ['/content-editor.html', '/admin-tools.html'],
-  ['/product-stock', '/admin-tools.html'],
-  ['/product-stock.html', '/admin-tools.html'],
-  ['/finance-database', '/admin-tools.html'],
-  ['/finance-database.html', '/admin-tools.html'],
+  ['/customer-access', '/customer-access.html'],
+  ['/customer-access.html', '/customer-access.html'],
+  ['/customer-database', '/customer-database.html'],
+  ['/customer-database.html', '/customer-database.html'],
+  ['/refund-calculator', '/refund-calculator.html'],
+  ['/refund-calculator.html', '/refund-calculator.html'],
+  ['/office-activation', '/office-activation.html'],
+  ['/office-activation.html', '/office-activation.html'],
+  ['/email-inbox', '/email-inbox.html'],
+  ['/email-inbox.html', '/email-inbox.html'],
+  ['/internal-chat', '/internal-chat.html'],
+  ['/internal-chat.html', '/internal-chat.html'],
+  ['/marketing-calculator', '/marketing-calculator.html'],
+  ['/marketing-calculator.html', '/marketing-calculator.html'],
+  ['/content-editor', '/content-editor.html'],
+  ['/content-editor.html', '/content-editor.html'],
+  ['/product-stock', '/product-stock.html'],
+  ['/product-stock.html', '/product-stock.html'],
+  ['/finance-database', '/finance-database.html'],
+  ['/finance-database.html', '/finance-database.html'],
   ['/tutorial/office', '/office-tutorial.html'],
   ['/tutorial/lutapplelog', '/tutorial-lut-apple-log.html'],
   ['/tutorial/lut-apple-log', '/tutorial-lut-apple-log.html'],
@@ -2649,8 +2649,26 @@ async function listCustomerRecords(request, env) {
   const limit = clampNumber(url.searchParams.get('limit'), DEFAULT_LIMIT, 1, MAX_LIMIT);
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
   const customerFilter = normalizeSearch(url.searchParams.get('customer') || url.searchParams.get('username'));
-  const whereClause = customerFilter ? 'WHERE LOWER(customer_name) = ?' : '';
-  const bindings = customerFilter ? [customerFilter, limit, offset] : [limit, offset];
+  const orderFilter = normalizeCustomerUniqueOrderNumber(
+    url.searchParams.get('orderNumber')
+    || url.searchParams.get('order')
+    || url.searchParams.get('pesanan')
+    || ''
+  );
+  const whereParts = [];
+  const bindings = [];
+
+  if (customerFilter) {
+    whereParts.push('LOWER(customer_name) = ?');
+    bindings.push(customerFilter);
+  }
+
+  if (orderFilter) {
+    whereParts.push("LOWER(REPLACE(order_number, ' ', '')) = ?");
+    bindings.push(orderFilter);
+  }
+
+  const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
   const result = await customerDb.prepare(`
     SELECT id, customer_name, activated_email, stock_account, income_amount, whatsapp_number, order_number,
       order_source, product_name, duration_days, start_date, expiry_date,
@@ -2659,7 +2677,7 @@ async function listCustomerRecords(request, env) {
     ${whereClause}
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
-  `).bind(...bindings).all();
+  `).bind(...bindings, limit, offset).all();
 
   return json({
     records: (result.results || []).map(mapCustomerRecordRow)

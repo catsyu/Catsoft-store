@@ -3824,6 +3824,10 @@ body.admin-console-body .admin-detail-drawer .admin-form-actions button[type="bu
   min-height: 360px;
 }
 
+.console-tool-frame.is-finance-frame {
+  min-height: 560px;
+}
+
 .console-tools-list {
   gap: 12px;
 }

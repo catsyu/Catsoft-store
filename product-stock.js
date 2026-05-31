@@ -3,6 +3,7 @@ if (!window.CATSOFT_ADMIN_AUTHORIZED) {
 }
 
 const PRODUCT_STOCK_API = window.CATSOFT_PRODUCT_STOCK_API || getDefaultProductStockApiEndpoint();
+const CUSTOMER_RECORDS_API = window.CATSOFT_CUSTOMER_RECORDS_API || getDefaultCustomerRecordsApiEndpoint();
 const productStockPageSizeOptions = [5, 10, 20, 50];
 const productStockAutoRefreshMs = 10000;
 let productStockAccounts = [];
@@ -40,6 +41,17 @@ function getDefaultProductStockApiEndpoint() {
   return '/api/product-stock';
 }
 
+function getDefaultCustomerRecordsApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+    return 'https://catsoft.store/api/customer-records';
+  }
+
+  return '/api/customer-records';
+}
+
 function normalizeStockValue(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -51,6 +63,14 @@ function escapeStockHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function escapeStockSelector(value) {
+  if (window.CSS && typeof window.CSS.escape === 'function') {
+    return window.CSS.escape(String(value || ''));
+  }
+
+  return String(value || '').replace(/["\\]/g, '\\$&');
 }
 
 function getStockInitials(value) {
@@ -697,6 +717,226 @@ async function deleteProductStockAccount(id) {
   }
 }
 
+function buildCustomerRecordsApiUrl(id = '', params = {}) {
+  const url = new URL(CUSTOMER_RECORDS_API, window.location.href);
+
+  if (id) {
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/${encodeURIComponent(id)}`;
+  }
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      url.searchParams.set(key, String(value).trim());
+    }
+  });
+
+  url.searchParams.set('_', String(Date.now()));
+  return url.toString();
+}
+
+function normalizeStockOrderNumber(value) {
+  return String(value || '').trim().replace(/\s+/g, '').toLowerCase();
+}
+
+async function findCustomerRecordByOrderNumber(orderNumber) {
+  const cleanOrder = normalizeStockOrderNumber(orderNumber);
+
+  if (!cleanOrder) {
+    return null;
+  }
+
+  const response = await fetch(buildCustomerRecordsApiUrl('', {
+    limit: 1,
+    orderNumber: cleanOrder
+  }), {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' }
+  });
+
+  if (!response.ok) {
+    throw new Error(`API customer ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const records = Array.isArray(payload) ? payload : (payload.records || payload.results || []);
+  return records[0] || null;
+}
+
+async function patchCustomerRecordStock(record, targetAccount) {
+  const recordId = String(record?.id || '').trim();
+
+  if (!recordId) {
+    throw new Error('Data customer tidak memiliki ID.');
+  }
+
+  const stockAccount = getStockJoinSaveValue(targetAccount);
+  const response = await fetch(buildCustomerRecordsApiUrl(recordId), {
+    method: 'PATCH',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      stockAccount,
+      productName: targetAccount.productName || record.productName || '',
+      updatedAt: new Date().toISOString()
+    })
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `API customer ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function getStockJoinSaveValue(account) {
+  return String(account?.loginUsername || account?.accountName || account?.id || '').trim();
+}
+
+function getStockJoinTargetAccount(account) {
+  if (!account) {
+    return null;
+  }
+
+  if (account.stockType !== 'team') {
+    return account;
+  }
+
+  const members = getTeamMemberAccounts(account.id);
+  const withSlots = members.find((member) => (Number(member.openSlots) || 0) > 0);
+  return withSlots || members[0] || account;
+}
+
+function isCustomerJoinedToStock(record, account) {
+  const currentStock = normalizeStockValue(record?.stockAccount || record?.stock_account || '');
+
+  if (!currentStock || !account) {
+    return false;
+  }
+
+  const stockTargets = account.stockType === 'team'
+    ? [account, ...getTeamMemberAccounts(account.id)]
+    : [account];
+
+  return stockTargets.some((target) => [
+    target.id,
+    target.accountName,
+    target.loginUsername,
+    target.accountTarget
+  ].some((value) => normalizeStockValue(value) === currentStock));
+}
+
+function setStockJoinStatus(message = '', type = '') {
+  const status = document.querySelector('[data-stock-join-status]');
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('success', type === 'success');
+  status.classList.toggle('warning', type === 'warning');
+}
+
+async function addJoinedCustomerByOrder(event) {
+  event.preventDefault();
+
+  if (isProductStockMutating || !activeStockDrawerAccount) {
+    return;
+  }
+
+  const input = document.querySelector('[data-stock-join-order]');
+  const orderNumber = input?.value || '';
+  const targetAccount = getStockJoinTargetAccount(activeStockDrawerAccount);
+
+  if (!normalizeStockOrderNumber(orderNumber)) {
+    setStockJoinStatus('Isi nomor pesanan terlebih dulu.');
+    input?.focus();
+    return;
+  }
+
+  if (!targetAccount) {
+    setStockJoinStatus('Simpan stok terlebih dulu sebelum menambah customer.');
+    return;
+  }
+
+  isProductStockMutating = true;
+  setStockJoinStatus('Mencari customer...');
+
+  try {
+    const record = await findCustomerRecordByOrderNumber(orderNumber);
+
+    if (!record) {
+      setStockJoinStatus('Nomor pesanan tidak ditemukan di database customer.');
+      return;
+    }
+
+    if (isCustomerJoinedToStock(record, activeStockDrawerAccount)) {
+      setStockJoinStatus('Customer sudah terhubung ke stok ini.', 'warning');
+      return;
+    }
+
+    setStockJoinStatus('Menghubungkan customer...');
+    await patchCustomerRecordStock(record, targetAccount);
+    await fetchProductStockAccounts({ silent: true });
+    activeStockDrawerAccount = productStockAccounts.find((item) => item.id === activeStockDrawerAccount.id) || activeStockDrawerAccount;
+    isStockJoinedExpanded = true;
+    renderJoinedCustomers(activeStockDrawerAccount);
+    if (input) input.value = '';
+    setStockJoinStatus(`Customer ${record.customerName || record.orderNumber || 'terpilih'} ditambahkan.`, 'success');
+  } catch (error) {
+    setStockJoinStatus(`Gagal menambah customer: ${error.message}`);
+  } finally {
+    isProductStockMutating = false;
+  }
+}
+
+function toggleJoinedCustomerEditor(customerId) {
+  const editor = document.querySelector(`[data-stock-join-editor="${escapeStockSelector(customerId)}"]`);
+
+  if (!editor) {
+    return;
+  }
+
+  editor.hidden = !editor.hidden;
+}
+
+async function unlinkJoinedCustomer(customerId) {
+  if (isProductStockMutating || !customerId) {
+    return;
+  }
+
+  isProductStockMutating = true;
+  setStockJoinStatus('Melepas customer dari stok...');
+
+  try {
+    const response = await fetch(buildCustomerRecordsApiUrl(customerId), {
+      method: 'PATCH',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stockAccount: '',
+        updatedAt: new Date().toISOString()
+      })
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || `API customer ${response.status}`);
+    }
+
+    await fetchProductStockAccounts({ silent: true });
+    activeStockDrawerAccount = productStockAccounts.find((item) => item.id === activeStockDrawerAccount?.id) || activeStockDrawerAccount;
+    isStockJoinedExpanded = true;
+    renderJoinedCustomers(activeStockDrawerAccount);
+    setStockJoinStatus('Customer dilepas dari stok.', 'success');
+  } catch (error) {
+    setStockJoinStatus(`Gagal melepas customer: ${error.message}`);
+  } finally {
+    isProductStockMutating = false;
+  }
+}
+
 function renderProductStockAccounts() {
   const list = document.querySelector('[data-stock-list]');
   const total = document.querySelector('[data-stock-total]');
@@ -1110,22 +1350,45 @@ function renderJoinedCustomers(account) {
     return;
   }
 
+  const searchForm = `
+    <form class="stock-join-search" data-stock-join-search>
+      <label>
+        Tambah Customer
+        <span class="stock-join-search-row">
+          <input type="search" data-stock-join-order placeholder="Cari nomor pesanan" autocomplete="off" />
+          <button class="admin-spectrum-secondary" type="submit">Tambah</button>
+        </span>
+      </label>
+      <small data-stock-join-status></small>
+    </form>
+  `;
   const joinedCustomers = account.stockType === 'team'
-    ? getTeamMemberAccounts(account.id).flatMap((member) => (member.joinedCustomers || []).map((customer) => ({
-      ...customer,
-      stockMemberName: member.accountName
-    })))
+    ? [
+      ...(account.joinedCustomers || []).map((customer) => ({
+        ...customer,
+        stockMemberName: account.accountName
+      })),
+      ...getTeamMemberAccounts(account.id).flatMap((member) => (member.joinedCustomers || []).map((customer) => ({
+        ...customer,
+        stockMemberName: member.accountName
+      })))
+    ].filter((customer, index, customers) => {
+      const key = customer.id || `${customer.orderNumber || ''}-${customer.activatedEmail || ''}`;
+      return customers.findIndex((item) => (item.id || `${item.orderNumber || ''}-${item.activatedEmail || ''}`) === key) === index;
+    })
     : account.joinedCustomers;
 
   if (!joinedCustomers.length) {
-    list.innerHTML = '<p>Belum ada customer yang terhubung lewat field Stok di database customer.</p>';
+    list.innerHTML = `${searchForm}<p>Belum ada customer yang terhubung. Cari nomor pesanan untuk menambah customer ke stok ini.</p>`;
+    list.querySelector('[data-stock-join-search]')?.addEventListener('submit', addJoinedCustomerByOrder);
     return;
   }
 
-  list.innerHTML = joinedCustomers.map((customer) => {
+  list.innerHTML = searchForm + joinedCustomers.map((customer) => {
     const statusText = customer.isExpired ? 'Habis' : (customer.status === 'problem' ? 'Bermasalah' : 'Aktif');
+    const customerId = escapeStockHtml(customer.id || '');
     return `
-      <div class="stock-joined-row">
+      <div class="stock-joined-row" data-stock-joined-row="${customerId}">
         <span class="admin-spectrum-avatar stock-customer" aria-hidden="true">${escapeStockHtml(getStockInitials(customer.customerName || customer.activatedEmail))}</span>
         <span>
           <strong>${escapeStockHtml(customer.customerName || 'Customer')}</strong>
@@ -1135,9 +1398,22 @@ function renderJoinedCustomers(account) {
           <b>${escapeStockHtml(statusText)}</b>
           <small>${escapeStockHtml(customer.stockMemberName ? `${customer.stockMemberName} · ` : '')}${escapeStockHtml(formatStockCurrency(customer.incomeAmount || 0))} · ${escapeStockHtml(formatStockDate(customer.expiryDate))}</small>
         </span>
+        <button class="stock-joined-edit-toggle" type="button" data-stock-edit-join="${customerId}" aria-label="Edit customer ${escapeStockHtml(customer.customerName || customer.orderNumber || '')}">Edit</button>
+        <div class="stock-joined-edit" data-stock-join-editor="${customerId}" hidden>
+          <span>Customer ini terhubung lewat field Stok di database customer.</span>
+          <button class="admin-spectrum-secondary" type="button" data-stock-unlink-customer="${customerId}">Lepas Dari Stok</button>
+        </div>
       </div>
     `;
   }).join('');
+
+  list.querySelector('[data-stock-join-search]')?.addEventListener('submit', addJoinedCustomerByOrder);
+  list.querySelectorAll('[data-stock-edit-join]').forEach((button) => {
+    button.addEventListener('click', () => toggleJoinedCustomerEditor(button.dataset.stockEditJoin));
+  });
+  list.querySelectorAll('[data-stock-unlink-customer]').forEach((button) => {
+    button.addEventListener('click', () => unlinkJoinedCustomer(button.dataset.stockUnlinkCustomer));
+  });
 }
 
 function openStockDrawer(id = '') {

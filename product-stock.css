@@ -907,6 +907,72 @@ html {
   line-height: 1.45;
 }
 
+.stock-join-search {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--stock-border);
+  border-radius: 12px;
+  padding: 8px;
+  background: #fbfbfb;
+}
+
+.stock-join-search label {
+  display: grid;
+  gap: 5px;
+  color: #505050;
+  font-size: 11.5px;
+  font-weight: 520;
+}
+
+.stock-join-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.stock-join-search input {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid #d4d4d4;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.stock-join-search input:focus {
+  border-color: #777;
+}
+
+.stock-join-search .admin-spectrum-secondary {
+  min-width: 76px;
+  min-height: 32px;
+  padding-inline: 14px;
+  font-size: 12px;
+}
+
+.stock-join-search small {
+  min-height: 16px;
+  color: #7a1f1f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.stock-join-search small:empty {
+  display: none;
+}
+
+.stock-join-search small.success {
+  color: #05704f;
+}
+
+.stock-join-search small.warning {
+  color: #666;
+}
+
 .stock-team-members-section .admin-detail-section-head {
   align-items: center;
 }
@@ -981,7 +1047,7 @@ html {
 
 .stock-joined-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   min-height: 44px;
@@ -1008,8 +1074,53 @@ html {
   line-height: 1.25;
 }
 
-.stock-joined-row > span:last-child {
+.stock-joined-row > span:nth-of-type(3) {
   text-align: right;
+}
+
+.stock-joined-edit-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 28px;
+  border: 1px solid #d4d4d4;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #fff;
+  color: #333;
+  font-size: 11.5px;
+  font-weight: 520;
+  cursor: pointer;
+}
+
+.stock-joined-edit-toggle:hover,
+.stock-joined-edit-toggle:focus-visible {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+  outline: none;
+}
+
+.stock-joined-edit {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid #e3e3e3;
+  padding-top: 7px;
+  color: var(--stock-muted);
+  font-size: 11px;
+}
+
+.stock-joined-edit[hidden] {
+  display: none !important;
+}
+
+.stock-joined-edit .admin-spectrum-secondary {
+  min-height: 28px;
+  min-width: 0;
+  padding: 4px 10px;
+  font-size: 11.5px;
 }
 
 .stock-danger-zone {
@@ -1165,7 +1276,8 @@ html {
   }
 
   .stock-joined-row {
-    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    gap: 8px;
   }
 
   .stock-team-member-row {
@@ -1181,9 +1293,25 @@ html {
     grid-row: 1;
   }
 
-  .stock-joined-row > span:last-child {
+  .stock-joined-row > span:nth-of-type(3) {
     grid-column: 2;
     text-align: left;
+  }
+
+  .stock-joined-edit-toggle {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .stock-joined-edit {
+    grid-column: 1 / -1;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stock-join-search-row {
+    grid-template-columns: 1fr;
   }
 
   .stock-drawer {

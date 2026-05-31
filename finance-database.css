@@ -946,62 +946,56 @@ html {
     padding: 12px 0;
   }
 
-  .finance-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    border: 1px solid var(--finance-border);
-    border-radius: 8px;
-    margin-top: 10px;
-    padding: 12px;
-    background: #fbfbfb;
+  .finance-record-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "date source"
+      "main amount"
+      "main status";
+    align-items: start;
+    gap: 5px 10px;
+    min-height: 0;
+    padding: 9px 0;
   }
 
-  .finance-row-month {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #e2e2e2;
-    padding-bottom: 9px;
-    color: #222;
-    font-size: 14px;
-  }
-
-  .finance-row-month::after {
-    content: "Ringkasan Bulanan";
+  .finance-record-date {
+    grid-area: date;
     color: var(--finance-muted);
     font-size: 11px;
-    font-weight: 500;
+    line-height: 1.2;
   }
 
-  .finance-row-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    color: #222;
-    font-size: 13px;
-    line-height: 1.25;
-    text-align: right;
+  .finance-record-row .finance-source-pill {
+    grid-area: source;
+    justify-self: end;
   }
 
-  .finance-row-item::before {
-    content: attr(data-label);
-    flex: 1 1 auto;
-    color: var(--finance-muted);
+  .finance-record-main {
+    grid-area: main;
+  }
+
+  .finance-record-main b {
     font-size: 12px;
-    font-weight: 500;
-    text-align: left;
+    line-height: 1.25;
   }
 
-  .finance-row-item.is-total,
-  .finance-row-item.is-profit {
-    border-top: 1px solid #e2e2e2;
-    padding-top: 8px;
-    font-size: 14px;
+  .finance-record-main small {
+    font-size: 11px;
   }
 
-  .finance-row-item.is-profit {
-    color: #111;
+  .finance-record-amount {
+    grid-area: amount;
+    align-self: center;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .finance-record-row .finance-status-pill {
+    grid-area: status;
+    justify-self: end;
+    min-height: 18px;
+    padding: 2px 7px;
+    font-size: 10px;
   }
 
   .finance-row.is-head,
@@ -1022,7 +1016,9 @@ html {
   }
 
   .finance-kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding-inline: 12px;
   }
 
   .finance-dashboard-grid {
@@ -1032,6 +1028,18 @@ html {
   .finance-chart {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     row-gap: 14px;
+  }
+
+  .finance-month-card {
+    padding: 10px;
+  }
+
+  .finance-month-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-month-flow .is-profit {
+    grid-column: 1 / -1;
   }
 
   .finance-card-head,

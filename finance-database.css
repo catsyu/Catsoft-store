@@ -15,9 +15,16 @@ html {
 
 .finance-body {
   margin: 0;
+  overflow-x: hidden;
   background: var(--finance-bg);
   color: var(--finance-text);
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.finance-body *,
+.finance-body *::before,
+.finance-body *::after {
+  box-sizing: border-box;
 }
 
 .finance-body button,
@@ -32,6 +39,8 @@ html {
 }
 
 .finance-panel {
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid var(--finance-border);
   border-radius: var(--finance-radius);
@@ -40,6 +49,10 @@ html {
 }
 
 .finance-body .admin-spectrum-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   gap: 0;
   border: 0;
   border-radius: 0;
@@ -77,6 +90,7 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   min-height: 26px;
   border: 1px solid var(--finance-border);
   border-radius: 999px;
@@ -93,6 +107,7 @@ html {
 }
 
 .finance-head dd {
+  min-width: 0;
   margin: 0;
   border-left: 1px solid var(--finance-border);
   padding-left: 7px;
@@ -100,6 +115,8 @@ html {
   font-size: 12px;
   font-weight: 540;
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .finance-toolbar {
@@ -947,15 +964,17 @@ html {
   }
 
   .finance-record-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "date source"
-      "main amount"
-      "main status";
+      "date"
+      "source"
+      "main"
+      "amount"
+      "status";
     align-items: start;
-    gap: 5px 10px;
+    gap: 5px;
     min-height: 0;
-    padding: 9px 0;
+    padding: 10px 0;
   }
 
   .finance-record-date {
@@ -967,7 +986,7 @@ html {
 
   .finance-record-row .finance-source-pill {
     grid-area: source;
-    justify-self: end;
+    justify-self: start;
   }
 
   .finance-record-main {
@@ -988,11 +1007,12 @@ html {
     align-self: center;
     font-size: 13px;
     line-height: 1.2;
+    text-align: left;
   }
 
   .finance-record-row .finance-status-pill {
     grid-area: status;
-    justify-self: end;
+    justify-self: start;
     min-height: 18px;
     padding: 2px 7px;
     font-size: 10px;
@@ -1013,6 +1033,27 @@ html {
   .finance-toolbar,
   .finance-gopay-form {
     grid-template-columns: 1fr;
+  }
+
+  .finance-head {
+    padding: 12px;
+  }
+
+  .finance-head dl {
+    display: none;
+  }
+
+  .finance-toolbar {
+    padding-inline: 12px;
+  }
+
+  .finance-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-actions .finance-primary,
+  .finance-actions .finance-secondary {
+    min-width: 0;
   }
 
   .finance-kpi-grid {
@@ -1053,11 +1094,6 @@ html {
   .finance-source-bar div span,
   .finance-insight-list span {
     text-align: left;
-  }
-
-  .finance-head dl div {
-    flex: 1 1 calc(50% - 8px);
-    justify-content: space-between;
   }
 
   .finance-preview-stats {

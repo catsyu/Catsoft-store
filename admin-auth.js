@@ -171,6 +171,24 @@ function normalizeRoutePath(value) {
   return clean === '/' ? '/' : clean.toLowerCase();
 }
 
+function normalizeAdminConsoleRoutePath(value) {
+  const routePath = normalizeRoutePath(value);
+
+  if (routePath === '/admin') {
+    return '/';
+  }
+
+  if (routePath.startsWith('/admin/')) {
+    return normalizeRoutePath(routePath.slice('/admin'.length));
+  }
+
+  if (routePath === '/customer') {
+    return '/customers';
+  }
+
+  return routePath;
+}
+
 function getDefaultAdminAccountsApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
@@ -217,7 +235,7 @@ function getDefaultSessionActivityApiEndpoint() {
 
 function getCurrentAdminToolId() {
   const pageName = getCurrentPageName();
-  const routePath = normalizeRoutePath(window.location.pathname);
+  const routePath = normalizeAdminConsoleRoutePath(window.location.pathname);
   const basePageName = pageName.replace(/\.html$/i, '');
   const tool = CATSOFT_ADMIN_TOOLS.find((item) => {
     const toolBasePath = String(item.path || '').replace(/\.html$/i, '');
@@ -2114,6 +2132,7 @@ function getCurrentAdminConsoleState() {
     '/customer-access.html': { view: 'customer', consoleToolPane: 'customer-access' },
     '/customer-database': { view: 'customer', consoleToolPane: 'customer-database' },
     '/customer-database.html': { view: 'customer', consoleToolPane: 'customer-database' },
+    '/customer': { view: 'customer', consoleToolPane: 'customer-database' },
     '/customers': { view: 'customer', consoleToolPane: 'customer-database' },
     '/refund-calculator': { view: 'customer', consoleToolPane: 'refund-calculator' },
     '/refund-calculator.html': { view: 'customer', consoleToolPane: 'refund-calculator' },
@@ -2150,7 +2169,7 @@ function getCurrentAdminConsoleState() {
     };
   }
 
-  const routePath = normalizeRoutePath(window.location.pathname);
+  const routePath = normalizeAdminConsoleRoutePath(window.location.pathname);
   return routeState[routePath] || { view: 'overview', consoleToolPane: '', adminAccessPane: '' };
 }
 

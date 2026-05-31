@@ -16,12 +16,16 @@
 /admin /admin-tools.html 200
 /admin/access /admin-tools.html 200
 /admin/supplier-access /admin-tools.html 200
+/admin/customer-access /admin-tools.html 200
+/admin/customer /admin-tools.html 200
 /admin/customers /admin-tools.html 200
 /admin/refund /admin-tools.html 200
 /admin/mail /admin-tools.html 200
+/admin/chat /admin-tools.html 200
 /admin/office /admin-tools.html 200
 /admin/marketing /admin-tools.html 200
 /admin/content /admin-tools.html 200
 /admin/stock /admin-tools.html 200
+/admin/finance /admin-tools.html 200
 /supplier /supplier-center.html 200
 /supplier/mail /supplier-email.html 200

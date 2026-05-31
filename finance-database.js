@@ -93,16 +93,12 @@ function parseFinanceAmount(value) {
     return Number.isFinite(value) ? Math.abs(Math.round(value)) : 0;
   }
 
-  const raw = String(value || '').trim();
-  if (!raw) {
+  const digits = String(value || '').replace(/[^\d]/g, '');
+  if (!digits) {
     return 0;
   }
 
-  const normalized = raw
-    .replace(/[^\d,.-]/g, '')
-    .replace(/\.(?=\d{3}(\D|$))/g, '')
-    .replace(',', '.');
-  const amount = Number(normalized);
+  const amount = Number(digits);
   return Number.isFinite(amount) ? Math.abs(Math.round(amount)) : 0;
 }
 

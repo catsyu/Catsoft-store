@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="admin-tools.css?v=20260530-search-icon-align" />
   <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="product-stock.css?v=20260531-stock-join-edit" />
+  <link rel="stylesheet" href="product-stock.css?v=20260531-reset-summary" />
 </head>
 <body class="product-stock-body">
   <main class="product-stock-page">
@@ -38,6 +38,16 @@
           </dl>
         </div>
         <div class="admin-spectrum-rule"></div>
+        <div class="stock-reset-summary" aria-label="Ringkasan reset stok">
+          <button class="stock-reset-card" type="button" data-stock-reset-filter="reset_today" aria-pressed="false">
+            <span>Reset Hari Ini</span>
+            <strong data-stock-reset-today>0</strong>
+          </button>
+          <button class="stock-reset-card" type="button" data-stock-reset-filter="reset_overdue" aria-pressed="false">
+            <span>Belum Reset</span>
+            <strong data-stock-reset-overdue>0</strong>
+          </button>
+        </div>
         <nav class="stock-type-tabs" aria-label="Jenis stok">
           <button class="is-active" type="button" data-stock-type-tab="all">Semua Stok</button>
           <button type="button" data-stock-type-tab="account">Akun</button>
@@ -79,14 +89,21 @@
                   <option value="active">Aktif</option>
                   <option value="full">Penuh</option>
                   <option value="reset">Perlu Reset</option>
+                  <option value="reset_today">Reset Hari Ini</option>
+                  <option value="reset_overdue">Belum Reset</option>
                   <option value="paused">Jeda</option>
                   <option value="reset_due">Jadwal Reset</option>
                 </select>
               </label>
               <label>
+                <span>Bulan Stok</span>
+                <input type="month" data-stock-filter-month />
+              </label>
+              <label>
                 <span>Urut</span>
                 <select data-stock-sort-by>
                   <option value="updatedAt">Terbaru</option>
+                  <option value="stockDate">Tanggal Stok</option>
                   <option value="accountName">Nama Stok</option>
                   <option value="productName">Produk</option>
                   <option value="joinedActive">Customer Join</option>
@@ -192,6 +209,10 @@
               <input type="text" inputmode="numeric" data-stock-cost value="Rp 0" />
             </label>
             <label>
+              Tanggal Stok
+              <input type="date" data-stock-date data-empty-label="Pilih Tanggal" />
+            </label>
+            <label>
               Kapasitas
               <input type="number" min="1" max="500" step="1" data-stock-capacity value="7" required />
             </label>
@@ -255,6 +276,6 @@
     </aside>
   </main>
   <script src="admin-auth.js?v=20260531-single-console" defer></script>
-  <script src="product-stock.js?v=20260531-stock-join-edit" defer></script>
+  <script src="product-stock.js?v=20260531-reset-summary" defer></script>
 </body>
 </html>

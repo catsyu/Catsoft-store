@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="form-standard.css?v=20260529-upload-icon-center" />
-  <link rel="stylesheet" href="customer-database.css?v=20260531-income-filtered" />
+  <link rel="stylesheet" href="customer-database.css?v=20260531-stock-dropdown" />
 </head>
 <body>
   <main class="customer-page">
@@ -87,8 +87,7 @@
 
             <label class="field-group">
               <span>Stok</span>
-              <input id="stockAccount" type="text" list="stockAccountList" placeholder="Cari stok, produk, atau login" autocomplete="off" />
-              <datalist id="stockAccountList"></datalist>
+              <input id="stockAccount" type="text" placeholder="Cari stok, produk, atau login" autocomplete="off" aria-autocomplete="list" aria-expanded="false" />
             </label>
 
             <label class="field-group">
@@ -392,6 +391,6 @@
   <script src="admin-auth.js?v=20260531-single-console" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="customer-database.js?v=20260531-stock-search" defer></script>
+  <script src="customer-database.js?v=20260531-stock-dropdown" defer></script>
 </body>
 </html>

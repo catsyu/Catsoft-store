@@ -767,7 +767,9 @@ function getStockAccountSearchOptions() {
       label: displayValue,
       saveValue,
       aliases: [displayValue, saveValue, ...parts, account.id].map((value) => String(value || '').trim()).filter(Boolean),
-      searchText: [...parts, saveValue, account.id].join(' ').toLowerCase()
+      searchText: [...parts, saveValue, account.id].join(' ').toLowerCase(),
+      displayTitle: fallbackLabel,
+      displayMeta: parts.filter((part) => part !== fallbackLabel).join(' · ')
     });
   });
 
@@ -783,7 +785,9 @@ function getStockAccountSearchOptions() {
       label: saveValue,
       saveValue,
       aliases: [saveValue],
-      searchText: saveValue.toLowerCase()
+      searchText: saveValue.toLowerCase(),
+      displayTitle: saveValue,
+      displayMeta: ''
     });
   });
 
@@ -851,6 +855,121 @@ function renderStockAccountOptions() {
       .map((option) => `<option value="${escapeHtml(option.value)}" label="${escapeHtml(option.label)}"></option>`)
       .join('');
   }
+
+  refreshOpenStockAccountMenus();
+}
+
+function isStockAccountInput(field) {
+  return Boolean(field?.matches?.('#stockAccount, [data-edit-field="stockAccount"]'));
+}
+
+function ensureStockAccountMenu(field) {
+  if (!isStockAccountInput(field)) {
+    return null;
+  }
+
+  field.removeAttribute('list');
+  field.setAttribute('autocomplete', 'off');
+  field.setAttribute('aria-autocomplete', 'list');
+
+  const wrapper = field.closest('.field-group');
+  if (!wrapper) {
+    return null;
+  }
+
+  wrapper.classList.add('stock-account-field');
+  let menu = wrapper.querySelector(':scope > .stock-account-menu');
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = 'stock-account-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    field.insertAdjacentElement('afterend', menu);
+  }
+
+  return menu;
+}
+
+function getStockAccountMenuMatches(field) {
+  const options = getStockAccountSearchOptions();
+  const rawQuery = normalizeSearch(field?.value || '');
+  const selectedOption = getStockAccountOptionByValue(field?.value || '', options);
+  const query = selectedOption ? '' : rawQuery;
+
+  if (!query) {
+    return options.slice(0, 12);
+  }
+
+  return options
+    .filter((option) => normalizeSearch(`${option.label} ${option.saveValue} ${option.searchText}`).includes(query))
+    .slice(0, 12);
+}
+
+function renderStockAccountMenu(field, open = true) {
+  const menu = ensureStockAccountMenu(field);
+
+  if (!menu) {
+    return;
+  }
+
+  const matches = getStockAccountMenuMatches(field);
+  field.setAttribute('aria-expanded', String(open && matches.length > 0));
+
+  if (!open) {
+    menu.hidden = true;
+    return;
+  }
+
+  if (!matches.length) {
+    menu.innerHTML = '<div class="stock-account-empty">Stok tidak ditemukan.</div>';
+    menu.hidden = false;
+    field.setAttribute('aria-expanded', 'true');
+    return;
+  }
+
+  menu.innerHTML = matches.map((option) => {
+    const title = option.displayTitle || option.label || option.saveValue;
+    const meta = option.displayMeta || option.saveValue;
+
+    return `
+      <button class="stock-account-option" type="button" role="option" data-stock-account-option="${escapeHtml(option.saveValue)}">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(meta)}</small>
+      </button>
+    `;
+  }).join('');
+  menu.hidden = false;
+}
+
+function closeStockAccountMenus(exceptField = null) {
+  document.querySelectorAll('.stock-account-menu').forEach((menu) => {
+    const field = menu.closest('.stock-account-field')?.querySelector('#stockAccount, [data-edit-field="stockAccount"]');
+
+    if (field && exceptField && field === exceptField) {
+      return;
+    }
+
+    menu.hidden = true;
+    field?.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function refreshOpenStockAccountMenus() {
+  document.querySelectorAll('.stock-account-field > .stock-account-menu:not([hidden])').forEach((menu) => {
+    const field = menu.closest('.stock-account-field')?.querySelector('#stockAccount, [data-edit-field="stockAccount"]');
+
+    if (field) {
+      renderStockAccountMenu(field, true);
+    }
+  });
+}
+
+function selectStockAccountOption(field, saveValue) {
+  const option = getStockAccountOptionByValue(saveValue);
+  field.value = option ? option.value : saveValue;
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+  closeStockAccountMenus();
 }
 
 async function syncStockAccountOptions() {
@@ -2310,7 +2429,7 @@ function renderInlineEditForm(record, status) {
       </label>
       <label class="field-group">
         <span>Stok</span>
-        <input data-edit-field="stockAccount" type="text" list="stockAccountList" placeholder="Cari stok, produk, atau login" autocomplete="off" value="${escapeHtml(getStockAccountDisplayValue(record.stockAccount || ''))}" />
+        <input data-edit-field="stockAccount" type="text" placeholder="Cari stok, produk, atau login" autocomplete="off" aria-autocomplete="list" aria-expanded="false" value="${escapeHtml(getStockAccountDisplayValue(record.stockAccount || ''))}" />
       </label>
       <label class="field-group">
         <span>Penghasilan</span>
@@ -4061,8 +4180,49 @@ incomeAmountInput?.addEventListener('blur', (event) => {
   const amount = parseCurrencyAmount(event.target.value);
   event.target.value = amount ? formatCurrencyAmount(amount) : '';
 });
-stockAccountInput?.addEventListener('blur', () => {
-  setStockAccountFieldValue(stockAccountInput, getStockAccountSaveValue(stockAccountInput.value));
+document.addEventListener('focusin', (event) => {
+  const field = event.target;
+
+  if (isStockAccountInput(field)) {
+    renderStockAccountMenu(field, true);
+  }
+});
+document.addEventListener('input', (event) => {
+  const field = event.target;
+
+  if (isStockAccountInput(field)) {
+    renderStockAccountMenu(field, true);
+  }
+});
+document.addEventListener('focusout', (event) => {
+  const field = event.target;
+
+  if (!isStockAccountInput(field)) {
+    return;
+  }
+
+  setTimeout(() => {
+    setStockAccountFieldValue(field, getStockAccountSaveValue(field.value));
+    closeStockAccountMenus();
+  }, 80);
+});
+document.addEventListener('pointerdown', (event) => {
+  const option = event.target.closest('[data-stock-account-option]');
+
+  if (option) {
+    const field = option.closest('.stock-account-field')?.querySelector('#stockAccount, [data-edit-field="stockAccount"]');
+
+    if (field) {
+      event.preventDefault();
+      selectStockAccountOption(field, option.dataset.stockAccountOption || '');
+    }
+
+    return;
+  }
+
+  if (!event.target.closest('.stock-account-field')) {
+    closeStockAccountMenus();
+  }
 });
 editRegisteredProductsBtn?.addEventListener('click', openRegisteredProductEditor);
 saveRegisteredProductsBtn?.addEventListener('click', saveRegisteredProductEditor);

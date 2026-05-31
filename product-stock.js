@@ -164,6 +164,7 @@ function createTeamMemberDraft(parentAccount = null, overrides = {}) {
     loginUsername: overrides.loginUsername || '',
     loginPassword: overrides.loginPassword || '',
     stockCost: Number(overrides.stockCost || defaultCost || 0),
+    stockDate: overrides.stockDate || parentAccount?.stockDate || document.querySelector('[data-stock-date]')?.value || getStockToday(),
     capacity: Number(overrides.capacity || defaultCapacity || 1),
     status: overrides.status || parentAccount?.status || 'active',
     resetAt: overrides.resetAt || parentAccount?.resetAt || '',
@@ -304,9 +305,33 @@ function formatStockDateTime(value) {
   }).format(date);
 }
 
+function getStockToday() {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+}
+
+function getStockMonthValue(value) {
+  return String(value || '').slice(0, 7);
+}
+
+function getStockAccountDate(account) {
+  return String(account?.stockDate || account?.stock_date || account?.createdAt || account?.created_at || '').slice(0, 10);
+}
+
 function isStockResetDue(account) {
   const resetAt = String(account.resetAt || '').slice(0, 10);
-  return account.status === 'reset' || Boolean(resetAt && resetAt <= new Date().toISOString().slice(0, 10));
+  return account.status === 'reset' || Boolean(resetAt && resetAt <= getStockToday());
+}
+
+function isStockResetToday(account) {
+  const resetAt = String(account.resetAt || '').slice(0, 10);
+  return Boolean(resetAt && resetAt === getStockToday());
+}
+
+function isStockResetOverdue(account) {
+  const resetAt = String(account.resetAt || '').slice(0, 10);
+  return account.status === 'reset' || Boolean(resetAt && resetAt < getStockToday());
 }
 
 function normalizeStockAccount(account) {
@@ -320,6 +345,7 @@ function normalizeStockAccount(account) {
     accountTarget: String(account.accountTarget || account.account_target || '').trim(),
     loginUsername: String(account.loginUsername || account.login_username || '').trim(),
     loginPassword: String(account.loginPassword || account.login_password || '').trim(),
+    stockDate: getStockAccountDate(account),
     stockCost: Number(account.stockCost || account.stock_cost || 0),
     teamMemberCount: getStockTeamMemberCount(account),
     capacity: Number(account.capacity || 7),
@@ -387,6 +413,10 @@ function getStockSortValue(account, sortBy) {
     return account.resetAt ? Date.parse(`${account.resetAt}T00:00:00`) || 0 : 0;
   }
 
+  if (sortBy === 'stockDate') {
+    return account.stockDate ? Date.parse(`${account.stockDate}T00:00:00`) || 0 : 0;
+  }
+
   if (sortBy === 'status') {
     return normalizeStockValue(stockStatusLabels[account.status] || account.status);
   }
@@ -425,11 +455,12 @@ function renderStockFilterOptions() {
   productSelect.value = hasCurrent ? currentValue : 'all';
 }
 
-function getFilteredStockAccounts() {
+function getFilteredStockAccounts(options = {}) {
   const term = getStockSearchTerm();
   const productFilter = getStockFilterValue('[data-stock-filter-product]');
   const typeFilter = getEffectiveStockTypeFilter();
   const statusFilter = getStockFilterValue('[data-stock-filter-status]');
+  const monthFilter = getStockFilterValue('[data-stock-filter-month]', '');
   const sortBy = getStockFilterValue('[data-stock-sort-by]', 'updatedAt');
   const sortDirection = getStockFilterValue('[data-stock-sort-direction]', 'desc');
   let filteredAccounts = [...productStockAccounts];
@@ -439,6 +470,7 @@ function getFilteredStockAccounts() {
       account.productName,
       account.accountName,
       account.loginUsername,
+      account.stockDate,
       getParentTeamAccount(account.parentStockId)?.accountName || '',
       stockTypeLabels[account.stockType] || '',
       stockStatusLabels[account.status] || account.status
@@ -453,10 +485,20 @@ function getFilteredStockAccounts() {
     filteredAccounts = filteredAccounts.filter((account) => account.stockType === typeFilter);
   }
 
-  if (statusFilter === 'reset_due') {
-    filteredAccounts = filteredAccounts.filter(isStockResetDue);
-  } else if (statusFilter !== 'all') {
-    filteredAccounts = filteredAccounts.filter((account) => account.status === statusFilter);
+  if (!options.ignoreStatus) {
+    if (statusFilter === 'reset_today') {
+      filteredAccounts = filteredAccounts.filter(isStockResetToday);
+    } else if (statusFilter === 'reset_overdue') {
+      filteredAccounts = filteredAccounts.filter(isStockResetOverdue);
+    } else if (statusFilter === 'reset_due') {
+      filteredAccounts = filteredAccounts.filter(isStockResetDue);
+    } else if (statusFilter !== 'all') {
+      filteredAccounts = filteredAccounts.filter((account) => account.status === statusFilter);
+    }
+  }
+
+  if (monthFilter) {
+    filteredAccounts = filteredAccounts.filter((account) => getStockMonthValue(getStockAccountDate(account)) === monthFilter);
   }
 
   return filteredAccounts.sort((first, second) => compareStockAccounts(first, second, sortBy, sortDirection));
@@ -542,7 +584,11 @@ async function fetchProductStockAccounts(options = {}) {
 
   try {
     const stockUrl = new URL(PRODUCT_STOCK_API, window.location.href);
+    const monthFilter = getStockFilterValue('[data-stock-filter-month]', '');
     stockUrl.searchParams.set('limit', '300');
+    if (monthFilter) {
+      stockUrl.searchParams.set('month', monthFilter);
+    }
     stockUrl.searchParams.set('_', String(Date.now()));
 
     const response = await fetch(stockUrl.toString(), {
@@ -738,16 +784,17 @@ function normalizeStockOrderNumber(value) {
   return String(value || '').trim().replace(/\s+/g, '').toLowerCase();
 }
 
-async function findCustomerRecordByOrderNumber(orderNumber) {
-  const cleanOrder = normalizeStockOrderNumber(orderNumber);
+async function findCustomerRecordByJoinQuery(query) {
+  const cleanQuery = normalizeStockOrderNumber(query);
+  const rawQuery = String(query || '').trim();
 
-  if (!cleanOrder) {
+  if (!cleanQuery) {
     return null;
   }
 
   const response = await fetch(buildCustomerRecordsApiUrl('', {
     limit: 1,
-    orderNumber: cleanOrder
+    lookup: rawQuery
   }), {
     cache: 'no-store',
     headers: { 'Cache-Control': 'no-cache' }
@@ -846,11 +893,11 @@ async function addJoinedCustomerByOrder(event) {
   }
 
   const input = document.querySelector('[data-stock-join-order]');
-  const orderNumber = input?.value || '';
+  const lookupQuery = input?.value || '';
   const targetAccount = getStockJoinTargetAccount(activeStockDrawerAccount);
 
-  if (!normalizeStockOrderNumber(orderNumber)) {
-    setStockJoinStatus('Isi nomor pesanan terlebih dulu.');
+  if (!normalizeStockOrderNumber(lookupQuery)) {
+    setStockJoinStatus('Isi nomor pesanan, nomor HP, atau username.');
     input?.focus();
     return;
   }
@@ -864,10 +911,10 @@ async function addJoinedCustomerByOrder(event) {
   setStockJoinStatus('Mencari customer...');
 
   try {
-    const record = await findCustomerRecordByOrderNumber(orderNumber);
+    const record = await findCustomerRecordByJoinQuery(lookupQuery);
 
     if (!record) {
-      setStockJoinStatus('Nomor pesanan tidak ditemukan di database customer.');
+      setStockJoinStatus('Customer tidak ditemukan di database.');
       return;
     }
 
@@ -943,6 +990,8 @@ function renderProductStockAccounts() {
   const reset = document.querySelector('[data-stock-reset]');
   const costTotal = document.querySelector('[data-stock-cost-total]');
   const profitTotal = document.querySelector('[data-stock-profit-total]');
+  const resetToday = document.querySelector('[data-stock-reset-today]');
+  const resetOverdue = document.querySelector('[data-stock-reset-overdue]');
 
   if (!list) {
     return;
@@ -951,17 +1000,27 @@ function renderProductStockAccounts() {
   renderStockFilterOptions();
 
   const visible = getFilteredStockAccounts();
+  const visibleResetBase = getFilteredStockAccounts({ ignoreStatus: true });
   const paged = visible.slice(0, productStockPageSize);
   const visibleCost = visible.reduce((sum, account) => sum + getStockCostForTotals(account, visible), 0);
   const visibleProfit = visible.reduce((sum, account) => sum + getStockProfitForTotals(account, visible), 0);
 
   if (total) total.textContent = String(visible.length);
   if (reset) reset.textContent = String(visible.filter(isStockResetDue).length);
+  if (resetToday) resetToday.textContent = String(visibleResetBase.filter(isStockResetToday).length);
+  if (resetOverdue) resetOverdue.textContent = String(visibleResetBase.filter(isStockResetOverdue).length);
   if (costTotal) costTotal.textContent = formatStockCurrency(visibleCost);
   if (profitTotal) {
     profitTotal.textContent = formatStockCurrency(visibleProfit);
     profitTotal.closest('div')?.classList.toggle('is-negative', visibleProfit < 0);
   }
+
+  const statusFilter = getStockFilterValue('[data-stock-filter-status]');
+  document.querySelectorAll('[data-stock-reset-filter]').forEach((button) => {
+    const isActive = button.dataset.stockResetFilter === statusFilter;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 
   if (!visible.length) {
     list.innerHTML = `
@@ -982,6 +1041,7 @@ function renderProductStockAccounts() {
     const parentTeam = getParentTeamAccount(account.parentStockId);
     const usageText = `${metrics.joinedActive}/${metrics.capacity}`;
     const resetText = isStockResetDue(account) ? 'Perlu Reset' : formatStockDate(account.resetAt);
+    const stockDateText = formatStockDate(getStockAccountDate(account));
     const statusText = stockStatusLabels[account.status] || 'Aktif';
     const typeText = stockTypeLabels[account.stockType] || 'Akun';
     const typeDetail = account.stockType === 'team'
@@ -1025,7 +1085,7 @@ function renderProductStockAccounts() {
         </span>
         <span>
           <b>${escapeStockHtml(statusText)}</b>
-          <small>${escapeStockHtml(resetText)}</small>
+          <small>${escapeStockHtml(`${resetText} · Stok ${stockDateText}`)}</small>
         </span>
         <span class="admin-spectrum-row-actions">
           <button class="admin-spectrum-open stock-edit-button" type="button" data-open-stock="${escapeStockHtml(account.id)}" aria-label="Edit ${escapeStockHtml(account.accountName)}"><span>Edit</span></button>
@@ -1319,6 +1379,7 @@ function resetStockForm() {
   document.querySelector('[data-stock-type]').value = defaultType;
   setStockSelectValue(document.querySelector('[data-stock-product]'), defaultType === 'redeem_code' ? 'Redeem Code' : 'ChatGPT');
   document.querySelector('[data-stock-cost]').value = 'Rp 0';
+  document.querySelector('[data-stock-date]').value = getStockToday();
   renderParentTeamOptions('', '');
   document.querySelector('[data-stock-status-field]').value = 'active';
   document.querySelector('[data-stock-delete-section]').hidden = true;
@@ -1355,7 +1416,7 @@ function renderJoinedCustomers(account) {
       <label>
         Tambah Customer
         <span class="stock-join-search-row">
-          <input type="search" data-stock-join-order placeholder="Cari nomor pesanan" autocomplete="off" />
+          <input type="search" data-stock-join-order placeholder="No. pesanan, HP, atau username" autocomplete="off" />
           <button class="admin-spectrum-secondary" type="submit">Tambah</button>
         </span>
       </label>
@@ -1379,7 +1440,7 @@ function renderJoinedCustomers(account) {
     : account.joinedCustomers;
 
   if (!joinedCustomers.length) {
-    list.innerHTML = `${searchForm}<p>Belum ada customer yang terhubung. Cari nomor pesanan untuk menambah customer ke stok ini.</p>`;
+    list.innerHTML = `${searchForm}<p>Belum ada customer yang terhubung. Cari nomor pesanan, nomor HP, atau username untuk menambah customer ke stok ini.</p>`;
     list.querySelector('[data-stock-join-search]')?.addEventListener('submit', addJoinedCustomerByOrder);
     return;
   }
@@ -1398,7 +1459,7 @@ function renderJoinedCustomers(account) {
           <b>${escapeStockHtml(statusText)}</b>
           <small>${escapeStockHtml(customer.stockMemberName ? `${customer.stockMemberName} · ` : '')}${escapeStockHtml(formatStockCurrency(customer.incomeAmount || 0))} · ${escapeStockHtml(formatStockDate(customer.expiryDate))}</small>
         </span>
-        <button class="stock-joined-edit-toggle" type="button" data-stock-edit-join="${customerId}" aria-label="Edit customer ${escapeStockHtml(customer.customerName || customer.orderNumber || '')}">Edit</button>
+        <button class="stock-joined-edit-toggle" type="button" data-stock-edit-join="${customerId}" aria-label="Edit customer ${escapeStockHtml(customer.customerName || customer.orderNumber || '')}">Ubah</button>
         <div class="stock-joined-edit" data-stock-join-editor="${customerId}" hidden>
           <span>Customer ini terhubung lewat field Stok di database customer.</span>
           <button class="admin-spectrum-secondary" type="button" data-stock-unlink-customer="${customerId}">Lepas Dari Stok</button>
@@ -1433,6 +1494,7 @@ function openStockDrawer(id = '') {
     document.querySelector('[data-stock-login-username]').value = account.loginUsername;
     document.querySelector('[data-stock-login-password]').value = account.loginPassword;
     document.querySelector('[data-stock-cost]').value = formatStockCurrency(account.stockCost);
+    document.querySelector('[data-stock-date]').value = getStockAccountDate(account);
     document.querySelector('[data-stock-team-members]').value = getStockTeamMemberCount(account);
     document.querySelector('[data-stock-capacity]').value = account.capacity;
     document.querySelector('[data-stock-status-field]').value = account.status;
@@ -1486,6 +1548,7 @@ function getStockFormValues() {
     loginUsername: document.querySelector('[data-stock-login-username]').value.trim(),
     loginPassword: document.querySelector('[data-stock-login-password]').value.trim(),
     stockCost: parseStockCurrency(document.querySelector('[data-stock-cost]').value || ''),
+    stockDate: document.querySelector('[data-stock-date]').value || getStockToday(),
     teamMemberCount: Number(document.querySelector('[data-stock-team-members]')?.value || 1),
     capacity: Number(document.querySelector('[data-stock-capacity]').value || 7),
     status: document.querySelector('[data-stock-status-field]').value,
@@ -1524,6 +1587,7 @@ function buildStockSavePayload(values) {
       loginUsername: String(draft.loginUsername || '').trim(),
       loginPassword: String(draft.loginPassword || '').trim(),
       stockCost: memberCost,
+      stockDate: values.stockDate,
       teamMemberCount: 1,
       capacity: Number(draft.capacity || values.capacity || 1) || 1,
       status: draft.status || values.status,
@@ -1557,6 +1621,7 @@ function buildStockSavePayload(values) {
       : 0,
     productName: parentTeam ? parentTeam.productName : values.productName,
     stockCost: parentTeam ? getStockCostPerMember(parentTeam) : values.stockCost,
+    stockDate: values.stockDate,
     teamMemberCount: 1,
     updatedAt: now
   };
@@ -1670,10 +1735,29 @@ function bindProductStock() {
       renderProductStockAccounts();
     });
   });
-  document.querySelectorAll('[data-stock-filter-product], [data-stock-filter-type], [data-stock-filter-status], [data-stock-sort-by], [data-stock-sort-direction]').forEach((input) => {
-    input.addEventListener('change', () => {
+  document.querySelectorAll('[data-stock-filter-product], [data-stock-filter-type], [data-stock-filter-status], [data-stock-filter-month], [data-stock-sort-by], [data-stock-sort-direction]').forEach((input) => {
+    input.addEventListener('change', async () => {
       if (input.matches('[data-stock-filter-type]')) {
         setActiveStockTypeTab(input.value || 'all');
+      }
+      selectedStockIds.clear();
+      if (input.matches('[data-stock-filter-month]')) {
+        try {
+          await fetchProductStockAccounts({ silent: true });
+        } catch (error) {
+          setStockStatus(`Gagal memfilter bulan: ${error.message}`);
+        }
+        return;
+      }
+      renderProductStockAccounts();
+    });
+  });
+  document.querySelectorAll('[data-stock-reset-filter]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const statusSelect = document.querySelector('[data-stock-filter-status]');
+      const nextStatus = button.dataset.stockResetFilter || 'all';
+      if (statusSelect) {
+        statusSelect.value = statusSelect.value === nextStatus ? 'all' : nextStatus;
       }
       selectedStockIds.clear();
       renderProductStockAccounts();

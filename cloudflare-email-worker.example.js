@@ -1973,6 +1973,7 @@ async function ensureProductStockTable(db) {
       account_target TEXT,
       login_username TEXT,
       login_password TEXT,
+      stock_date TEXT,
       stock_cost INTEGER NOT NULL DEFAULT 0,
       team_member_count INTEGER NOT NULL DEFAULT 1,
       capacity INTEGER NOT NULL DEFAULT 7,
@@ -1989,6 +1990,7 @@ async function ensureProductStockTable(db) {
   await addColumnIfMissing(db, 'product_stock_accounts', 'team_member_count', 'INTEGER NOT NULL DEFAULT 1');
   await addColumnIfMissing(db, 'product_stock_accounts', 'parent_stock_id', 'TEXT');
   await addColumnIfMissing(db, 'product_stock_accounts', 'team_member_index', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumnIfMissing(db, 'product_stock_accounts', 'stock_date', 'TEXT');
 
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_product
@@ -2013,6 +2015,11 @@ async function ensureProductStockTable(db) {
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_reset_at
     ON product_stock_accounts (reset_at)
+  `).run();
+
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_product_stock_accounts_stock_date
+    ON product_stock_accounts (stock_date)
   `).run();
 }
 
@@ -2046,6 +2053,7 @@ function normalizeProductStockAccount(account) {
     accountTarget: cleanValue(account.accountTarget ?? account.account_target, 240),
     loginUsername: cleanValue(account.loginUsername ?? account.login_username, 240),
     loginPassword: cleanValue(account.loginPassword ?? account.login_password, 240),
+    stockDate: cleanDate(account.stockDate ?? account.stock_date),
     stockCost: clampNumber(account.stockCost ?? account.stock_cost, 0, 0, 999999999),
     teamMemberCount: clampNumber(account.teamMemberCount ?? account.team_member_count, 1, 1, 500),
     capacity: clampNumber(account.capacity, 7, 1, 500),
@@ -2068,6 +2076,7 @@ function mapProductStockRow(row) {
     accountTarget: row.account_target || '',
     loginUsername: row.login_username || '',
     loginPassword: row.login_password || '',
+    stockDate: row.stock_date || '',
     stockCost: row.stock_cost || 0,
     teamMemberCount: row.team_member_count || 1,
     capacity: row.capacity || 7,
@@ -2163,18 +2172,29 @@ async function listProductStockAccounts(request, env) {
   const limit = clampNumber(url.searchParams.get('limit'), 80, 1, 300);
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
   const search = normalizeCustomerUniqueEmail(url.searchParams.get('q') || url.searchParams.get('search'));
-  const whereClause = search
-    ? `WHERE LOWER(product_name || ' ' || account_name || ' ' || stock_type || ' ' || COALESCE(parent_stock_id, '') || ' ' || COALESCE(account_target, '') || ' ' || COALESCE(login_username, '')) LIKE ?`
-    : '';
-  const bindings = search ? [`%${search}%`, limit, offset] : [limit, offset];
+  const stockMonth = cleanValue(url.searchParams.get('month') || url.searchParams.get('stockMonth') || '', 7);
+  const whereParts = [];
+  const bindings = [];
+
+  if (search) {
+    whereParts.push(`LOWER(product_name || ' ' || account_name || ' ' || stock_type || ' ' || COALESCE(parent_stock_id, '') || ' ' || COALESCE(account_target, '') || ' ' || COALESCE(login_username, '')) LIKE ?`);
+    bindings.push(`%${search}%`);
+  }
+
+  if (/^\d{4}-\d{2}$/.test(stockMonth)) {
+    whereParts.push("(stock_date LIKE ? OR (COALESCE(stock_date, '') = '' AND created_at LIKE ?))");
+    bindings.push(`${stockMonth}%`, `${stockMonth}%`);
+  }
+
+  const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
   const result = await customerDb.prepare(`
-    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password,
+    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password, stock_date,
       stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
     FROM product_stock_accounts
     ${whereClause}
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
-  `).bind(...bindings).all();
+  `).bind(...bindings, limit, offset).all();
 
   const accounts = [];
   for (const row of result.results || []) {
@@ -2248,10 +2268,10 @@ async function saveProductStockAccounts(request, env) {
 
     await customerDb.prepare(`
       INSERT INTO product_stock_accounts (
-        id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password,
+        id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password, stock_date,
         stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         parent_stock_id = excluded.parent_stock_id,
         team_member_index = excluded.team_member_index,
@@ -2261,6 +2281,7 @@ async function saveProductStockAccounts(request, env) {
         account_target = excluded.account_target,
         login_username = excluded.login_username,
         login_password = excluded.login_password,
+        stock_date = excluded.stock_date,
         stock_cost = excluded.stock_cost,
         team_member_count = excluded.team_member_count,
         capacity = excluded.capacity,
@@ -2278,6 +2299,7 @@ async function saveProductStockAccounts(request, env) {
       account.accountTarget,
       account.loginUsername,
       account.loginPassword,
+      account.stockDate,
       account.stockCost,
       account.teamMemberCount,
       account.capacity,
@@ -2292,7 +2314,7 @@ async function saveProductStockAccounts(request, env) {
   }
 
   const listResult = await customerDb.prepare(`
-    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password,
+    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password, stock_date,
       stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
     FROM product_stock_accounts
     ORDER BY updated_at DESC
@@ -2369,11 +2391,12 @@ function normalizeFinanceAmount(value) {
     return Number.isFinite(value) ? Math.abs(Math.round(value)) : 0;
   }
 
-  const normalized = String(value || 0)
-    .replace(/[^\d,.-]/g, '')
-    .replace(/\.(?=\d{3}(\D|$))/g, '')
-    .replace(',', '.');
-  const amount = Number(normalized);
+  const digits = String(value || '').replace(/[^\d]/g, '');
+  if (!digits) {
+    return 0;
+  }
+
+  const amount = Number(digits);
   return Number.isFinite(amount) ? Math.abs(Math.round(amount)) : 0;
 }
 
@@ -2654,7 +2677,17 @@ async function listCustomerRecords(request, env) {
     || url.searchParams.get('order')
     || url.searchParams.get('pesanan')
     || ''
+  ).replace(/\s+/g, '');
+  const lookupRaw = cleanValue(
+    url.searchParams.get('lookup')
+    || url.searchParams.get('q')
+    || url.searchParams.get('search')
+    || '',
+    180
   );
+  const lookupText = normalizeSearch(lookupRaw);
+  const lookupCompact = lookupText.replace(/\s+/g, '');
+  const lookupDigits = lookupRaw.replace(/\D/g, '');
   const whereParts = [];
   const bindings = [];
 
@@ -2666,6 +2699,34 @@ async function listCustomerRecords(request, env) {
   if (orderFilter) {
     whereParts.push("LOWER(REPLACE(order_number, ' ', '')) = ?");
     bindings.push(orderFilter);
+  }
+
+  if (lookupText) {
+    const phoneExpression = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(whatsapp_number, ''), ' ', ''), '-', ''), '+', ''), '.', ''), '(', ''), ')', '')";
+    const lookupParts = [
+      "LOWER(REPLACE(COALESCE(order_number, ''), ' ', '')) = ?",
+      "LOWER(COALESCE(customer_name, '')) = ?",
+      "LOWER(REPLACE(COALESCE(customer_name, ''), ' ', '')) = ?",
+      "LOWER(COALESCE(customer_name, '')) LIKE ?",
+      "LOWER(COALESCE(activated_email, '')) LIKE ?"
+    ];
+
+    bindings.push(lookupCompact, lookupText, lookupCompact, `%${lookupText}%`, `%${lookupText}%`);
+
+    if (lookupDigits) {
+      const phoneLookups = uniqueValues([
+        lookupDigits,
+        lookupDigits.startsWith('62') ? `0${lookupDigits.slice(2)}` : '',
+        lookupDigits.startsWith('0') ? `62${lookupDigits.slice(1)}` : ''
+      ].filter(Boolean));
+
+      for (const phoneLookup of phoneLookups) {
+        lookupParts.push(`${phoneExpression} LIKE ?`);
+        bindings.push(`%${phoneLookup}%`);
+      }
+    }
+
+    whereParts.push(`(${lookupParts.join(' OR ')})`);
   }
 
   const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';

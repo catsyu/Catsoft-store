@@ -4187,3 +4187,89 @@ textarea:focus {
 .database-panel .search-controls input[type="search"]::-webkit-search-results-decoration {
   display: none !important;
 }
+
+/* Custom stock picker replaces the browser datalist popup, which overflows on long stock names. */
+.stock-account-field {
+  position: relative !important;
+}
+
+.stock-account-field:focus-within {
+  z-index: 60 !important;
+}
+
+.stock-account-field input[aria-autocomplete="list"] {
+  padding-right: 34px !important;
+  text-overflow: ellipsis !important;
+}
+
+.stock-account-menu {
+  position: absolute;
+  z-index: 90;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: 230px;
+  overflow: auto;
+  border: 1px solid #cfcfcf;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+  padding: 5px;
+}
+
+.stock-account-menu[hidden] {
+  display: none !important;
+}
+
+.stock-account-option {
+  display: grid;
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #242424;
+  padding: 7px 9px;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.stock-account-option:hover,
+.stock-account-option:focus-visible {
+  background: #f0f0f0;
+  outline: none;
+}
+
+.stock-account-option strong,
+.stock-account-option small,
+.stock-account-empty {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-account-option strong {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.stock-account-option small {
+  min-width: 0;
+  color: #666;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.stock-account-empty {
+  padding: 10px;
+  color: #666;
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .stock-account-menu {
+    max-height: 190px;
+    border-radius: 10px;
+  }
+}

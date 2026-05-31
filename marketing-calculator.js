@@ -201,6 +201,7 @@ async function loadMarketingSettings() {
   try {
     const response = await fetch(`${marketingSettingsApi}?_=${Date.now()}`, {
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Cache-Control': 'no-cache' }
     });
 
@@ -238,6 +239,7 @@ async function saveMarketingSettings() {
   try {
     const response = await fetch(marketingSettingsApi, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings })
     });

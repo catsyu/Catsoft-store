@@ -608,12 +608,19 @@ async function fetchProductStockAccounts(options = {}) {
     if (monthFilter) {
       stockUrl.searchParams.set('month', monthFilter);
     }
+    stockUrl.searchParams.set('details', '0');
     stockUrl.searchParams.set('_', String(Date.now()));
 
     const response = await fetch(stockUrl.toString(), {
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Cache-Control': 'no-cache' }
     });
+
+    if (response.status === 401) {
+      handleStockUnauthorized();
+      throw new Error('Sesi admin berakhir. Silakan login ulang.');
+    }
 
     if (!response.ok) {
       throw new Error(`API stok ${response.status}`);
@@ -633,9 +640,15 @@ async function fetchProductStockAccounts(options = {}) {
 async function pushProductStockAccounts(accounts) {
   const response = await fetch(PRODUCT_STOCK_API, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accounts })
   });
+
+  if (response.status === 401) {
+    handleStockUnauthorized();
+    throw new Error('Sesi admin berakhir. Silakan login ulang.');
+  }
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -647,6 +660,38 @@ async function pushProductStockAccounts(accounts) {
 
 async function pushProductStockAccount(account) {
   return pushProductStockAccounts([account]);
+}
+
+function handleStockUnauthorized() {
+  setStockStatus('Sesi admin berakhir. Silakan login ulang.', 'warning');
+  window.CatsoftAdminAuth?.logout?.();
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 500);
+}
+
+async function fetchProductStockAccountDetails(id) {
+  if (!id) {
+    return null;
+  }
+
+  const response = await fetch(`${PRODUCT_STOCK_API}/${encodeURIComponent(id)}?_=${Date.now()}`, {
+    cache: 'no-store',
+    credentials: 'include',
+    headers: { 'Cache-Control': 'no-cache' }
+  });
+
+  if (response.status === 401) {
+    handleStockUnauthorized();
+    throw new Error('Sesi admin berakhir. Silakan login ulang.');
+  }
+
+  if (!response.ok) {
+    throw new Error(`API stok ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return normalizeStockAccount(payload.account || payload);
 }
 
 function buildStockCopyText(accounts) {
@@ -855,8 +900,14 @@ async function deleteSelectedStockAccounts() {
 
 async function deleteProductStockAccount(id) {
   const response = await fetch(`${PRODUCT_STOCK_API}/${encodeURIComponent(id)}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    credentials: 'include'
   });
+
+  if (response.status === 401) {
+    handleStockUnauthorized();
+    throw new Error('Sesi admin berakhir. Silakan login ulang.');
+  }
 
   if (!response.ok) {
     throw new Error(`API stok ${response.status}`);
@@ -897,6 +948,7 @@ async function findCustomerRecordByJoinQuery(query) {
     lookup: rawQuery
   }), {
     cache: 'no-store',
+    credentials: 'include',
     headers: { 'Cache-Control': 'no-cache' }
   });
 
@@ -920,6 +972,7 @@ async function patchCustomerRecordStock(record, targetAccount) {
   const response = await fetch(buildCustomerRecordsApiUrl(recordId), {
     method: 'PATCH',
     cache: 'no-store',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       stockAccount,
@@ -1060,6 +1113,7 @@ async function unlinkJoinedCustomer(customerId) {
     const response = await fetch(buildCustomerRecordsApiUrl(customerId), {
       method: 'PATCH',
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         stockAccount: '',
@@ -1585,12 +1639,25 @@ function renderJoinedCustomers(account) {
   });
 }
 
-function openStockDrawer(id = '') {
-  const account = productStockAccounts.find((item) => item.id === id);
+async function openStockDrawer(id = '') {
+  let account = productStockAccounts.find((item) => item.id === id);
 
   resetStockForm();
 
   if (account) {
+    if (!Array.isArray(account.joinedCustomers) || !account.joinedCustomers.length) {
+      try {
+        const detailedAccount = await fetchProductStockAccountDetails(account.id);
+        if (detailedAccount) {
+          account = detailedAccount;
+          productStockAccounts = productStockAccounts.map((item) => item.id === account.id ? account : item);
+          renderProductStockAccounts();
+        }
+      } catch (error) {
+        setStockStatus(`Detail stok belum lengkap: ${error.message}`);
+      }
+    }
+
     activeStockDrawerAccount = account;
     isStockJoinedExpanded = false;
     document.querySelector('[data-stock-id]').value = account.id;

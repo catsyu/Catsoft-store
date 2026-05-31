@@ -1110,6 +1110,7 @@ async function syncCustomerMarketingSettings() {
   try {
     const response = await fetch(`${customerMarketingSettingsApi}?_=${Date.now()}`, {
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Cache-Control': 'no-cache' }
     });
 
@@ -1469,6 +1470,7 @@ async function fetchWithTimeout(url, options = {}) {
   try {
     return await fetch(url, {
       ...fetchOptions,
+      credentials: fetchOptions.credentials || 'include',
       signal: controller.signal
     });
   } catch (error) {

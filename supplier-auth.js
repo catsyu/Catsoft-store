@@ -145,6 +145,7 @@ function saveSupplierAccounts(accounts) {
 async function pushSupplierAccountsToApi(accounts) {
   const response = await fetch(CATSOFT_SUPPLIER_ACCOUNTS_API, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accounts: accounts.map(normalizeSupplierAccount) })
   });
@@ -163,6 +164,7 @@ async function syncSupplierAccountsFromApi() {
   try {
     const response = await fetch(`${CATSOFT_SUPPLIER_ACCOUNTS_API}?_=${Date.now()}`, {
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Cache-Control': 'no-cache' }
     });
 
@@ -346,6 +348,7 @@ async function recordSupplierSessionActivity(username, eventType = 'active') {
   try {
     const response = await fetch(CATSOFT_SUPPLIER_SESSION_ACTIVITY_API, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: 'supplier', username, eventType, activeAt, loginDate: today })
     });

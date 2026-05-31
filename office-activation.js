@@ -234,6 +234,7 @@ if (!window.CATSOFT_ADMIN_AUTHORIZED) {
     try {
       const response = await fetch(apiEndpoint, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
         body: JSON.stringify({

@@ -376,6 +376,7 @@ async function syncSupplierAccountsFromApi(options = {}) {
   try {
     const response = await fetch(`${CATSOFT_SUPPLIER_ACCOUNTS_API}?_=${Date.now()}`, {
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Cache-Control': 'no-cache' }
     });
 
@@ -403,6 +404,7 @@ async function syncSupplierAccountsFromApi(options = {}) {
 async function pushSupplierAccountsToApi(accounts) {
   const response = await fetch(CATSOFT_SUPPLIER_ACCOUNTS_API, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       accounts: accounts.map((account) => ({
@@ -429,6 +431,7 @@ async function syncAdminAccountsFromApi(options = {}) {
   try {
     const response = await fetch(`${CATSOFT_ADMIN_ACCOUNTS_API}?_=${Date.now()}`, {
       cache: 'no-store',
+      credentials: 'include',
       headers: {
         'Cache-Control': 'no-cache'
       }
@@ -459,6 +462,7 @@ async function syncAdminAccountsFromApi(options = {}) {
 async function pushAdminAccountsToApi(accounts) {
   const response = await fetch(CATSOFT_ADMIN_ACCOUNTS_API, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       accounts: accounts.map((account) => ({
@@ -497,6 +501,7 @@ async function recordSessionActivity(role, username, eventType = 'active') {
   try {
     const response = await fetch(CATSOFT_SESSION_ACTIVITY_API, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: normalizedRole, username: normalizedUsername, eventType, activeAt, loginDate: today })
     });
@@ -968,6 +973,73 @@ function injectAuthStyles() {
       border: 1px solid #cfcfcf !important;
       background: #fff !important;
       color: #333 !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked {
+      min-height: 100vh !important;
+      overflow: auto !important;
+      background: #f7faff !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-page {
+      min-height: 100vh !important;
+      height: auto !important;
+      place-items: start center !important;
+      padding: 18px 14px !important;
+      background: #f7faff !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-panel {
+      width: min(420px, calc(100vw - 28px)) !important;
+      max-width: 100% !important;
+      margin: 0 auto !important;
+      padding: 18px !important;
+      border-color: #d8e7ff !important;
+      border-radius: 10px !important;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-brand {
+      gap: 10px !important;
+      margin-bottom: 16px !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-brand img {
+      width: 38px !important;
+      height: 38px !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-brand span {
+      font-size: 12px !important;
+      line-height: 1.2 !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-brand h1 {
+      margin-top: 3px !important;
+      font-size: 26px !important;
+      line-height: 1.05 !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-form {
+      gap: 12px !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-form label {
+      gap: 6px !important;
+      font-size: 13px !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-form input,
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-password-toggle {
+      min-height: 40px !important;
+      border-radius: 8px !important;
+      font-size: 13px !important;
+    }
+
+    body.catsoft-embedded-tool.catsoft-auth-locked .admin-login-submit {
+      min-height: 42px !important;
+      border-radius: 9px !important;
+      font-size: 13px !important;
     }
 
     .admin-login-panel {

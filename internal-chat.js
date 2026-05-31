@@ -94,7 +94,10 @@
 
   async function refreshKnownAdmins() {
     try {
-      const response = await fetch(adminAccountsEndpoint, { cache: 'no-store' });
+      const response = await fetch(adminAccountsEndpoint, {
+        cache: 'no-store',
+        credentials: 'include'
+      });
       const payload = await response.json().catch(() => ({}));
       const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
 
@@ -187,7 +190,10 @@
       const url = new URL(apiEndpoint, window.location.href);
       url.searchParams.set('room', state.roomId);
       url.searchParams.set('limit', '150');
-      const response = await fetch(url.toString(), { cache: 'no-store' });
+      const response = await fetch(url.toString(), {
+        cache: 'no-store',
+        credentials: 'include'
+      });
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -220,6 +226,7 @@
     try {
       const response = await fetch(apiEndpoint, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId: state.roomId,

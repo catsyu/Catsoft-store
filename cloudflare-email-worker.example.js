@@ -24,6 +24,9 @@ const CATSOFT_EMAIL_DOMAINS = [
   'malibus.org'
 ];
 const CATSOFT_EMAIL_DOMAINS_JSON = JSON.stringify(CATSOFT_EMAIL_DOMAINS);
+const CATSOFT_OWNER_USERNAME = 'OwnerCatsoft';
+const CATSOFT_SESSION_COOKIE = 'catsoft_session';
+const CATSOFT_SESSION_MAX_AGE = 60 * 60 * 12;
 
 const categoryRules = [
   {
@@ -103,12 +106,30 @@ export default {
       return new Response(null, { headers: corsHeaders(request) });
     }
 
-    if (!isAuthorized(request, env)) {
+    if (!url.pathname.startsWith('/api/')) {
+      return serveStaticAsset(request, env);
+    }
+
+    if (url.pathname === '/api/auth/login' && request.method === 'POST') {
+      return loginApi(request, env);
+    }
+
+    if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
+      return logoutApi(request);
+    }
+
+    const authContext = await getAuthorizationContext(request, env);
+
+    if (!authContext) {
       return json({ error: 'Unauthorized' }, 401, request);
     }
 
+    if (!canAccessApiRoute(url.pathname, request.method, authContext)) {
+      return json({ error: 'Forbidden' }, 403, request);
+    }
+
     if (url.pathname === '/api/email-messages' && request.method === 'GET') {
-      return listEmails(request, env);
+      return listEmails(request, env, authContext);
     }
 
     if (url.pathname === '/api/email-messages/health' && request.method === 'GET') {
@@ -116,7 +137,7 @@ export default {
     }
 
     if (url.pathname === '/api/admin-accounts' && request.method === 'GET') {
-      return listAdminAccounts(request, env);
+      return listAdminAccounts(request, env, authContext);
     }
 
     if (url.pathname === '/api/admin-accounts' && request.method === 'POST') {
@@ -124,7 +145,7 @@ export default {
     }
 
     if (url.pathname === '/api/supplier-accounts' && request.method === 'GET') {
-      return listSupplierAccounts(request, env);
+      return listSupplierAccounts(request, env, authContext);
     }
 
     if (url.pathname === '/api/supplier-accounts' && request.method === 'POST') {
@@ -132,7 +153,7 @@ export default {
     }
 
     if (url.pathname === '/api/customer-accounts' && request.method === 'GET') {
-      return listCustomerAccounts(request, env);
+      return listCustomerAccounts(request, env, authContext);
     }
 
     if (url.pathname === '/api/customer-accounts' && request.method === 'POST') {
@@ -140,7 +161,7 @@ export default {
     }
 
     if (url.pathname === '/api/session-activity' && request.method === 'POST') {
-      return saveSessionActivity(request, env);
+      return saveSessionActivity(request, env, authContext);
     }
 
     if (url.pathname === '/api/audit-logs' && request.method === 'GET') {
@@ -164,7 +185,7 @@ export default {
     }
 
     if (url.pathname === '/api/customer-records' && request.method === 'GET') {
-      return listCustomerRecords(request, env);
+      return listCustomerRecords(request, env, authContext);
     }
 
     if (url.pathname === '/api/customer-records' && request.method === 'POST') {
@@ -237,6 +258,10 @@ export default {
       return deleteCustomerRecord(request, env, customerDetailMatch[1]);
     }
 
+    if (productStockDetailMatch && request.method === 'GET') {
+      return getProductStockAccount(request, env, productStockDetailMatch[1]);
+    }
+
     if (productStockDetailMatch && request.method === 'DELETE') {
       return deleteProductStockAccount(request, env, productStockDetailMatch[1]);
     }
@@ -246,7 +271,7 @@ export default {
     }
 
     if (detailMatch && request.method === 'GET') {
-      return getEmail(request, env, detailMatch[1]);
+      return getEmail(request, env, detailMatch[1], authContext);
     }
 
     if (detailMatch && request.method === 'PATCH') {
@@ -255,10 +280,6 @@ export default {
 
     if (detailMatch && request.method === 'DELETE') {
       return deleteEmailMessage(request, env, detailMatch[1]);
-    }
-
-    if (!url.pathname.startsWith('/api/')) {
-      return serveStaticAsset(request, env);
     }
 
     return json({ error: 'Not found' }, 404, request);
@@ -375,6 +396,17 @@ async function serveStaticAsset(request, env) {
   const routedUrl = new URL(routedRequest.url);
   const fallbackPath = getStaticFallbackPath(routedUrl.pathname, routedUrl.hostname) || routedUrl.pathname;
   const toolsHost = isToolsHostname(routedUrl.hostname);
+
+  if (isBlockedStaticPath(fallbackPath) || isBlockedStaticPath(routedUrl.pathname)) {
+    return new Response('Not found', {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
+      }
+    });
+  }
+
   const assetRequest = createStaticAssetRequest(routedRequest, fallbackPath, routedUrl.search);
 
   if (env.ASSETS) {
@@ -411,6 +443,19 @@ function createStaticAssetRequest(request, pathname, search = '') {
   assetUrl.pathname = pathname;
   assetUrl.search = search;
   return new Request(assetUrl.toString(), request);
+}
+
+function isBlockedStaticPath(pathname) {
+  const cleanPath = String(pathname || '').split('?')[0].replace(/^\/+/, '').toLowerCase();
+
+  return cleanPath === 'cloudflare-email-worker.example.js'
+    || cleanPath === 'cloudflare-email-schema.sql'
+    || cleanPath === 'cloudflare-worker-routes.txt'
+    || cleanPath === 'wrangler.toml'
+    || cleanPath === 'verify-cloudflare-api.sh'
+    || cleanPath === 'email-routing-setup.md'
+    || cleanPath === '.assetsignore'
+    || cleanPath.startsWith('scripts/');
 }
 
 async function fetchStaticAssetWithoutClientRedirect(assetFetcher, request, maxRedirects = 3) {
@@ -806,7 +851,7 @@ async function ensureEmailMaintenanceColumns(emailDb) {
   `).run();
 }
 
-async function listEmails(request, env) {
+async function listEmails(request, env, authContext = null) {
   if (!env.EMAIL_DB) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
@@ -849,6 +894,12 @@ async function listEmails(request, env) {
   if (query) {
     where.push('(LOWER(sender) LIKE ? OR LOWER(recipient) LIKE ? OR LOWER(subject) LIKE ? OR LOWER(snippet) LIKE ?)');
     params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
+  }
+
+  const emailAccess = await getEmailAccessFilter(env, authContext);
+  if (emailAccess.sql) {
+    where.push(emailAccess.sql);
+    params.push(...emailAccess.params);
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -903,7 +954,7 @@ async function healthCheck(request, env) {
   }
 }
 
-async function getEmail(request, env, id) {
+async function getEmail(request, env, id, authContext = null) {
   if (!env.EMAIL_DB) {
     return json({ error: 'Missing EMAIL_DB D1 binding' }, 500, request);
   }
@@ -918,6 +969,10 @@ async function getEmail(request, env, id) {
   `).bind(id).first();
 
   if (!row) {
+    return json({ error: 'Email not found' }, 404, request);
+  }
+
+  if (!(await canAccessEmailRow(env, authContext, row))) {
     return json({ error: 'Email not found' }, 404, request);
   }
 
@@ -1127,7 +1182,7 @@ function mapSupplierAccountRow(row) {
   };
 }
 
-async function listAdminAccounts(request, env) {
+async function listAdminAccounts(request, env, authContext = null) {
   const adminDb = getAdminDb(env);
 
   if (!adminDb) {
@@ -1255,7 +1310,7 @@ async function saveAdminAccountsApi(request, env) {
   }, 200, request);
 }
 
-async function listSupplierAccounts(request, env) {
+async function listSupplierAccounts(request, env, authContext = null) {
   const adminDb = getAdminDb(env);
 
   if (!adminDb) {
@@ -1264,12 +1319,21 @@ async function listSupplierAccounts(request, env) {
 
   await ensureSupplierAccountsTable(adminDb);
 
-  const result = await adminDb.prepare(`
-    SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
-      last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
-    FROM supplier_accounts
-    ORDER BY updated_at DESC
-  `).all();
+  const isSupplierSelf = authContext?.role === 'supplier';
+  const result = isSupplierSelf
+    ? await adminDb.prepare(`
+      SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM supplier_accounts
+      WHERE LOWER(username) = ?
+      ORDER BY updated_at DESC
+    `).bind(normalizeSearch(authContext.username)).all()
+    : await adminDb.prepare(`
+      SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM supplier_accounts
+      ORDER BY updated_at DESC
+    `).all();
 
   return json({
     accounts: (result.results || []).map(mapSupplierAccountRow)
@@ -1549,7 +1613,7 @@ async function syncCustomerAccountsFromRecords(customerDb) {
   return statements.length;
 }
 
-async function listCustomerAccounts(request, env) {
+async function listCustomerAccounts(request, env, authContext = null) {
   const customerDb = getCustomerDb(env);
 
   if (!customerDb) {
@@ -1558,12 +1622,21 @@ async function listCustomerAccounts(request, env) {
 
   await syncCustomerAccountsFromRecords(customerDb);
 
-    const result = await customerDb.prepare(`
-    SELECT username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
-      record_count, last_record_at, created_at, updated_at
-    FROM customer_accounts
-    ORDER BY updated_at DESC
-  `).all();
+  const isCustomerSelf = authContext?.role === 'customer';
+  const result = isCustomerSelf
+    ? await customerDb.prepare(`
+      SELECT username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
+        record_count, last_record_at, created_at, updated_at
+      FROM customer_accounts
+      WHERE LOWER(username) = ?
+      ORDER BY updated_at DESC
+    `).bind(normalizeSearch(authContext.username)).all()
+    : await customerDb.prepare(`
+      SELECT username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
+        record_count, last_record_at, created_at, updated_at
+      FROM customer_accounts
+      ORDER BY updated_at DESC
+    `).all();
 
   return json({
     accounts: (result.results || []).map(mapCustomerAccountRow)
@@ -1654,7 +1727,7 @@ async function saveCustomerAccountsApi(request, env) {
   return json({ ok: true, accounts: accounts.length }, 200, request);
 }
 
-async function saveSessionActivity(request, env) {
+async function saveSessionActivity(request, env, authContext = null) {
   const adminDb = getAdminDb(env);
 
   if (!adminDb) {
@@ -1662,8 +1735,11 @@ async function saveSessionActivity(request, env) {
   }
 
   const payload = await readJson(request);
-  const role = normalizeSearch(payload.role) === 'supplier' ? 'supplier' : 'admin';
-  const username = cleanValue(payload.username, 120);
+  const requestedRole = normalizeSearch(payload.role) === 'supplier' ? 'supplier' : 'admin';
+  const role = authContext?.role === 'supplier' ? 'supplier' : requestedRole;
+  const username = authContext?.role === 'supplier'
+    ? cleanValue(authContext.username, 120)
+    : cleanValue(payload.username, 120);
   const eventType = normalizeSearch(payload.eventType) === 'login' ? 'login' : 'active';
   const activeAt = cleanValue(payload.activeAt || payload.active_at, 80) || new Date().toISOString();
   const loginDate = cleanValue(payload.loginDate || payload.login_count_date, 32) || activeAt.slice(0, 10);
@@ -1721,8 +1797,9 @@ async function saveSessionActivity(request, env) {
       SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
         last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
       FROM supplier_accounts
+      WHERE ${authContext?.role === 'supplier' ? 'LOWER(username) = ?' : '1 = 1'}
       ORDER BY updated_at DESC
-    `).all();
+    `).bind(...(authContext?.role === 'supplier' ? [normalizeSearch(username)] : [])).all();
     responsePayload.supplierAccounts = (result.results || []).map(mapSupplierAccountRow);
   } else {
     const result = await adminDb.prepare(`
@@ -2154,7 +2231,9 @@ function isCustomerRecordExpired(record, today = new Date().toISOString().slice(
 }
 
 async function getProductStockJoinedCustomers(customerDb, account) {
-  const joinedMap = await getProductStockJoinedCustomersMap(customerDb, [account]);
+  const joinedMap = await getProductStockJoinedCustomersMap(customerDb, [account], {
+    includeDetails: true
+  });
   return joinedMap.get(account.id) || [];
 }
 
@@ -2181,8 +2260,9 @@ function sortProductStockJoinedCustomers(first, second) {
   return String(second.updatedAt || second.createdAt || '').localeCompare(String(first.updatedAt || first.createdAt || ''));
 }
 
-async function getProductStockJoinedCustomersMap(customerDb, accounts) {
+async function getProductStockJoinedCustomersMap(customerDb, accounts, options = {}) {
   const normalizedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
+  const includeDetails = options.includeDetails !== false;
   const accountIds = new Set(normalizedAccounts.map((account) => account.id).filter(Boolean));
   const joinedByAccountId = new Map(normalizedAccounts.map((account) => [account.id, []]));
   const seenByAccountId = new Map(normalizedAccounts.map((account) => [account.id, new Set()]));
@@ -2215,14 +2295,24 @@ async function getProductStockJoinedCustomersMap(customerDb, accounts) {
   await ensureCustomerRecordsSchema(customerDb);
   const rowsById = new Map();
   const chunkSize = 80;
+  const selectColumns = includeDetails
+    ? `id, customer_name, activated_email, stock_account, income_amount, whatsapp_number, order_number,
+        order_source, product_name, duration_days, start_date, expiry_date,
+        status, notes, created_at, updated_at`
+    : `id, customer_name, activated_email, stock_account, income_amount, order_number,
+        product_name, expiry_date, status, created_at, updated_at`;
+  const orderClause = includeDetails
+    ? `ORDER BY
+        CASE WHEN expiry_date IS NULL OR expiry_date = '' THEN 1 ELSE 0 END,
+        expiry_date ASC,
+        updated_at DESC`
+    : '';
 
   for (let index = 0; index < uniqueStockKeys.length; index += chunkSize) {
     const chunk = uniqueStockKeys.slice(index, index + chunkSize);
     const placeholders = chunk.map(() => '?').join(', ');
     const result = await customerDb.prepare(`
-      SELECT id, customer_name, activated_email, stock_account, income_amount, whatsapp_number, order_number,
-        order_source, product_name, duration_days, start_date, expiry_date,
-        status, notes, created_at, updated_at
+      SELECT ${selectColumns}
       FROM customer_records
       WHERE status NOT IN ('removed', 'refund')
         AND (
@@ -2238,10 +2328,7 @@ async function getProductStockJoinedCustomersMap(customerDb, accounts) {
             AND LOWER(activated_email) IN (${placeholders})
           )
         )
-      ORDER BY
-        CASE WHEN expiry_date IS NULL OR expiry_date = '' THEN 1 ELSE 0 END,
-        expiry_date ASC,
-        updated_at DESC
+      ${orderClause}
       LIMIT 2000
     `).bind(...chunk, ...chunk).all();
 
@@ -2285,8 +2372,10 @@ async function getProductStockJoinedCustomersMap(customerDb, accounts) {
     }
   }
 
-  for (const [accountId, joinedRows] of joinedByAccountId.entries()) {
-    joinedByAccountId.set(accountId, joinedRows.sort(sortProductStockJoinedCustomers));
+  if (includeDetails) {
+    for (const [accountId, joinedRows] of joinedByAccountId.entries()) {
+      joinedByAccountId.set(accountId, joinedRows.sort(sortProductStockJoinedCustomers));
+    }
   }
 
   return joinedByAccountId;
@@ -2318,9 +2407,9 @@ function hydrateProductStockAccountWithCustomers(account, joinedCustomers) {
   };
 }
 
-async function hydrateProductStockAccounts(customerDb, accounts) {
+async function hydrateProductStockAccounts(customerDb, accounts, options = {}) {
   const normalizedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
-  const joinedMap = await getProductStockJoinedCustomersMap(customerDb, normalizedAccounts);
+  const joinedMap = await getProductStockJoinedCustomersMap(customerDb, normalizedAccounts, options);
 
   return normalizedAccounts.map((account) => hydrateProductStockAccountWithCustomers(
     account,
@@ -2347,6 +2436,7 @@ async function listProductStockAccounts(request, env) {
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
   const search = normalizeCustomerUniqueEmail(url.searchParams.get('q') || url.searchParams.get('search'));
   const stockMonth = cleanValue(url.searchParams.get('month') || url.searchParams.get('stockMonth') || '', 7);
+  const includeDetails = url.searchParams.get('details') !== '0';
   const whereParts = [];
   const bindings = [];
 
@@ -2372,10 +2462,36 @@ async function listProductStockAccounts(request, env) {
 
   const accounts = await hydrateProductStockAccounts(
     customerDb,
-    (result.results || []).map(mapProductStockRow)
+    (result.results || []).map(mapProductStockRow),
+    { includeDetails }
   );
 
   return json({ accounts }, 200, request);
+}
+
+async function getProductStockAccount(request, env, id) {
+  const customerDb = getCustomerDb(env);
+
+  if (!customerDb) {
+    return json({ error: 'Missing CUSTOMER_DB or EMAIL_DB D1 binding' }, 500, request);
+  }
+
+  await ensureProductStockTable(customerDb);
+
+  const row = await customerDb.prepare(`
+    SELECT id, parent_stock_id, team_member_index, stock_type, product_name, account_name, account_target, login_username, login_password, stock_date,
+      stock_cost, team_member_count, capacity, status, reset_at, notes, created_at, updated_at
+    FROM product_stock_accounts
+    WHERE id = ?
+    LIMIT 1
+  `).bind(cleanValue(id, 160)).first();
+
+  if (!row) {
+    return json({ error: 'Stock account not found' }, 404, request);
+  }
+
+  const account = await hydrateProductStockAccount(customerDb, mapProductStockRow(row));
+  return json({ account }, 200, request);
 }
 
 async function productStockHealthCheck(request, env) {
@@ -2843,7 +2959,7 @@ async function deleteFinanceRecord(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
-async function listCustomerRecords(request, env) {
+async function listCustomerRecords(request, env, authContext = null) {
   const customerDb = getCustomerDb(env);
 
   if (!customerDb) {
@@ -2854,7 +2970,9 @@ async function listCustomerRecords(request, env) {
   const url = new URL(request.url);
   const limit = clampNumber(url.searchParams.get('limit'), DEFAULT_LIMIT, 1, MAX_LIMIT);
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
-  const customerFilter = normalizeSearch(url.searchParams.get('customer') || url.searchParams.get('username'));
+  const customerFilter = authContext?.role === 'customer'
+    ? normalizeSearch(authContext.username)
+    : normalizeSearch(url.searchParams.get('customer') || url.searchParams.get('username'));
   const orderFilter = normalizeCustomerUniqueOrderNumber(
     url.searchParams.get('orderNumber')
     || url.searchParams.get('order')
@@ -3899,7 +4017,116 @@ function parseJson(value) {
   }
 }
 
-function isAuthorized(request, env) {
+async function loginApi(request, env) {
+  try {
+  const payload = await readJson(request);
+  const role = normalizeSearch(payload.role);
+  const username = cleanValue(payload.username, 120);
+  const password = String(payload.password || '');
+
+  if (!username || !password || !['admin', 'supplier', 'customer'].includes(role)) {
+    return json({ ok: false, message: 'Login tidak valid.' }, 400, request);
+  }
+
+  if (role === 'admin' && isOwnerLogin(env, username, password)) {
+    const session = await createSessionCookie(env, { role: 'owner', username: CATSOFT_OWNER_USERNAME });
+    return jsonWithCookie({
+      ok: true,
+      role: 'owner',
+      account: {
+        username: CATSOFT_OWNER_USERNAME,
+        role: 'owner',
+        tools: ['all'],
+        inboxAccessAll: true,
+        inboxRules: []
+      }
+    }, session, 200, request);
+  }
+
+  if (role === 'admin') {
+    const adminDb = getAdminDb(env);
+    if (!adminDb) {
+      return json({ ok: false, message: 'Database admin belum tersedia.' }, 500, request);
+    }
+
+    await ensureAdminAccountsTable(adminDb);
+    const row = await adminDb.prepare(`
+      SELECT username, password, password_hash, whatsapp_target, tools, inbox_access_all, inbox_rules,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM admin_accounts
+      WHERE LOWER(username) = ?
+    `).bind(normalizeSearch(username)).first();
+    const account = row ? mapAdminAccountRow(row) : null;
+
+    if (!account || !(await verifyStoredPassword(password, account.passwordHash, account.password))) {
+      return json({ ok: false, message: 'Username atau password salah.' }, 401, request);
+    }
+
+    const session = await createSessionCookie(env, { role: 'admin', username: account.username });
+    return jsonWithCookie({ ok: true, role: 'admin', account }, session, 200, request);
+  }
+
+  if (role === 'supplier') {
+    const adminDb = getAdminDb(env);
+    if (!adminDb) {
+      return json({ ok: false, message: 'Database supplier belum tersedia.' }, 500, request);
+    }
+
+    await ensureSupplierAccountsTable(adminDb);
+    const row = await adminDb.prepare(`
+      SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM supplier_accounts
+      WHERE LOWER(username) = ?
+    `).bind(normalizeSearch(username)).first();
+    const account = row ? mapSupplierAccountRow(row) : null;
+
+    if (!account || !(await verifyStoredPassword(password, account.passwordHash, account.password))) {
+      return json({ ok: false, message: 'Username atau password supplier salah.' }, 401, request);
+    }
+
+    const session = await createSessionCookie(env, { role: 'supplier', username: account.username });
+    return jsonWithCookie({ ok: true, role: 'supplier', account }, session, 200, request);
+  }
+
+  const customerDb = getCustomerDb(env);
+  if (!customerDb) {
+    return json({ ok: false, message: 'Database customer belum tersedia.' }, 500, request);
+  }
+
+  await ensureCustomerAccountsTable(customerDb);
+  const row = await customerDb.prepare(`
+    SELECT username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
+      record_count, last_record_at, created_at, updated_at
+    FROM customer_accounts
+    WHERE LOWER(username) = ?
+  `).bind(normalizeSearch(username)).first();
+  const account = row ? mapCustomerAccountRow(row) : null;
+
+  if (!account || account.status === 'inactive' || !(await verifyStoredPassword(password, account.passwordHash, account.password))) {
+    return json({ ok: false, message: 'Username atau password customer salah.' }, 401, request);
+  }
+
+  const session = await createSessionCookie(env, { role: 'customer', username: account.username });
+  return jsonWithCookie({ ok: true, role: 'customer', account }, session, 200, request);
+  } catch (error) {
+    return json({ ok: false, error: 'Login failed', message: error.message }, 500, request);
+  }
+}
+
+function logoutApi(request) {
+  return jsonWithCookie({ ok: true }, `${CATSOFT_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`, 200, request);
+}
+
+function isOwnerLogin(env, username, password) {
+  const ownerPassword = String(env.CATSOFT_OWNER_PASSWORD || '');
+
+  return Boolean(ownerPassword)
+    && normalizeSearch(username) === normalizeSearch(CATSOFT_OWNER_USERNAME)
+    && String(password || '') === ownerPassword;
+}
+
+async function isAuthorized(request, env) {
   if (request.headers.get('Cf-Access-Authenticated-User-Email')) {
     return true;
   }
@@ -3912,7 +4139,267 @@ function isAuthorized(request, env) {
   const bearerToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
   const headerToken = request.headers.get('x-catsoft-inbox-key') || '';
 
-  return bearerToken === env.INBOX_API_TOKEN || headerToken === env.INBOX_API_TOKEN;
+  if (bearerToken === env.INBOX_API_TOKEN || headerToken === env.INBOX_API_TOKEN) {
+    return true;
+  }
+
+  return Boolean(await getValidSession(request, env));
+}
+
+async function getAuthorizationContext(request, env) {
+  if (request.headers.get('Cf-Access-Authenticated-User-Email')) {
+    return { type: 'cloudflare-access', role: 'owner', username: request.headers.get('Cf-Access-Authenticated-User-Email') };
+  }
+
+  const authorization = request.headers.get('Authorization') || '';
+  const bearerToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  const headerToken = request.headers.get('x-catsoft-inbox-key') || '';
+
+  if (env.INBOX_API_TOKEN && (bearerToken === env.INBOX_API_TOKEN || headerToken === env.INBOX_API_TOKEN)) {
+    return { type: 'token', role: 'owner', username: 'api-token' };
+  }
+
+  if (!env.INBOX_API_TOKEN && env.ALLOW_UNAUTHENTICATED_API === 'true') {
+    return { type: 'legacy-open', role: 'owner', username: 'legacy-open' };
+  }
+
+  const session = await getValidSession(request, env);
+  return session ? { type: 'session', ...session } : null;
+}
+
+function canAccessApiRoute(pathname, method, authContext) {
+  const role = authContext?.role || '';
+
+  if (['owner', 'admin'].includes(role)) {
+    return true;
+  }
+
+  if (pathname === '/api/auth/logout' && method === 'POST') {
+    return true;
+  }
+
+  if (role === 'supplier') {
+    return (pathname === '/api/supplier-accounts' && method === 'GET')
+      || (pathname === '/api/session-activity' && method === 'POST')
+      || (pathname === '/api/email-messages' && method === 'GET')
+      || (/^\/api\/email-messages\/[^/]+$/.test(pathname) && ['GET', 'PATCH'].includes(method));
+  }
+
+  if (role === 'customer') {
+    return (pathname === '/api/customer-accounts' && method === 'GET')
+      || (pathname === '/api/customer-records' && method === 'GET')
+      || (pathname === '/api/email-messages' && method === 'GET')
+      || (/^\/api\/email-messages\/[^/]+$/.test(pathname) && method === 'GET');
+  }
+
+  return false;
+}
+
+function isElevatedAuth(authContext) {
+  return ['owner', 'admin'].includes(authContext?.role || '');
+}
+
+async function getEmailAccessFilter(env, authContext) {
+  if (isElevatedAuth(authContext)) {
+    return { sql: '', params: [] };
+  }
+
+  const account = await getEmailAccessAccount(env, authContext);
+  if (!account) {
+    return { sql: '1 = 0', params: [] };
+  }
+
+  const clauses = [];
+  const params = [];
+
+  if (authContext?.role === 'supplier') {
+    const domains = (account.allowedDomains || [])
+      .map(normalizeSearch)
+      .filter(Boolean);
+
+    if (domains.length) {
+      clauses.push(`(${domains.map(() => 'LOWER(recipient) LIKE ?').join(' OR ')})`);
+      params.push(...domains.map((domain) => `%@${domain}`));
+    } else {
+      return { sql: '1 = 0', params: [] };
+    }
+  }
+
+  if (!account.inboxAccessAll) {
+    const ruleClauses = [];
+    const rules = (account.inboxRules || [])
+      .map(normalizeSearch)
+      .filter(Boolean);
+
+    for (const rule of rules) {
+      if (rule.includes('@')) {
+        ruleClauses.push('LOWER(recipient) = ?');
+        params.push(rule);
+      } else if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(rule)) {
+        ruleClauses.push('LOWER(recipient) LIKE ?');
+        params.push(`%@${rule}`);
+      } else {
+        ruleClauses.push('(LOWER(recipient) LIKE ? OR LOWER(sender) LIKE ? OR LOWER(subject) LIKE ? OR LOWER(snippet) LIKE ?)');
+        params.push(`%${rule}%`, `%${rule}%`, `%${rule}%`, `%${rule}%`);
+      }
+    }
+
+    if (!ruleClauses.length) {
+      return { sql: '1 = 0', params: [] };
+    }
+
+    clauses.push(`(${ruleClauses.join(' OR ')})`);
+  }
+
+  return clauses.length ? { sql: clauses.join(' AND '), params } : { sql: '', params: [] };
+}
+
+async function canAccessEmailRow(env, authContext, row) {
+  if (isElevatedAuth(authContext)) {
+    return true;
+  }
+
+  const account = await getEmailAccessAccount(env, authContext);
+  if (!account) {
+    return false;
+  }
+
+  const recipient = normalizeSearch(row.recipient);
+  const sender = normalizeSearch(row.sender);
+  const subject = normalizeSearch(row.subject);
+  const snippet = normalizeSearch(row.snippet);
+
+  if (authContext?.role === 'supplier') {
+    const domains = (account.allowedDomains || []).map(normalizeSearch).filter(Boolean);
+    if (!domains.some((domain) => recipient.endsWith(`@${domain}`))) {
+      return false;
+    }
+  }
+
+  if (account.inboxAccessAll) {
+    return true;
+  }
+
+  return (account.inboxRules || []).map(normalizeSearch).filter(Boolean).some((rule) => {
+    if (rule.includes('@')) {
+      return recipient === rule;
+    }
+
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(rule)) {
+      return recipient.endsWith(`@${rule}`);
+    }
+
+    return recipient.includes(rule) || sender.includes(rule) || subject.includes(rule) || snippet.includes(rule);
+  });
+}
+
+async function getEmailAccessAccount(env, authContext) {
+  if (authContext?.role === 'supplier') {
+    const adminDb = getAdminDb(env);
+    if (!adminDb) {
+      return null;
+    }
+
+    await ensureSupplierAccountsTable(adminDb);
+    const row = await adminDb.prepare(`
+      SELECT username, password, password_hash, tools, allowed_domains, inbox_access_all, inbox_rules, created_by,
+        last_login_at, active_at, login_count_today, login_count_date, created_at, updated_at
+      FROM supplier_accounts
+      WHERE LOWER(username) = ?
+    `).bind(normalizeSearch(authContext.username)).first();
+
+    return row ? mapSupplierAccountRow(row) : null;
+  }
+
+  if (authContext?.role === 'customer') {
+    const customerDb = getCustomerDb(env);
+    if (!customerDb) {
+      return null;
+    }
+
+    await ensureCustomerAccountsTable(customerDb);
+    const row = await customerDb.prepare(`
+      SELECT username, password, password_hash, status, inbox_access_all, inbox_rules, source_record_id,
+        record_count, last_record_at, created_at, updated_at
+      FROM customer_accounts
+      WHERE LOWER(username) = ?
+    `).bind(normalizeSearch(authContext.username)).first();
+
+    return row ? mapCustomerAccountRow(row) : null;
+  }
+
+  return null;
+}
+
+async function verifyStoredPassword(password, passwordHash, legacyPassword) {
+  const hashParts = String(passwordHash || '').split('$');
+
+  if (hashParts.length === 3 && hashParts[0] === 'sha256') {
+    return await sha256Hex(`${hashParts[1]}:${password}`) === hashParts[2];
+  }
+
+  return Boolean(legacyPassword) && String(legacyPassword) === String(password);
+}
+
+async function createSessionCookie(env, session) {
+  const expiresAt = Date.now() + CATSOFT_SESSION_MAX_AGE * 1000;
+  const payload = {
+    role: session.role,
+    username: session.username,
+    exp: expiresAt
+  };
+  const encodedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  const signature = await signSessionPayload(env, encodedPayload);
+  const value = `${encodedPayload}.${signature}`;
+  return `${CATSOFT_SESSION_COOKIE}=${value}; Path=/; Max-Age=${CATSOFT_SESSION_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+async function getValidSession(request, env) {
+  const cookie = request.headers.get('Cookie') || '';
+  const match = cookie.match(new RegExp(`${CATSOFT_SESSION_COOKIE}=([^;]+)`));
+
+  if (!match) {
+    return null;
+  }
+
+  const [encodedPayload, signature] = match[1].split('.');
+
+  if (!encodedPayload || !signature || signature !== await signSessionPayload(env, encodedPayload)) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp || Date.now() > Number(payload.exp)) {
+      return null;
+    }
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function signSessionPayload(env, encodedPayload) {
+  const secret = env.INBOX_API_TOKEN || env.CATSOFT_SESSION_SECRET || 'catsoft-session-development-secret';
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(encodedPayload));
+  return sessionBytesToHex(new Uint8Array(signature));
+}
+
+function jsonWithCookie(payload, cookie, status = 200, request) {
+  const response = json(payload, status, request);
+  response.headers.append('Set-Cookie', cookie);
+  return response;
+}
+
+function sessionBytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function json(payload, status = 200, request) {

@@ -605,6 +605,7 @@ async function loadEmails(options = {}) {
   try {
     const response = await fetch(buildEmailListUrl(), {
       cache: 'no-store',
+      credentials: 'include',
       headers: {
         'Cache-Control': 'no-cache'
       }
@@ -900,7 +901,10 @@ async function selectEmail(id) {
   }
 
   try {
-    const response = await fetch(`${apiEndpoint}/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    const response = await fetch(`${apiEndpoint}/${encodeURIComponent(id)}`, {
+      cache: 'no-store',
+      credentials: 'include'
+    });
 
     if (!response.ok) {
       return;
@@ -928,6 +932,7 @@ function markRead(email) {
   if (state.source === 'api') {
     fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ read: true })
     }).catch(() => {});
@@ -942,6 +947,7 @@ function markUnread(email) {
   if (state.source === 'api') {
     fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ read: false })
     }).catch(() => {});
@@ -958,7 +964,8 @@ function deleteEmail(email) {
 
   if (state.source === 'api') {
     fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      credentials: 'include'
     }).catch(() => {});
   }
 }
@@ -980,6 +987,7 @@ function updateEmailCategory(email, category) {
   if (state.source === 'api') {
     fetch(`${apiEndpoint}/${encodeURIComponent(email.id)}`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category })
     }).catch(() => {});

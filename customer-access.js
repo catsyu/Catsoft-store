@@ -166,6 +166,7 @@ function setCustomerAccessStatus(message, type = '') {
 async function fetchCustomerAccounts() {
   const response = await fetch(`${CUSTOMER_ACCESS_API}?_=${Date.now()}`, {
     cache: 'no-store',
+    credentials: 'include',
     headers: { 'Cache-Control': 'no-cache' }
   });
 
@@ -199,6 +200,7 @@ function startCustomerAccessAutoRefresh() {
 async function pushCustomerAccounts(accounts) {
   const response = await fetch(CUSTOMER_ACCESS_API, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       accounts: accounts.map((account) => ({

@@ -110,6 +110,7 @@ async function fetchCustomerRecords() {
 
   const response = await fetch(url.toString(), {
     cache: 'no-store',
+    credentials: 'include',
     headers: { 'Cache-Control': 'no-cache' }
   });
 

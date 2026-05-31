@@ -85,6 +85,7 @@ async function syncCustomerAccountsFromApi() {
   try {
     const response = await fetch(`${CUSTOMER_AUTH_ACCOUNTS_API}?_=${Date.now()}`, {
       cache: 'no-store',
+      credentials: 'include',
       headers: { 'Cache-Control': 'no-cache' }
     });
 

@@ -250,6 +250,7 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
   try {
     const response = await fetch(url, {
       cache: 'no-store',
+      credentials: options.credentials || 'include',
       ...options,
       signal: controller.signal,
       headers: {

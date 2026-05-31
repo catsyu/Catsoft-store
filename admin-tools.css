@@ -1505,7 +1505,7 @@ body.catsoft-embedded-tool .dashboard-summary {
 }
 
 .content-editor-shell {
-  grid-template-columns: minmax(640px, 1.08fr) minmax(360px, 0.92fr);
+  grid-template-columns: minmax(720px, 1.24fr) minmax(340px, 0.76fr);
   gap: 12px;
   align-items: start;
 }
@@ -1601,12 +1601,13 @@ body.catsoft-embedded-tool .dashboard-summary {
   border-color: #d8d8d8;
   border-radius: 10px;
   background: #fff;
+  overflow: hidden auto;
 }
 
 .content-product-table {
   display: block;
   min-width: 0;
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .content-product-table thead,
@@ -1617,16 +1618,65 @@ body.catsoft-embedded-tool .dashboard-summary {
 .content-product-table thead tr,
 .content-product-table tbody tr {
   display: grid;
-  grid-template-columns: minmax(230px, 1.52fr) 96px 54px minmax(104px, 0.72fr) 142px;
-  align-items: center;
+  grid-template-columns: minmax(190px, 1fr) 86px 44px minmax(110px, 0.7fr) 188px;
+  align-items: stretch;
 }
 
 .content-product-table th,
 .content-product-table td {
   width: auto !important;
   min-width: 0;
-  padding: 9px 10px;
+  min-height: 46px;
+  border-bottom: 0;
+  padding: 8px 12px;
   border-color: #e5e5e5;
+  background: transparent;
+}
+
+.content-product-table th,
+.content-product-table td {
+  display: flex;
+  align-items: center;
+}
+
+.content-product-table th:nth-child(1),
+.content-product-table td:nth-child(1) {
+  justify-content: flex-start;
+}
+
+.content-product-table th:nth-child(2),
+.content-product-table td:nth-child(2),
+.content-product-table th:nth-child(3),
+.content-product-table td:nth-child(3),
+.content-product-table th:nth-child(5),
+.content-product-table td:nth-child(5) {
+  justify-content: center;
+  text-align: center;
+}
+
+.content-product-table th:nth-child(4),
+.content-product-table td:nth-child(4) {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.content-product-table td:nth-child(1) {
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.content-product-table thead tr {
+  border-bottom: 1px solid #d8d8d8;
+}
+
+.content-product-table tbody tr {
+  background: #fff;
+  border-bottom: 1px solid #e3e3e3;
+}
+
+.content-product-table tbody tr:last-child {
+  border-bottom: 0;
 }
 
 .content-product-table th {
@@ -1647,7 +1697,7 @@ body.catsoft-embedded-tool .dashboard-summary {
 
 .content-product-table td strong {
   color: #242424;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 560;
   line-height: 1.2;
 }
@@ -1656,17 +1706,17 @@ body.catsoft-embedded-tool .dashboard-summary {
 .content-muted {
   margin-top: 2px;
   color: #666;
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1.25;
 }
 
 .content-product-table code {
-  max-width: 92px;
+  max-width: 86px;
   border-color: #d8d8d8;
   background: #f8f8f7;
   color: #242424;
-  padding: 3px 7px;
-  font-size: 11px;
+  padding: 2px 7px;
+  font-size: 10.5px;
   font-weight: 560;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -1674,19 +1724,21 @@ body.catsoft-embedded-tool .dashboard-summary {
 
 .content-row-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(3, 54px);
+  justify-content: center;
+  gap: 6px;
 }
 
 .content-row-actions .ghost-button {
+  width: 54px;
   min-width: 0;
-  min-height: 30px;
+  min-height: 28px;
   border-color: #d8d8d8;
   border-radius: 999px;
   background: #fff;
   color: #242424;
-  padding: 4px 6px;
-  font-size: 11px;
+  padding: 4px 0;
+  font-size: 10.5px;
   font-weight: 520;
 }
 
@@ -1895,7 +1947,18 @@ body.catsoft-embedded-tool .dashboard-summary {
     grid-template-columns: 86px minmax(0, 1fr);
     gap: 8px;
     align-items: center;
+    justify-content: stretch;
+    text-align: left;
     padding: 10px;
+  }
+
+  .content-product-table td:nth-child(1),
+  .content-product-table td:nth-child(2),
+  .content-product-table td:nth-child(3),
+  .content-product-table td:nth-child(4),
+  .content-product-table td:nth-child(5) {
+    justify-content: stretch;
+    text-align: left;
   }
 
   .content-product-table td:nth-child(5) {

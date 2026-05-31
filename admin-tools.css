@@ -1019,6 +1019,15 @@ body.catsoft-embedded-tool .dashboard-summary {
 }
 
 @media (max-width: 860px) {
+  .console-topbar .console-actions.admin-nav {
+    width: auto;
+  }
+
+  .console-topbar .console-actions .admin-session-bar,
+  .console-topbar .console-actions .admin-profile {
+    width: auto !important;
+  }
+
   .admin-page {
     width: min(100%, calc(100vw - 24px));
     padding: 12px 0 calc(22px + env(safe-area-inset-bottom));
@@ -2023,6 +2032,7 @@ body.admin-console-body {
   flex: 0 0 auto;
   flex-wrap: nowrap !important;
   margin: 0 !important;
+  width: auto !important;
   min-width: 0;
 }
 
@@ -2031,6 +2041,7 @@ body.admin-console-body {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  width: auto !important;
   min-height: 34px !important;
   padding: 2px !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -2773,7 +2784,9 @@ body.admin-console-body {
 }
 
 .console-module-view .admin-access-page-panel {
-  margin-top: 0;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
 }
 
 .console-access-workspace {
@@ -2864,9 +2877,16 @@ body.admin-console-body {
 }
 
 .console-access-content .admin-access-page-panel {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
+}
+
+body.catsoft-embedded-tool .admin-access-page-panel,
+body.catsoft-embedded-tool .admin-access-panel {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
 }
 
 .admin-spectrum-page {
@@ -4198,6 +4218,7 @@ body.admin-console-body .console-tools-list .primary-button:focus-visible {
     align-items: center;
     justify-content: flex-end;
     gap: 5px;
+    width: auto;
     height: 50px;
     padding: 0 8px 0 6px;
   }

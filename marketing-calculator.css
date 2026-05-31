@@ -94,12 +94,12 @@
 }
 
 #priceSuggestion {
-  grid-template-columns: 1fr;
-  margin-top: -2px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 0;
 }
 
 #priceSuggestion .suggestion-button {
-  width: 100%;
+  width: auto;
 }
 
 .marketing-form-grid label {
@@ -186,7 +186,8 @@
 }
 
 .joined-control select#targetProfitMode {
-  min-width: 126px;
+  width: 72px;
+  min-width: 72px;
   text-align: left;
 }
 
@@ -432,7 +433,16 @@
 
 /* Catsoft Admin Console polish: quiet, compact, black-and-white marketing workspace. */
 .marketing-page.admin-page {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
   color: #242424;
+}
+
+.marketing-page *,
+.marketing-page *::before,
+.marketing-page *::after {
+  box-sizing: border-box;
 }
 
 .marketing-page .overview-band {
@@ -758,6 +768,8 @@
 }
 
 body.catsoft-embedded-tool .marketing-page.admin-page {
+  width: 100% !important;
+  max-width: 100% !important;
   padding: 14px 16px 24px !important;
 }
 
@@ -924,6 +936,53 @@ body.catsoft-embedded-tool .marketing-note p {
 
 .marketing-form-grid {
   gap: 7px 9px;
+}
+
+.marketing-main-grid {
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) 116px;
+  align-items: end;
+}
+
+.marketing-main-grid .sale-price-field {
+  grid-column: 1 / 3;
+}
+
+.marketing-main-grid .cost-price-field {
+  grid-column: 3 / 5;
+}
+
+.marketing-main-grid .order-quantity-field {
+  grid-column: 1;
+  justify-self: start;
+  width: 96px;
+}
+
+.marketing-main-grid .target-profit-field {
+  grid-column: 2 / 5;
+  width: 100%;
+  padding-left: 0;
+  margin-top: 0;
+}
+
+.marketing-main-grid .order-quantity-field input {
+  width: 96px;
+  text-align: center;
+  padding-inline: 8px;
+}
+
+.marketing-main-grid .target-profit-field .joined-control {
+  min-width: 0;
+}
+
+.marketing-main-grid .order-quantity-field input,
+.marketing-main-grid .target-profit-field .joined-control {
+  min-height: 42px;
+  border-radius: 10px;
+}
+
+.marketing-main-grid .target-profit-field .joined-control input,
+.marketing-main-grid .target-profit-field .joined-control select {
+  min-height: 40px;
 }
 
 .marketing-form-grid label {
@@ -1209,6 +1268,8 @@ body.catsoft-embedded-tool .marketing-page .overview-band p {
 @media (max-width: 640px) {
   .marketing-page.admin-page,
   body.catsoft-embedded-tool .marketing-page.admin-page {
+    width: 100% !important;
+    max-width: 100% !important;
     padding: 10px !important;
   }
 
@@ -1224,6 +1285,9 @@ body.catsoft-embedded-tool .marketing-page .overview-band p {
   }
 
   .marketing-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: 10px;
   }
 
@@ -1245,29 +1309,78 @@ body.catsoft-embedded-tool .marketing-page .overview-band p {
   }
 
   .ad-control {
-    grid-template-columns: minmax(0, 1fr) 104px 68px;
+    grid-template-columns: minmax(0, 1fr) 92px;
   }
 
   .ad-control select {
-    min-width: 104px;
+    min-width: 92px;
     padding-left: 7px;
     padding-right: 23px;
     font-size: 11.5px;
   }
 
   .ad-control .input-badge {
+    grid-column: 1 / -1;
+    min-height: 28px;
+    border-top: 1px solid #e2e2e2;
+    border-left: 0;
     font-size: 10px;
+  }
+
+  .marketing-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .marketing-main-grid .sale-price-field,
+  .marketing-main-grid .cost-price-field {
+    grid-column: 1 / -1;
+  }
+
+  .marketing-main-grid .order-quantity-field {
+    grid-column: 1 / -1;
+    width: 96px;
+  }
+
+  .marketing-main-grid .order-quantity-field input {
+    width: 96px;
+  }
+
+  .marketing-main-grid .target-profit-field {
+    grid-column: 1 / -1;
+    padding-left: 0;
+    margin-top: 0;
+  }
+
+  .marketing-main-grid .target-profit-field .joined-control {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .marketing-main-grid .target-profit-field .joined-control input {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .marketing-main-grid .target-profit-field .joined-control select#targetProfitMode {
+    flex: 0 0 58px;
+    width: 58px;
+    min-width: 58px;
+    padding-left: 8px;
+    padding-right: 20px;
   }
 
   .inline-suggestion,
   #priceSuggestion,
   #adsSuggestion {
-    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-columns: 1fr !important;
     align-items: center;
     font-size: 10.5px;
   }
 
   .suggestion-button {
+    width: 100%;
     min-width: 72px;
     padding-inline: 8px;
   }

@@ -29,6 +29,9 @@ DATABASES = {
     "EMAIL_DB": "17d3485b-c3f1-40a7-b583-f58ebd63bd87",
 }
 
+INBOX_API_TOKEN = os.environ.get("INBOX_API_TOKEN", "")
+ALLOW_UNAUTHENTICATED_API = os.environ.get("ALLOW_UNAUTHENTICATED_API", "false").lower() in ("1", "true", "yes")
+
 
 def die(message):
     print(message, file=sys.stderr)
@@ -234,9 +237,13 @@ def upload_worker():
             for name, database_id in DATABASES.items()
         ] + [
             {"type": "plain_text", "name": "FORWARD_TO", "text": "cundigitora@gmail.com"},
-            {"type": "plain_text", "name": "ALLOW_UNAUTHENTICATED_API", "text": "true"},
+            {"type": "plain_text", "name": "ALLOW_UNAUTHENTICATED_API", "text": "true" if ALLOW_UNAUTHENTICATED_API else "false"},
             {"type": "assets", "name": "ASSETS"},
-        ],
+        ] + (
+            [{"type": "plain_text", "name": "INBOX_API_TOKEN", "text": INBOX_API_TOKEN}]
+            if INBOX_API_TOKEN
+            else []
+        ),
         "annotations": {
             "workers/message": "Catsoft admin tools update",
             "workers/tag": "catsoft-admin-tools",

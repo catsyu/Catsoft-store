@@ -99,6 +99,12 @@ function normalizeCurrencyField(input) {
   input.value = formatRupiahInput(input.value);
 }
 
+function normalizeQuantityField() {
+  const quantity = Math.max(1, Math.min(99, Math.trunc(numberValue('quantity')) || 1));
+  marketingInputs.quantity.value = String(quantity);
+  return quantity;
+}
+
 function syncTargetProfitInputMode() {
   const isProfitAmount = marketingInputs.targetProfitMode.value === 'amount';
   const currentValue = numberValue('targetProfit');
@@ -366,7 +372,7 @@ function renderSimulatorSuggestions(result) {
 
 function renderCalculation() {
   const salePrice = numberValue('salePrice');
-  const quantity = Math.max(Math.trunc(numberValue('quantity')), 1);
+  const quantity = Math.max(1, Math.min(99, Math.trunc(numberValue('quantity')) || 1));
   const costPrice = numberValue('costPrice');
   const sellerDiscount = Math.min(numberValue('sellerDiscount'), salePrice * quantity);
   const targetMode = marketingInputs.targetProfitMode.value;
@@ -624,6 +630,9 @@ document.getElementById('marketingForm').addEventListener('submit', (event) => e
 
 Object.values(marketingInputs).forEach((input) => {
   input.addEventListener('input', () => {
+    if (input.id === 'quantity') {
+      normalizeQuantityField();
+    }
     if (currencyInputIds.has(input.id)) {
       normalizeCurrencyField(input);
     }
@@ -632,6 +641,9 @@ Object.values(marketingInputs).forEach((input) => {
   input.addEventListener('change', () => {
     if (input.id === 'targetProfitMode') {
       syncTargetProfitInputMode();
+    }
+    if (input.id === 'quantity') {
+      normalizeQuantityField();
     }
     if (currencyInputIds.has(input.id)) {
       normalizeCurrencyField(input);

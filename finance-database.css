@@ -334,9 +334,9 @@ html {
 
 .finance-kpi-card {
   display: grid;
-  gap: 6px;
-  min-height: 102px;
-  padding: 12px;
+  gap: 4px;
+  min-height: 74px;
+  padding: 10px 11px;
 }
 
 .finance-kpi-card.is-profit {
@@ -359,7 +359,7 @@ html {
 .finance-kpi-card strong {
   overflow-wrap: anywhere;
   color: #181818;
-  font-size: clamp(20px, 2.4vw, 28px);
+  font-size: clamp(17px, 2vw, 22px);
   font-weight: 560;
   line-height: 1.08;
 }
@@ -385,8 +385,8 @@ html {
 .finance-chart-panel {
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+  padding: 11px;
 }
 
 .finance-card-head {
@@ -415,15 +415,15 @@ html {
   display: grid;
   grid-template-columns: repeat(6, minmax(48px, 1fr));
   align-items: end;
-  gap: 9px;
-  min-height: 190px;
+  gap: 7px;
+  min-height: 126px;
 }
 
 .finance-chart-item {
   display: grid;
-  grid-template-rows: auto minmax(96px, 1fr) auto;
+  grid-template-rows: auto minmax(64px, 1fr) auto;
   align-items: end;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
   height: 100%;
 }
@@ -546,10 +546,10 @@ html {
 
 .finance-month-card {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   border: 1px solid var(--finance-border);
   border-radius: 8px;
-  padding: 13px;
+  padding: 11px;
   background: #fbfbfb;
 }
 
@@ -559,7 +559,7 @@ html {
   justify-content: space-between;
   gap: 16px;
   border-bottom: 1px solid #dedede;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
 }
 
 .finance-month-card-head div {
@@ -583,35 +583,35 @@ html {
 .finance-month-card-head strong {
   margin: 0;
   color: #222;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 560;
   line-height: 1.2;
 }
 
 .finance-month-card-head strong {
-  font-size: 20px;
+  font-size: 17px;
 }
 
 .finance-month-flow {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .finance-month-flow div {
   display: grid;
   align-content: space-between;
-  gap: 7px;
-  min-height: 76px;
+  gap: 5px;
+  min-height: 58px;
   border: 1px solid #e1e1e1;
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: 6px;
+  padding: 8px;
   background: #fff;
 }
 
 .finance-month-flow b {
   color: #222;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 560;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -639,7 +639,7 @@ html {
 .finance-month-formula {
   margin: 0;
   border-top: 1px solid #e4e4e4;
-  padding-top: 10px;
+  padding-top: 8px;
   line-height: 1.45;
 }
 
@@ -662,6 +662,23 @@ html {
 .finance-record-row,
 .finance-preview-row {
   grid-template-columns: minmax(84px, 0.58fr) 76px minmax(180px, 1.45fr) minmax(112px, 0.72fr) minmax(132px, 0.82fr);
+}
+
+.finance-record-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.finance-record-main b,
+.finance-record-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finance-record-amount {
+  text-align: right;
 }
 
 .finance-row.is-head,

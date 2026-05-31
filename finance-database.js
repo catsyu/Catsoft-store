@@ -679,29 +679,29 @@ function renderFinanceMonthly() {
 
         <div class="finance-month-flow" aria-label="Rumus profit bulanan">
           <div>
-            <span>Uang masuk dari Shopee</span>
+            <span>Penarikan Shopee</span>
             <b>${formatFinanceCurrency(row.shopee)}</b>
           </div>
           <div>
-            <span>Uang masuk dari GoPay</span>
+            <span>Penarikan GoPay</span>
             <b>${formatFinanceCurrency(row.gopay)}</b>
           </div>
           <div class="is-total">
-            <span>Total uang masuk</span>
+            <span>Total Penarikan</span>
             <b>${formatFinanceCurrency(row.totalWithdrawal)}</b>
           </div>
           <div class="is-cost">
-            <span>Dikurangi biaya stok</span>
+            <span>Biaya Stok</span>
             <b>${formatFinanceCurrency(row.stockCost)}</b>
           </div>
           <div class="is-profit">
-            <span>Hasil akhir / profit bersih</span>
+            <span>Profit Bersih</span>
             <b>${formatFinanceCurrency(row.profit)}</b>
           </div>
         </div>
 
         <p class="finance-month-formula">
-          Profit bersih = total uang masuk ${formatFinanceCurrency(row.totalWithdrawal)} - biaya stok ${formatFinanceCurrency(row.stockCost)}
+          Profit bersih = Total Penarikan ${formatFinanceCurrency(row.totalWithdrawal)} - Biaya Stok ${formatFinanceCurrency(row.stockCost)}.
         </p>
       </article>
     `).join('')}
@@ -734,13 +734,13 @@ function renderFinanceRecords(visibleRecords) {
     .sort((a, b) => String(b.transactionDate).localeCompare(String(a.transactionDate)))
     .map((record) => `
       <div class="finance-record-row">
-        <span>${escapeFinanceHtml(formatFinanceDate(record.transactionDate))}</span>
+        <span class="finance-record-date">${escapeFinanceHtml(formatFinanceDate(record.transactionDate))}</span>
         <span class="finance-source-pill is-${escapeFinanceHtml(record.source)}">${escapeFinanceHtml(record.source === 'gopay' ? 'GoPay' : 'Shopee')}</span>
-        <span>
+        <span class="finance-record-main">
           <b>${escapeFinanceHtml(record.description || 'Penarikan Dana')}</b>
           <small>${escapeFinanceHtml(record.reference || record.id)}</small>
         </span>
-        <b>${formatFinanceCurrency(record.amount)}</b>
+        <b class="finance-record-amount">${formatFinanceCurrency(record.amount)}</b>
         <span class="finance-status-pill">${escapeFinanceHtml(record.status || 'posted')}</span>
       </div>
     `);

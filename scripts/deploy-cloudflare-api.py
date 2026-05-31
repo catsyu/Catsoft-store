@@ -30,6 +30,7 @@ DATABASES = {
 }
 
 INBOX_API_TOKEN = os.environ.get("INBOX_API_TOKEN", "")
+CATSOFT_OWNER_PASSWORD = os.environ.get("CATSOFT_OWNER_PASSWORD", "")
 ALLOW_UNAUTHENTICATED_API = os.environ.get("ALLOW_UNAUTHENTICATED_API", "false").lower() in ("1", "true", "yes")
 
 
@@ -239,16 +240,19 @@ def upload_worker():
             {"type": "plain_text", "name": "FORWARD_TO", "text": "cundigitora@gmail.com"},
             {"type": "plain_text", "name": "ALLOW_UNAUTHENTICATED_API", "text": "true" if ALLOW_UNAUTHENTICATED_API else "false"},
             {"type": "assets", "name": "ASSETS"},
-        ] + (
-            [{"type": "plain_text", "name": "INBOX_API_TOKEN", "text": INBOX_API_TOKEN}]
-            if INBOX_API_TOKEN
-            else []
-        ),
+        ],
         "annotations": {
             "workers/message": "Catsoft admin tools update",
             "workers/tag": "catsoft-admin-tools",
         },
     }
+
+    if INBOX_API_TOKEN:
+        metadata["bindings"].append({"type": "secret_text", "name": "INBOX_API_TOKEN", "text": INBOX_API_TOKEN})
+
+    if CATSOFT_OWNER_PASSWORD:
+        metadata["bindings"].append({"type": "secret_text", "name": "CATSOFT_OWNER_PASSWORD", "text": CATSOFT_OWNER_PASSWORD})
+
     if assets_jwt:
         metadata["assets"] = {
             "jwt": assets_jwt,

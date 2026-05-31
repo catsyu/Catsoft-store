@@ -1,6 +1,7 @@
 const CATSOFT_SUPPLIER_SESSION_KEY = 'catsoftSupplierSession';
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
+const CATSOFT_SUPPLIER_AUTH_API = window.CATSOFT_AUTH_API || getDefaultSupplierAuthApiEndpoint();
 const CATSOFT_SUPPLIER_SESSION_ACTIVITY_API = window.CATSOFT_SESSION_ACTIVITY_API || getDefaultSessionActivityApiEndpoint();
 const CATSOFT_SUPPLIER_ACCOUNTS_REFRESH_MS = 3000;
 let catsoftSupplierHeartbeatTimer = null;
@@ -60,6 +61,17 @@ function getDefaultSupplierAccountsApiEndpoint() {
   }
 
   return '/api/supplier-accounts';
+}
+
+function getDefaultSupplierAuthApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage) {
+    return 'https://catsoft.store/api/auth/login';
+  }
+
+  return '/api/auth/login';
 }
 
 function getDefaultSessionActivityApiEndpoint() {
@@ -180,6 +192,7 @@ function saveSupplierSession(session) {
 
 function clearSupplierSession() {
   sessionStorage.removeItem(CATSOFT_SUPPLIER_SESSION_KEY);
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
 }
 
 function getSupplierAccountByUsername(username) {
@@ -288,15 +301,21 @@ function getSupplierInboxAccess() {
 }
 
 async function loginSupplier(username, password) {
-  await syncSupplierAccountsFromApi();
-  const account = getSupplierAccountByUsername(username);
+  const response = await fetch(CATSOFT_SUPPLIER_AUTH_API, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'supplier', username, password })
+  });
+  const payload = await response.json().catch(() => ({}));
 
-  if (!account || !(await verifySupplierAccountPassword(account, password))) {
-    return { ok: false, message: 'Username atau password supplier salah.' };
+  if (!response.ok || !payload.ok) {
+    return { ok: false, message: payload.message || 'Username atau password supplier salah.' };
   }
 
+  const account = normalizeSupplierAccount(payload.account || {});
+  saveSupplierAccounts([account]);
   saveSupplierSession({ username: account.username, role: 'supplier', loggedInAt: new Date().toISOString() });
-  await migrateSupplierPasswordIfLegacy(account, password);
   recordSupplierSessionActivity(account.username, 'login');
   return { ok: true };
 }

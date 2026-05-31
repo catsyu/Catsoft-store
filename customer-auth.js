@@ -1,6 +1,7 @@
 const CATSOFT_CUSTOMER_SESSION_KEY = 'catsoftCustomerSession';
 const CATSOFT_CUSTOMER_ACCOUNTS_KEY = 'catsoftCustomerAccounts';
 const CUSTOMER_AUTH_ACCOUNTS_API = window.CATSOFT_CUSTOMER_ACCOUNTS_API || getDefaultCustomerAccountsApiEndpoint();
+const CUSTOMER_AUTH_LOGIN_API = window.CATSOFT_AUTH_API || getDefaultCustomerAuthApiEndpoint();
 const CATSOFT_CUSTOMER_ACCOUNTS_REFRESH_MS = 4000;
 let catsoftCustomerAccountsRefreshTimer = null;
 
@@ -38,6 +39,17 @@ function getDefaultCustomerAccountsApiEndpoint() {
   }
 
   return '/api/customer-accounts';
+}
+
+function getDefaultCustomerAuthApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage) {
+    return 'https://catsoft.store/api/auth/login';
+  }
+
+  return '/api/auth/login';
 }
 
 function normalizeCustomerAccount(account) {
@@ -105,6 +117,7 @@ function saveCustomerSession(session) {
 
 function clearCustomerSession() {
   sessionStorage.removeItem(CATSOFT_CUSTOMER_SESSION_KEY);
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
 }
 
 function getCustomerAccountByUsername(username) {
@@ -167,13 +180,20 @@ async function verifyCustomerAccountPassword(account, password) {
 }
 
 async function loginCustomer(username, password) {
-  await syncCustomerAccountsFromApi();
-  const account = getCustomerAccountByUsername(username);
+  const response = await fetch(CUSTOMER_AUTH_LOGIN_API, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'customer', username, password })
+  });
+  const payload = await response.json().catch(() => ({}));
 
-  if (!account || !(await verifyCustomerAccountPassword(account, password))) {
-    return { ok: false, message: 'Username atau password customer salah.' };
+  if (!response.ok || !payload.ok) {
+    return { ok: false, message: payload.message || 'Username atau password customer salah.' };
   }
 
+  const account = normalizeCustomerAccount(payload.account || {});
+  saveCustomerAccounts([account]);
   saveCustomerSession({ username: account.username, role: 'customer', loggedInAt: new Date().toISOString() });
   return { ok: true };
 }
@@ -432,8 +452,6 @@ async function initCustomerAuth() {
     startCustomerAccountsAutoRefresh();
     return;
   }
-
-  await syncCustomerAccountsFromApi();
 
   if (!getCurrentCustomer()) {
     renderCustomerLogin();

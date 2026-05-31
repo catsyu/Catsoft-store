@@ -27,5 +27,5 @@ database_id = "17d3485b-c3f1-40a7-b583-f58ebd63bd87"
 
 [vars]
 FORWARD_TO = "cundigitora@gmail.com"
-# Untuk testing sementara saja. Hapus atau ubah ke false jika API sudah dilindungi token/Access.
-ALLOW_UNAUTHENTICATED_API = "true"
+# API database wajib dilindungi token/Access di production.
+ALLOW_UNAUTHENTICATED_API = "false"

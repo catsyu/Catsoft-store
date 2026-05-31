@@ -1,9 +1,10 @@
 const CATSOFT_OWNER_USERNAME = 'OwnerCatsoft';
-const CATSOFT_OWNER_PASSWORD = 'Rhyhusnul24!';
+const CATSOFT_OWNER_PASSWORD = '';
 const CATSOFT_ADMIN_SESSION_KEY = 'catsoftAdminSession';
 const CATSOFT_ADMIN_ACCOUNTS_KEY = 'catsoftAdminAccounts';
 const CATSOFT_ADMIN_ACCOUNTS_SYNC_KEY = 'catsoftAdminAccountsLastSync';
 const CATSOFT_ADMIN_ACCOUNTS_API = window.CATSOFT_ADMIN_ACCOUNTS_API || getDefaultAdminAccountsApiEndpoint();
+const CATSOFT_AUTH_API = window.CATSOFT_AUTH_API || getDefaultAuthApiEndpoint();
 const CATSOFT_ADMIN_ACCOUNTS_REFRESH_MS = 3000;
 const CATSOFT_SUPPLIER_ACCOUNTS_KEY = 'catsoftSupplierAccounts';
 const CATSOFT_SUPPLIER_ACCOUNTS_API = window.CATSOFT_SUPPLIER_ACCOUNTS_API || getDefaultSupplierAccountsApiEndpoint();
@@ -220,6 +221,17 @@ function getDefaultCustomerAccountsApiEndpoint() {
   }
 
   return '/api/customer-accounts';
+}
+
+function getDefaultAuthApiEndpoint() {
+  const hostname = window.location.hostname.toLowerCase();
+  const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (window.location.protocol === 'file:' || isLocalPage) {
+    return 'https://catsoft.store/api/auth/login';
+  }
+
+  return '/api/auth/login';
 }
 
 function getDefaultSessionActivityApiEndpoint() {
@@ -549,6 +561,7 @@ function saveAdminSession(session) {
 
 function clearAdminSession() {
   sessionStorage.removeItem(CATSOFT_ADMIN_SESSION_KEY);
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
 }
 
 function isOwnerCredential(username, password) {
@@ -767,22 +780,27 @@ function getAllowedInboxRecipients() {
 }
 
 async function loginAdmin(username, password) {
-  if (isOwnerCredential(username, password)) {
-    saveAdminSession({ username: CATSOFT_OWNER_USERNAME, role: 'owner', loggedInAt: new Date().toISOString() });
-    recordSessionActivity('admin', CATSOFT_OWNER_USERNAME, 'login');
-    return { ok: true };
+  const response = await fetch(CATSOFT_AUTH_API, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'admin', username, password })
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload.ok) {
+    return { ok: false, message: payload.message || 'Username atau password salah.' };
   }
 
-  await syncAdminAccountsFromApi({ silent: true });
-  const account = getAccountByUsername(username);
-
-  if (!account || !(await verifyAccountPassword(account, password))) {
-    return { ok: false, message: 'Username atau password salah.' };
+  const account = payload.account || {};
+  if (payload.role !== 'owner') {
+    saveAdminAccounts([normalizeAdminAccount(account)]);
   }
-
   saveAdminSession({ username: account.username, role: 'admin', loggedInAt: new Date().toISOString() });
-  await migrateAdminPasswordIfLegacy(account, password);
-  recordSessionActivity('admin', account.username, 'login');
+  if (payload.role === 'owner') {
+    saveAdminSession({ username: CATSOFT_OWNER_USERNAME, role: 'owner', loggedInAt: new Date().toISOString() });
+  }
+  recordSessionActivity(payload.role === 'owner' ? 'admin' : 'admin', account.username || CATSOFT_OWNER_USERNAME, 'login');
   return { ok: true };
 }
 

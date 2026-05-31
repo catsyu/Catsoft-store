@@ -79,9 +79,29 @@ body.adobe-maker-body {
 }
 
 .adobe-maker-profile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
   color: #f5f5f5;
   font-size: 14px;
   white-space: nowrap;
+}
+
+.adobe-maker-profile-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  flex: 0 0 auto;
 }
 
 .adobe-maker-hero,
@@ -354,6 +374,17 @@ body.adobe-maker-body {
     padding: 10px 14px;
   }
 
+  .adobe-maker-profile {
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .adobe-maker-profile-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 13px;
+  }
+
   .adobe-maker-hero,
   .adobe-maker-card {
     width: calc(100% - 20px);
@@ -389,4 +420,5 @@ body.adobe-maker-body {
   .adobe-maker-secondary {
     width: 100%;
   }
+
 }

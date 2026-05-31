@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS supplier_accounts (
   password TEXT NOT NULL,
   password_hash TEXT,
   tools TEXT NOT NULL DEFAULT '[]',
-  allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]',
+  allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk","malibus.org"]',
   inbox_access_all INTEGER NOT NULL DEFAULT 0,
   inbox_rules TEXT NOT NULL DEFAULT '[]',
   created_by TEXT,
@@ -253,7 +253,7 @@ CREATE INDEX IF NOT EXISTS idx_internal_chat_created
 --   username TEXT PRIMARY KEY,
 --   password TEXT NOT NULL,
 --   tools TEXT NOT NULL DEFAULT '[]',
---   allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]',
+--   allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk","malibus.org"]',
 --   inbox_access_all INTEGER NOT NULL DEFAULT 0,
 --   inbox_rules TEXT NOT NULL DEFAULT '[]',
 --   created_at TEXT NOT NULL,
@@ -269,7 +269,7 @@ CREATE INDEX IF NOT EXISTS idx_internal_chat_created
 --   created_at TEXT NOT NULL,
 --   updated_at TEXT NOT NULL
 -- );
--- ALTER TABLE supplier_accounts ADD COLUMN allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]';
+-- ALTER TABLE supplier_accounts ADD COLUMN allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk","malibus.org"]';
 -- ALTER TABLE admin_accounts ADD COLUMN password_hash TEXT;
 -- ALTER TABLE supplier_accounts ADD COLUMN password_hash TEXT;
 -- ALTER TABLE admin_accounts ADD COLUMN last_login_at TEXT;

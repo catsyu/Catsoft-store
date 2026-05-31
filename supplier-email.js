@@ -21,7 +21,8 @@ function getCatsoftSharedEmailDomains() {
     'fadisa1.uk',
     'gasddqw1.uk',
     'kulamusic.us',
-    'wkwkksks.uk'
+    'wkwkksks.uk',
+    'malibus.org'
   ];
 
   const domains = Array.isArray(sharedDomains) && sharedDomains.length ? sharedDomains : fallbackDomains;

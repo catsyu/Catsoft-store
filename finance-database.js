@@ -34,6 +34,19 @@ const financeEls = {
   status: document.querySelector('[data-finance-status]'),
   monthly: document.querySelector('[data-finance-monthly]'),
   monthContext: document.querySelector('[data-finance-month-context]'),
+  dashboardNote: document.querySelector('[data-finance-dashboard-note]'),
+  dashboardRange: document.querySelector('[data-finance-dashboard-range]'),
+  kpiProfit: document.querySelector('[data-finance-kpi-profit]'),
+  kpiProfitNote: document.querySelector('[data-finance-kpi-profit-note]'),
+  kpiAverage: document.querySelector('[data-finance-kpi-average]'),
+  kpiAverageNote: document.querySelector('[data-finance-kpi-average-note]'),
+  kpiCount: document.querySelector('[data-finance-kpi-count]'),
+  kpiCountNote: document.querySelector('[data-finance-kpi-count-note]'),
+  kpiMargin: document.querySelector('[data-finance-kpi-margin]'),
+  kpiMarginNote: document.querySelector('[data-finance-kpi-margin-note]'),
+  monthlyChart: document.querySelector('[data-finance-monthly-chart]'),
+  sourceBars: document.querySelector('[data-finance-source-bars]'),
+  insights: document.querySelector('[data-finance-insights]'),
   count: document.querySelector('[data-finance-result-count]'),
   list: document.querySelector('[data-finance-list]'),
   previewModal: document.querySelector('[data-finance-preview-modal]'),
@@ -49,7 +62,7 @@ function getDefaultFinanceApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/finance-records';
   }
 
@@ -60,7 +73,7 @@ function getDefaultFinanceStockApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/product-stock';
   }
 
@@ -104,6 +117,12 @@ function parseFinanceAmount(value) {
 
 function formatFinanceCurrency(value) {
   return `Rp ${new Intl.NumberFormat('id-ID').format(Number(value) || 0)}`;
+}
+
+function formatFinancePercent(value) {
+  return `${new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: 1
+  }).format(Number(value) || 0)}%`;
 }
 
 function normalizeFinanceDate(value) {
@@ -485,6 +504,146 @@ function renderFinanceStats(visibleRecords) {
   }
 }
 
+function getVisibleFinanceMonthlySummary(visibleRecords) {
+  const selectedMonth = normalizeFinanceText(financeEls.month?.value);
+  const source = normalizeFinanceText(financeEls.source?.value || 'all');
+  const summary = new Map();
+  const ensureMonth = (monthKey) => {
+    const key = monthKey || financeNowMonth();
+
+    if (!summary.has(key)) {
+      summary.set(key, {
+        monthKey: key,
+        shopee: 0,
+        gopay: 0,
+        stockCost: 0
+      });
+    }
+
+    return summary.get(key);
+  };
+
+  visibleRecords.forEach((record) => {
+    const item = ensureMonth(record.monthKey);
+    item[record.source === 'gopay' ? 'gopay' : 'shopee'] += Number(record.amount) || 0;
+  });
+
+  const months = new Set(summary.keys());
+
+  if (selectedMonth) {
+    months.add(selectedMonth);
+  }
+
+  financeStockAccounts.forEach((account) => {
+    const monthKey = getFinanceStockMonth(account);
+
+    if ((selectedMonth && monthKey !== selectedMonth) || (!selectedMonth && months.size && !months.has(monthKey))) {
+      return;
+    }
+
+    ensureMonth(monthKey).stockCost += getFinanceStockCost(account);
+  });
+
+  if (selectedMonth) {
+    ensureMonth(selectedMonth);
+  }
+
+  return Array.from(summary.values())
+    .map((item) => {
+      const totalWithdrawal = (source === 'gopay' ? 0 : item.shopee) + (source === 'shopee' ? 0 : item.gopay);
+      return {
+        ...item,
+        totalWithdrawal,
+        profit: totalWithdrawal - item.stockCost
+      };
+    })
+    .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+}
+
+function renderFinanceDashboard(visibleRecords) {
+  const rows = getVisibleFinanceMonthlySummary(visibleRecords);
+  const chartRows = rows.slice(0, 6).reverse();
+  const selectedMonth = normalizeFinanceText(financeEls.month?.value);
+  const shopee = sumFinanceRecords(visibleRecords, 'shopee');
+  const gopay = sumFinanceRecords(visibleRecords, 'gopay');
+  const total = shopee + gopay;
+  const stockCost = rows.reduce((sum, row) => sum + row.stockCost, 0);
+  const profit = total - stockCost;
+  const average = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.profit, 0) / rows.length) : 0;
+  const margin = total ? (profit / total) * 100 : 0;
+  const bestMonth = rows.reduce((best, row) => (!best || row.profit > best.profit ? row : best), null);
+
+  if (financeEls.dashboardNote) {
+    financeEls.dashboardNote.textContent = selectedMonth
+      ? `Ringkasan usaha ${formatFinanceMonth(selectedMonth)}`
+      : 'Ringkasan semua bulan yang tercatat';
+  }
+
+  if (financeEls.dashboardRange) {
+    financeEls.dashboardRange.textContent = chartRows.length > 1
+      ? `${formatFinanceMonth(chartRows[0].monthKey)} - ${formatFinanceMonth(chartRows[chartRows.length - 1].monthKey)}`
+      : '6 Bulan Terakhir';
+  }
+
+  if (financeEls.kpiProfit) financeEls.kpiProfit.textContent = formatFinanceCurrency(profit);
+  if (financeEls.kpiProfitNote) financeEls.kpiProfitNote.textContent = `${formatFinanceCurrency(total)} penarikan - ${formatFinanceCurrency(stockCost)} stok`;
+  if (financeEls.kpiAverage) financeEls.kpiAverage.textContent = formatFinanceCurrency(average);
+  if (financeEls.kpiAverageNote) financeEls.kpiAverageNote.textContent = rows.length ? `${rows.length} bulan tercatat` : 'Belum ada bulan tercatat';
+  if (financeEls.kpiCount) financeEls.kpiCount.textContent = new Intl.NumberFormat('id-ID').format(visibleRecords.length);
+  if (financeEls.kpiCountNote) financeEls.kpiCountNote.textContent = `${visibleRecords.filter((record) => record.source === 'shopee').length} Shopee, ${visibleRecords.filter((record) => record.source === 'gopay').length} GoPay`;
+  if (financeEls.kpiMargin) financeEls.kpiMargin.textContent = formatFinancePercent(margin);
+  if (financeEls.kpiMarginNote) financeEls.kpiMarginNote.textContent = total ? `${formatFinanceCurrency(stockCost)} biaya stok` : 'Butuh data penarikan';
+
+  if (financeEls.monthlyChart) {
+    const maxProfit = Math.max(...chartRows.map((row) => Math.abs(row.profit)), 1);
+    financeEls.monthlyChart.innerHTML = chartRows.length
+      ? chartRows.map((row) => {
+        const height = Math.max(8, Math.round((Math.abs(row.profit) / maxProfit) * 100));
+        const tone = row.profit < 0 ? 'is-loss' : 'is-gain';
+        return `
+          <div class="finance-chart-item ${tone}">
+            <span class="finance-chart-value">${formatFinanceCurrency(row.profit)}</span>
+            <i style="--bar-height:${height}%"></i>
+            <small>${escapeFinanceHtml(formatFinanceMonth(row.monthKey).replace(/ .*/, ''))}</small>
+          </div>
+        `;
+      }).join('')
+      : `
+        <div class="finance-empty is-dashboard-empty">
+          <div>
+            <strong>Belum Ada Tren</strong>
+            <span>Upload penarikan untuk melihat grafik profit.</span>
+          </div>
+        </div>
+      `;
+  }
+
+  if (financeEls.sourceBars) {
+    const shopeePercent = total ? (shopee / total) * 100 : 0;
+    const gopayPercent = total ? (gopay / total) * 100 : 0;
+    financeEls.sourceBars.innerHTML = `
+      <div class="finance-source-bar">
+        <div><b>Shopee</b><span>${formatFinanceCurrency(shopee)}</span></div>
+        <i><span style="width:${Math.round(shopeePercent)}%"></span></i>
+        <small>${formatFinancePercent(shopeePercent)} dari penarikan</small>
+      </div>
+      <div class="finance-source-bar is-gopay">
+        <div><b>GoPay</b><span>${formatFinanceCurrency(gopay)}</span></div>
+        <i><span style="width:${Math.round(gopayPercent)}%"></span></i>
+        <small>${formatFinancePercent(gopayPercent)} dari penarikan</small>
+      </div>
+    `;
+  }
+
+  if (financeEls.insights) {
+    financeEls.insights.innerHTML = `
+      <div><b>Bulan terbaik</b><span>${bestMonth ? `${escapeFinanceHtml(formatFinanceMonth(bestMonth.monthKey))} · ${formatFinanceCurrency(bestMonth.profit)}` : 'Belum ada data'}</span></div>
+      <div><b>Biaya stok</b><span>${formatFinanceCurrency(stockCost)}</span></div>
+      <div><b>Sumber dominan</b><span>${total ? (shopee >= gopay ? 'Shopee' : 'GoPay') : 'Belum ada data'}</span></div>
+    `;
+  }
+}
+
 function renderFinanceMonthly() {
   if (!financeEls.monthly) {
     return;
@@ -578,6 +737,7 @@ function renderFinanceRecords(visibleRecords) {
 function renderFinance() {
   const visibleRecords = getFilteredFinanceRecords();
   renderFinanceStats(visibleRecords);
+  renderFinanceDashboard(visibleRecords);
   renderFinanceMonthly();
   renderFinanceRecords(visibleRecords);
   window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));

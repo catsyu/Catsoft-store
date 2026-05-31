@@ -430,7 +430,7 @@ function getDefaultApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (isLocalPage || hostname !== 'catsoft.store') {
+  if (isLocalPage) {
     return productionApiEndpoint;
   }
 
@@ -445,7 +445,7 @@ function getProductStockApiEndpoint() {
     return window.CATSOFT_PRODUCT_STOCK_API;
   }
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/product-stock';
   }
 
@@ -1062,7 +1062,7 @@ function getDefaultCustomerMarketingSettingsApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/tool-settings/marketing-calculator';
   }
 

@@ -13,7 +13,8 @@
         'fadisa1.uk',
         'gasddqw1.uk',
         'kulamusic.us',
-        'wkwkksks.uk'
+        'wkwkksks.uk',
+        'malibus.org'
       ])
     .map((domain) => String(domain || '').trim().toLowerCase())
     .filter(Boolean)
@@ -103,6 +104,7 @@
 
   const elements = {
     ownerLabel: document.querySelector('[data-owner-label]'),
+    ownerInitials: document.querySelector('[data-owner-initials]'),
     form: document.getElementById('adobeMakerForm'),
     country: document.getElementById('makerCountry'),
     domain: document.getElementById('makerDomain'),
@@ -121,6 +123,19 @@
 
   function normalize(value) {
     return String(value || '').trim().toLowerCase();
+  }
+
+  function getOwnerInitials(value) {
+    const words = String(value || 'OwnerCatsoft')
+      .trim()
+      .split(/[\s._-]+/)
+      .filter(Boolean);
+
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+
+    return (words[0] || 'OW').slice(0, 2).toUpperCase();
   }
 
   function getCurrentAdmin() {
@@ -335,6 +350,14 @@
     }
   }
 
+  function renderCountryOptions() {
+    const currentValue = elements.country.value || 'ES';
+    elements.country.innerHTML = Object.entries(COUNTRIES)
+      .map(([code, country]) => `<option value="${code}">${country.label}</option>`)
+      .join('');
+    elements.country.value = COUNTRIES[currentValue] ? currentValue : 'ES';
+  }
+
   function renderDomainOptions() {
     elements.domain.innerHTML = DOMAINS
       .map((domain) => `<option value="${domain}">${domain}</option>`)
@@ -405,9 +428,14 @@
   }
 
   function showApp(admin, message = '') {
+    const ownerName = admin && admin.username ? admin.username : 'OwnerCatsoft';
     if (elements.ownerLabel) {
-      elements.ownerLabel.textContent = admin && admin.username ? admin.username : 'OwnerCatsoft';
+      elements.ownerLabel.textContent = ownerName;
     }
+    if (elements.ownerInitials) {
+      elements.ownerInitials.textContent = getOwnerInitials(ownerName);
+    }
+    renderCountryOptions();
     renderDomainOptions();
     const saved = readSavedData();
     if (saved.email) {

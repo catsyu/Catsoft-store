@@ -13,7 +13,8 @@ function getCatsoftSharedEmailDomains() {
     'fadisa1.uk',
     'gasddqw1.uk',
     'kulamusic.us',
-    'wkwkksks.uk'
+    'wkwkksks.uk',
+    'malibus.org'
   ];
 
   const domains = Array.isArray(sharedDomains) && sharedDomains.length ? sharedDomains : fallbackDomains;
@@ -46,7 +47,7 @@ function getDefaultCustomerAccessApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/customer-accounts';
   }
 

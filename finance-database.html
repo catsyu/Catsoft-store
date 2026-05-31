@@ -4,20 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Catsoft Finance Database</title>
+  <title>Catsoft Finance Dashboard</title>
   <script src="admin-tool-redirect.js?v=20260531-single-console"></script>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="admin-tools.css?v=20260531-date-sync" />
   <link rel="stylesheet" href="form-standard.css?v=20260601-month-filter" />
-  <link rel="stylesheet" href="finance-database.css?v=20260601-month-filter" />
+  <link rel="stylesheet" href="finance-database.css?v=20260601-finance-dashboard" />
 </head>
 <body class="finance-body">
   <main class="finance-page">
     <section class="admin-access-panel admin-access-page-panel finance-panel" aria-labelledby="financeTitle">
       <div class="admin-spectrum-page">
         <div class="admin-spectrum-head finance-head">
-          <h2 id="financeTitle">Keuangan</h2>
+          <h2 id="financeTitle">Dashboard Keuangan</h2>
           <dl>
             <div>
               <dt>Penarikan</dt>
@@ -87,6 +87,58 @@
 
         <p class="admin-access-status finance-status" data-finance-status aria-live="polite"></p>
 
+        <section class="finance-dashboard" aria-labelledby="financeDashboardTitle">
+          <div class="finance-section-head">
+            <div>
+              <h3 id="financeDashboardTitle">Tracking Penghasilan</h3>
+              <span data-finance-dashboard-note>Ringkasan usaha bulan ini</span>
+            </div>
+            <span data-finance-dashboard-range>6 Bulan Terakhir</span>
+          </div>
+
+          <div class="finance-kpi-grid">
+            <article class="finance-kpi-card is-profit">
+              <span>Profit Bersih</span>
+              <strong data-finance-kpi-profit>Rp 0</strong>
+              <small data-finance-kpi-profit-note>Setelah biaya stok</small>
+            </article>
+            <article class="finance-kpi-card">
+              <span>Rata-rata Bulanan</span>
+              <strong data-finance-kpi-average>Rp 0</strong>
+              <small data-finance-kpi-average-note>Dari bulan yang tercatat</small>
+            </article>
+            <article class="finance-kpi-card">
+              <span>Transaksi Masuk</span>
+              <strong data-finance-kpi-count>0</strong>
+              <small data-finance-kpi-count-note>Penarikan tersaring</small>
+            </article>
+            <article class="finance-kpi-card">
+              <span>Margin Stok</span>
+              <strong data-finance-kpi-margin>0%</strong>
+              <small data-finance-kpi-margin-note>Profit dibanding penarikan</small>
+            </article>
+          </div>
+
+          <div class="finance-dashboard-grid">
+            <article class="finance-chart-panel">
+              <div class="finance-card-head">
+                <h4>Tren Profit Bulanan</h4>
+                <span>Penarikan - biaya stok</span>
+              </div>
+              <div class="finance-chart" data-finance-monthly-chart></div>
+            </article>
+
+            <article class="finance-chart-panel">
+              <div class="finance-card-head">
+                <h4>Komposisi Penghasilan</h4>
+                <span>Shopee dan GoPay</span>
+              </div>
+              <div class="finance-source-bars" data-finance-source-bars></div>
+              <div class="finance-insight-list" data-finance-insights></div>
+            </article>
+          </div>
+        </section>
+
         <section class="finance-summary-table" aria-labelledby="financeMonthlyTitle">
           <div class="finance-section-head">
             <h3 id="financeMonthlyTitle">Profit Bulanan</h3>
@@ -127,9 +179,9 @@
   </div>
 
   <script src="form-standard.js?v=20260601-month-filter"></script>
-  <script src="catsoft-domains.js?v=20260601-domain-registry"></script>
+  <script src="catsoft-domains.js?v=20260601-malibus-domain"></script>
   <script src="admin-auth.js?v=20260601-domain-registry"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="finance-database.js?v=20260601-month-filter"></script>
+  <script src="finance-database.js?v=20260601-finance-dashboard"></script>
 </body>
 </html>

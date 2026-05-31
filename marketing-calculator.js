@@ -57,7 +57,7 @@ function getDefaultMarketingSettingsApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/tool-settings/marketing-calculator';
   }
 
@@ -99,17 +99,17 @@ function normalizeCurrencyField(input) {
 }
 
 function syncTargetProfitInputMode() {
-  const isProfitPercent = marketingInputs.targetProfitMode.value === 'percent';
+  const isProfitAmount = marketingInputs.targetProfitMode.value === 'amount';
   const currentValue = numberValue('targetProfit');
 
-  if (isProfitPercent) {
-    currencyInputIds.delete('targetProfit');
-    marketingInputs.targetProfit.value = String(currentValue).replace('.', ',');
+  if (isProfitAmount) {
+    currencyInputIds.add('targetProfit');
+    setInputValue('targetProfit', currentValue);
     return;
   }
 
-  currencyInputIds.add('targetProfit');
-  setInputValue('targetProfit', currentValue);
+  currencyInputIds.delete('targetProfit');
+  marketingInputs.targetProfit.value = String(currentValue).replace('.', ',');
 }
 
 function roundedPrice(value, step = 500) {
@@ -120,9 +120,13 @@ function roundedPrice(value, step = 500) {
   return Math.ceil(value / step) * step;
 }
 
-function getTargetProfitAmount(totalHpp) {
+function getTargetProfitAmount(totalHpp, netRevenue) {
   if (marketingInputs.targetProfitMode.value === 'percent') {
     return totalHpp * numberValue('targetProfit') / 100;
+  }
+
+  if (marketingInputs.targetProfitMode.value === 'netMargin') {
+    return netRevenue * numberValue('targetProfit') / 100;
   }
 
   return numberValue('targetProfit');
@@ -241,7 +245,7 @@ function getAdsRateForPrice(settings) {
   return settings.adsValue;
 }
 
-function calculateMinimumPrice(costPrice, targetProfit, settings, quantity, sellerDiscount) {
+function calculateMinimumPrice(costPrice, targetProfit, settings, quantity, sellerDiscount, targetMode = 'amount', targetPercent = 0) {
   const adsRate = getAdsRateForPrice(settings);
   const feeRate = (
     settings.adminFeeRate
@@ -251,6 +255,23 @@ function calculateMinimumPrice(costPrice, targetProfit, settings, quantity, sell
     + settings.cashbackRate
     + settings.riskRate
   ) / 100;
+
+  if (targetMode === 'netMargin') {
+    const marginRate = Math.max(targetPercent, 0) / 100;
+    const netRevenueDenominator = 1 - feeRate - marginRate;
+    const fixedCosts = costPrice * quantity
+      + settings.processingFee
+      + settings.shippingSubsidy
+      + settings.packingCost
+      + settings.otherCost;
+
+    if (netRevenueDenominator <= 0 || quantity <= 0) {
+      return 0;
+    }
+
+    return (fixedCosts / netRevenueDenominator + sellerDiscount) / quantity;
+  }
+
   const denominator = quantity * (1 - feeRate);
   const fixedCosts = costPrice * quantity
     + settings.processingFee
@@ -304,9 +325,11 @@ function renderSimulatorSuggestions(result) {
 
   if (result.costPrice > 0 && result.targetProfit >= 0 && result.suggestedPrice > 0) {
     const delta = result.suggestedPrice - result.salePrice;
-    const targetLabel = result.targetMode === 'percent'
-      ? `target ${percent(result.targetPercent)}`
-      : 'target untung';
+    const targetLabel = result.targetMode === 'netMargin'
+      ? `target margin bersih ${percent(result.targetPercent)}`
+      : result.targetMode === 'percent'
+        ? `target ${percent(result.targetPercent)} dari HPP`
+        : 'target untung';
     priceSuggestionText.textContent = delta > 0
       ? `Saran harga: ${money(result.suggestedPrice)} agar ${targetLabel} tercapai.`
       : `Harga aman. Minimal ${money(result.suggestedPrice)}.`;
@@ -333,8 +356,8 @@ function renderCalculation() {
   const targetMode = marketingInputs.targetProfitMode.value;
   const netRevenue = Math.max(salePrice * quantity - sellerDiscount, 0);
   const totalHpp = rupiah(costPrice * quantity);
-  const targetProfit = getTargetProfitAmount(totalHpp);
-  const targetPercent = targetMode === 'percent' ? numberValue('targetProfit') : 0;
+  const targetProfit = getTargetProfitAmount(totalHpp, netRevenue);
+  const targetPercent = targetMode === 'percent' || targetMode === 'netMargin' ? numberValue('targetProfit') : 0;
   const settings = getSettingsFromInputs();
   const adsMethod = settings.adsMethod;
   const adsInputValue = Math.max(settings.adsValue, adsMethod === 'roas' ? 0.1 : 0);
@@ -357,7 +380,7 @@ function renderCalculation() {
   const shopeeIncome = netRevenue - platformCost - extraCost;
   const netProfit = netRevenue - totalCost;
   const netMargin = netRevenue > 0 ? netProfit / netRevenue * 100 : 0;
-  const minimumPrice = calculateMinimumPrice(costPrice, targetProfit, settings, quantity, sellerDiscount);
+  const minimumPrice = calculateMinimumPrice(costPrice, targetProfit, settings, quantity, sellerDiscount, targetMode, targetPercent);
   const nonAdsCost = totalHpp + adminFee + programFee + settings.processingFee + affiliateFee + cashbackFee + settings.shippingSubsidy + settings.packingCost + settings.otherCost + riskCost;
   const breakEvenRoas = netRevenue > nonAdsCost
     ? netRevenue / (netRevenue - nonAdsCost)
@@ -470,7 +493,7 @@ function renderCalculation() {
 }
 
 function updateJoinedControls() {
-  const isProfitPercent = marketingInputs.targetProfitMode.value === 'percent';
+  const isProfitPercent = marketingInputs.targetProfitMode.value !== 'amount';
   const isAdsPercent = marketingInputs.adsMethod.value === 'percent';
 
   marketingInputs.targetProfit.step = isProfitPercent ? '0.5' : '500';
@@ -540,6 +563,7 @@ function exportMarketingCsv() {
     ['Mode Target Profit', result.targetMode],
     ['Target Profit Nominal', Math.round(result.targetProfit)],
     ['Target Profit Persen HPP', result.targetMode === 'percent' ? result.targetPercent : ''],
+    ['Target Margin Bersih', result.targetMode === 'netMargin' ? result.targetPercent : ''],
     ['Metode Iklan', result.adsMethod],
     ['Nilai Iklan', result.adsInputValue],
     ['ROAS Iklan', result.effectiveRoas ? result.effectiveRoas.toFixed(2) : ''],

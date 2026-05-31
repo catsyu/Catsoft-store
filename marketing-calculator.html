@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="stylesheet" href="admin-tools.css" />
   <link rel="stylesheet" href="form-standard.css" />
-  <link rel="stylesheet" href="marketing-calculator.css?v=20260529-simple-marketing-ui-v2" />
+  <link rel="stylesheet" href="marketing-calculator.css?v=20260601-net-margin-target" />
 </head>
 <body>
   <main class="admin-page marketing-page">
@@ -70,7 +70,8 @@
               <input id="targetProfit" type="text" inputmode="numeric" value="Rp 10.000" data-currency-input />
               <select id="targetProfitMode" aria-label="Mode Target Profit">
                 <option value="amount">Rp</option>
-                <option value="percent">%</option>
+                <option value="percent">% HPP</option>
+                <option value="netMargin">% Margin bersih</option>
               </select>
             </span>
           </label>
@@ -216,8 +217,8 @@
     </section>
   </main>
 
-  <script src="catsoft-domains.js?v=20260601-domain-registry" defer></script>
+  <script src="catsoft-domains.js?v=20260601-malibus-domain" defer></script>
   <script src="admin-auth.js?v=20260601-domain-registry" defer></script>
-  <script src="marketing-calculator.js?v=20260529-simple-marketing-ui-v2" defer></script>
+  <script src="marketing-calculator.js?v=20260601-net-margin-target" defer></script>
 </body>
 </html>

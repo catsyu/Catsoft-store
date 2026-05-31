@@ -31,7 +31,7 @@ function getDefaultCustomerAccountsApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/customer-accounts';
   }
 

@@ -185,6 +185,11 @@
   background-position: right 8px center;
 }
 
+.joined-control select#targetProfitMode {
+  min-width: 126px;
+  text-align: left;
+}
+
 .ad-control {
   grid-template-columns: minmax(0, 1fr) minmax(104px, auto);
   background: #eff6ff;

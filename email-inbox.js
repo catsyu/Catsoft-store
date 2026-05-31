@@ -149,7 +149,7 @@ function getDefaultApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (isLocalPage || hostname !== 'catsoft.store') {
+  if (isLocalPage) {
     return productionApiEndpoint;
   }
 

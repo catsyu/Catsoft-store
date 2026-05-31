@@ -20,7 +20,8 @@ const CATSOFT_EMAIL_DOMAINS = [
   'fadisa1.uk',
   'gasddqw1.uk',
   'kulamusic.us',
-  'wkwkksks.uk'
+  'wkwkksks.uk',
+  'malibus.org'
 ];
 const CATSOFT_EMAIL_DOMAINS_JSON = JSON.stringify(CATSOFT_EMAIL_DOMAINS);
 

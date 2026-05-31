@@ -21,7 +21,8 @@ function getCatsoftSharedEmailDomains() {
     'fadisa1.uk',
     'gasddqw1.uk',
     'kulamusic.us',
-    'wkwkksks.uk'
+    'wkwkksks.uk',
+    'malibus.org'
   ];
 
   const domains = Array.isArray(sharedDomains) && sharedDomains.length ? sharedDomains : fallbackDomains;
@@ -52,7 +53,7 @@ function getDefaultSupplierAccountsApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/supplier-accounts';
   }
 
@@ -63,7 +64,7 @@ function getDefaultSessionActivityApiEndpoint() {
   const hostname = window.location.hostname.toLowerCase();
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
-  if (window.location.protocol === 'file:' || isLocalPage || hostname !== 'catsoft.store') {
+  if (window.location.protocol === 'file:' || isLocalPage) {
     return 'https://catsoft.store/api/session-activity';
   }
 
@@ -993,7 +994,7 @@ window.CatsoftSupplierAuth = {
     const supplier = getCurrentSupplier();
     return supplier && supplier.allowedDomains && supplier.allowedDomains.length
       ? supplier.allowedDomains
-      : [CATSOFT_SUPPLIER_DOMAINS[0]];
+      : CATSOFT_SUPPLIER_DOMAINS;
   },
   logout: clearSupplierSession
 };

@@ -12,6 +12,17 @@ const customerProtectedStatuses = new Set(['removed', 'refund', 'problem']);
 const productStockStatusValues = new Set(['active', 'full', 'reset', 'paused']);
 const productStockTypeValues = new Set(['account', 'team', 'redeem_code']);
 const financeSourceValues = new Set(['shopee', 'gopay']);
+const CATSOFT_EMAIL_DOMAINS = [
+  'catsoft.store',
+  'catsoft.digital',
+  'catsoft.online',
+  'ask1q2.uk',
+  'fadisa1.uk',
+  'gasddqw1.uk',
+  'kulamusic.us',
+  'wkwkksks.uk'
+];
+const CATSOFT_EMAIL_DOMAINS_JSON = JSON.stringify(CATSOFT_EMAIL_DOMAINS);
 
 const categoryRules = [
   {
@@ -1043,7 +1054,7 @@ async function ensureSupplierAccountsTable(adminDb) {
       password TEXT NOT NULL,
       password_hash TEXT,
       tools TEXT NOT NULL DEFAULT '[]',
-      allowed_domains TEXT NOT NULL DEFAULT '["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]',
+      allowed_domains TEXT NOT NULL DEFAULT '${CATSOFT_EMAIL_DOMAINS_JSON}',
       inbox_access_all INTEGER NOT NULL DEFAULT 0,
       inbox_rules TEXT NOT NULL DEFAULT '[]',
       created_by TEXT,
@@ -1061,7 +1072,7 @@ async function ensureSupplierAccountsTable(adminDb) {
     adminDb,
     'supplier_accounts',
     'allowed_domains',
-    'TEXT NOT NULL DEFAULT \'["catsoft.store","catsoft.digital","catsoft.online","ask1q2.uk","fadisa1.uk","gasddqw1.uk","kulamusic.us","wkwkksks.uk"]\''
+    `TEXT NOT NULL DEFAULT '${CATSOFT_EMAIL_DOMAINS_JSON}'`
   );
   await addColumnIfMissing(adminDb, 'supplier_accounts', 'password_hash', 'TEXT');
   await addColumnIfMissing(adminDb, 'supplier_accounts', 'last_login_at', 'TEXT');
@@ -1306,7 +1317,7 @@ async function saveSupplierAccountsApi(request, env) {
       password,
       passwordHash || null,
       JSON.stringify(Array.isArray(account.tools) ? account.tools : []),
-      JSON.stringify(Array.isArray(account.allowedDomains) ? account.allowedDomains : ['catsoft.store', 'catsoft.digital', 'catsoft.online', 'ask1q2.uk', 'fadisa1.uk', 'gasddqw1.uk', 'kulamusic.us', 'wkwkksks.uk']),
+      JSON.stringify(Array.isArray(account.allowedDomains) ? account.allowedDomains : CATSOFT_EMAIL_DOMAINS),
       account.inboxAccessAll ? 1 : 0,
       JSON.stringify(Array.isArray(account.inboxRules) ? account.inboxRules : []),
       String(account.createdBy || ''),

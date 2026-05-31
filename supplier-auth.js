@@ -8,16 +8,31 @@ const CATSOFT_SUPPLIER_TOOLS = [
   { id: 'supplier-email', label: 'Email', path: 'supplier-email.html', route: '/mail' }
 ];
 
-const CATSOFT_SUPPLIER_DOMAINS = [
-  'catsoft.store',
-  'catsoft.digital',
-  'catsoft.online',
-  'ask1q2.uk',
-  'fadisa1.uk',
-  'gasddqw1.uk',
-  'kulamusic.us',
-  'wkwkksks.uk'
-];
+function getCatsoftSharedEmailDomains() {
+  const sharedDomains = typeof window.getCatsoftEmailDomains === 'function'
+    ? window.getCatsoftEmailDomains()
+    : window.CATSOFT_EMAIL_DOMAINS;
+
+  const fallbackDomains = [
+    'catsoft.store',
+    'catsoft.digital',
+    'catsoft.online',
+    'ask1q2.uk',
+    'fadisa1.uk',
+    'gasddqw1.uk',
+    'kulamusic.us',
+    'wkwkksks.uk'
+  ];
+
+  const domains = Array.isArray(sharedDomains) && sharedDomains.length ? sharedDomains : fallbackDomains;
+
+  return domains
+    .map((domain) => String(domain || '').trim().toLowerCase())
+    .filter(Boolean)
+    .filter((domain, index, list) => list.indexOf(domain) === index);
+}
+
+const CATSOFT_SUPPLIER_DOMAINS = getCatsoftSharedEmailDomains();
 
 function normalizeSupplierValue(value) {
   return String(value || '').trim().toLowerCase();

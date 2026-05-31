@@ -8,9 +8,16 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
   <link rel="stylesheet" href="/form-standard.css?v=20260601-month-filter" />
-  <link rel="stylesheet" href="/adobemaker-team.css?v=20260601-owner-checkout" />
+  <link rel="stylesheet" href="/adobemaker-team.css?v=20260601-generator-data" />
 </head>
 <body class="adobe-maker-body">
+  <section class="adobe-maker-loading" data-adobe-maker-loading>
+    <div>
+      <span class="adobe-maker-kicker">Adobe Maker</span>
+      <p>Memeriksa akses OwnerCatsoft...</p>
+    </div>
+  </section>
+
   <main class="adobe-maker-shell" data-adobe-maker-root hidden>
     <header class="adobe-maker-topbar">
       <a class="adobe-maker-brand" href="https://admin.catsoft.store/" aria-label="Catsoft Admin Console">
@@ -22,8 +29,8 @@
     <section class="adobe-maker-hero">
       <div>
         <span class="adobe-maker-kicker">Adobe Maker</span>
-        <h1>Adobe Team Checkout</h1>
-        <p>Buat link order Adobe resmi dari Catsoft, lalu lanjutkan checkout dan 3DS langsung di halaman Adobe.</p>
+        <h1>Generator data Adobe</h1>
+        <p>Buat data order sintetis yang realistis untuk Jerman, Spanyol, Swiss, dan Indonesia dari satu panel owner.</p>
       </div>
       <div class="adobe-maker-mark" aria-hidden="true">
         <span>AM</span>
@@ -33,66 +40,94 @@
     <section class="adobe-maker-card" data-owner-panel>
       <div class="adobe-maker-card-head">
         <div>
-          <span class="adobe-maker-kicker">Order</span>
-          <h2>Team seats Adobe</h2>
+          <span class="adobe-maker-kicker">Generator</span>
+          <h2>Data acak realistis</h2>
         </div>
         <span class="adobe-maker-badge">Owner only</span>
       </div>
 
       <form class="adobe-maker-form" id="adobeMakerForm">
-        <label class="adobe-maker-field adobe-maker-field-wide">
-          <span>Produk</span>
-          <input id="adobeProductName" type="text" value="Adobe Creative Cloud Team" readonly />
-        </label>
-
         <label class="adobe-maker-field">
-          <span>Jumlah seat</span>
-          <input id="adobeQuantity" type="number" min="1" max="50" value="10" inputmode="numeric" />
-        </label>
-
-        <label class="adobe-maker-field">
-          <span>Negara checkout</span>
-          <select id="adobeCountry">
-            <option value="ES" selected>Spain</option>
-            <option value="US">United States</option>
+          <span>Negara</span>
+          <select id="makerCountry">
+            <option value="DE">Jerman</option>
+            <option value="ES" selected>Spanyol</option>
+            <option value="CH">Swiss</option>
             <option value="ID">Indonesia</option>
-            <option value="SG">Singapore</option>
           </select>
         </label>
 
         <label class="adobe-maker-field">
-          <span>Bahasa</span>
-          <select id="adobeLanguage">
-            <option value="es" selected>Spanish</option>
-            <option value="en">English</option>
-            <option value="id">Indonesia</option>
-          </select>
+          <span>Domain email</span>
+          <select id="makerDomain"></select>
+        </label>
+
+        <label class="adobe-maker-field">
+          <span>Nomor HP</span>
+          <input id="makerPhone" type="text" placeholder="nomor berdasarkan negara" autocomplete="off" />
         </label>
 
         <label class="adobe-maker-field adobe-maker-field-wide">
-          <span>Link checkout</span>
-          <input id="adobeCheckoutUrl" type="text" readonly />
+          <span>Email</span>
+          <input id="makerEmail" type="email" placeholder="email otomatis dari domain" autocomplete="off" />
         </label>
+
+        <label class="adobe-maker-field">
+          <span>Nama depan</span>
+          <input id="makerFirstName" type="text" placeholder="nama depan" autocomplete="off" />
+        </label>
+
+        <label class="adobe-maker-field">
+          <span>Nama belakang</span>
+          <input id="makerLastName" type="text" placeholder="nama belakang" autocomplete="off" />
+        </label>
+
+        <label class="adobe-maker-field">
+          <span>Kode pos</span>
+          <input id="makerPostalCode" type="text" placeholder="kode pos" autocomplete="off" />
+        </label>
+
+        <label class="adobe-maker-field adobe-maker-field-wide">
+          <span>Nama team/perusahaan</span>
+          <input id="makerCompany" type="text" placeholder="nama perusahaan atau team" autocomplete="off" />
+        </label>
+
+        <label class="adobe-maker-field adobe-maker-field-wide">
+          <span>Alamat</span>
+          <input id="makerAddress" type="text" placeholder="alamat lengkap berdasarkan negara" autocomplete="off" />
+        </label>
+
+        <div class="adobe-maker-process-note adobe-maker-field-wide">
+          <strong>Data sintetis</strong>
+          <span>Generator membuat data yang formatnya realistis untuk kebutuhan order internal. Data ini bukan identitas orang asli.</span>
+        </div>
 
         <div class="adobe-maker-actions">
-          <button class="adobe-maker-primary" type="submit" id="openAdobeCheckout">Buka Checkout Adobe</button>
-          <button class="adobe-maker-secondary" type="button" id="copyAdobeCheckout">Salin Link</button>
+          <button class="adobe-maker-secondary" type="button" id="copyMakerEmail">Salin Email</button>
+          <button class="adobe-maker-secondary" type="button" id="copyMakerData">Salin Data</button>
+          <button class="adobe-maker-primary" type="submit" id="generateMakerData">Generate Data</button>
         </div>
       </form>
 
-      <p class="adobe-maker-status" id="adobeMakerStatus" aria-live="polite">Checkout akan dibuka di tab Adobe resmi agar 3DS/verifikasi pembayaran tetap berjalan normal.</p>
+      <p class="adobe-maker-status" id="adobeMakerStatus" aria-live="polite">Pilih negara dan domain, lalu klik Generate Data.</p>
     </section>
 
     <section class="adobe-maker-card adobe-maker-note">
-      <div class="adobe-maker-note-icon" aria-hidden="true">3DS</div>
+      <div class="adobe-maker-note-icon" aria-hidden="true">@</div>
       <div>
-        <h2>Verifikasi pembayaran</h2>
-        <p>Jika bank meminta OTP, 3DS, atau verifikasi kartu, prosesnya muncul di halaman Adobe yang dibuka dari tombol checkout.</p>
+        <h2>Domain Catsoft</h2>
+        <p>Email akan digenerate dari domain yang tersedia di sistem Catsoft, termasuk domain tambahan yang sudah disiapkan di Cloudflare.</p>
       </div>
     </section>
   </main>
 
-  <script src="/admin-auth.js?v=20260601-owner-checkout" defer></script>
-  <script src="/adobemaker-team.js?v=20260601-owner-checkout" defer></script>
+  <script>
+    if (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      window.CATSOFT_SKIP_ADMIN_AUTH = true;
+    }
+  </script>
+  <script src="/catsoft-domains.js?v=20260601-domain-registry" defer></script>
+  <script src="/admin-auth.js?v=20260601-domain-registry" defer></script>
+  <script src="/adobemaker-team.js?v=20260601-indonesia-generator" defer></script>
 </body>
 </html>

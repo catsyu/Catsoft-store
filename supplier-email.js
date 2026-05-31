@@ -7,17 +7,33 @@ const copyTempMailAddressBtn = document.getElementById('copyTempMailAddress');
 const generateTempMailAddressBtn = document.getElementById('generateTempMailAddress');
 const tempMailStatus = document.getElementById('tempMailStatus');
 let copyTempMailAddressTimer;
-const CATSOFT_EMAIL_DOMAINS = [
-  'catsoft.store',
-  'catsoft.digital',
-  'catsoft.online',
-  'ask1q2.uk',
-  'fadisa1.uk',
-  'gasddqw1.uk',
-  'kulamusic.us',
-  'wkwkksks.uk'
-];
-const CATSOFT_DEFAULT_EMAIL_DOMAIN = CATSOFT_EMAIL_DOMAINS[0];
+
+function getCatsoftSharedEmailDomains() {
+  const sharedDomains = typeof window.getCatsoftEmailDomains === 'function'
+    ? window.getCatsoftEmailDomains()
+    : window.CATSOFT_EMAIL_DOMAINS;
+
+  const fallbackDomains = [
+    'catsoft.store',
+    'catsoft.digital',
+    'catsoft.online',
+    'ask1q2.uk',
+    'fadisa1.uk',
+    'gasddqw1.uk',
+    'kulamusic.us',
+    'wkwkksks.uk'
+  ];
+
+  const domains = Array.isArray(sharedDomains) && sharedDomains.length ? sharedDomains : fallbackDomains;
+
+  return domains
+    .map((domain) => String(domain || '').trim().toLowerCase())
+    .filter(Boolean)
+    .filter((domain, index, list) => list.indexOf(domain) === index);
+}
+
+const CATSOFT_EMAIL_DOMAINS = getCatsoftSharedEmailDomains();
+const CATSOFT_DEFAULT_EMAIL_DOMAIN = window.CATSOFT_DEFAULT_EMAIL_DOMAIN || CATSOFT_EMAIL_DOMAINS[0];
 const fallbackTempMailDomains = [...CATSOFT_EMAIL_DOMAINS];
 const TEMP_MAIL_PERSON_FIRST_NAMES = [
   'adam',
@@ -186,6 +202,24 @@ function renderAllowedTempMailDomains() {
     .join('');
 }
 
+function renderEmailDomainFilterOptions() {
+  const inboxDomainFilter = document.getElementById('domainFilter');
+
+  if (!inboxDomainFilter) {
+    return;
+  }
+
+  const currentValue = inboxDomainFilter.value || 'all';
+  const allowedDomains = getAllowedTempMailDomains();
+  inboxDomainFilter.innerHTML = [
+    '<option value="all">Semua</option>',
+    ...allowedDomains.map((domain) => `<option value="${domain}">${domain}</option>`)
+  ].join('');
+  inboxDomainFilter.value = currentValue === 'all' || allowedDomains.includes(currentValue)
+    ? currentValue
+    : 'all';
+}
+
 function updateTempMailAddress() {
   if (!tempMailAliasInput || !tempMailDomainInput || !tempMailAddress) {
     return;
@@ -339,6 +373,7 @@ async function copyTempMailAddress() {
 
 if (tempMailAliasInput && tempMailDomainInput && tempMailAddress && copyTempMailAddressBtn) {
   renderAllowedTempMailDomains();
+  renderEmailDomainFilterOptions();
   setTempMailPanelOpen(false);
   tempMailAliasInput.value = '';
   updateTempMailAddress();

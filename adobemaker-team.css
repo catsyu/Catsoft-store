@@ -25,6 +25,30 @@ body.adobe-maker-body {
   min-height: 100vh;
 }
 
+.adobe-maker-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.adobe-maker-loading[hidden] {
+  display: none !important;
+}
+
+.adobe-maker-loading > div {
+  width: min(420px, 100%);
+  border: 1px solid var(--adobe-line);
+  border-radius: 10px;
+  background: var(--adobe-panel);
+  padding: 22px;
+}
+
+.adobe-maker-loading p {
+  margin: 0;
+  color: var(--adobe-ink);
+}
+
 .adobe-maker-topbar {
   min-height: 70px;
   background: #000;
@@ -169,7 +193,8 @@ body.adobe-maker-body {
 }
 
 .adobe-maker-field input,
-.adobe-maker-field select {
+.adobe-maker-field select,
+.adobe-maker-field textarea {
   width: 100%;
   min-height: 48px;
   border: 1px solid #cfcfcf;
@@ -182,10 +207,39 @@ body.adobe-maker-body {
   outline: none;
 }
 
+.adobe-maker-field textarea {
+  min-height: 84px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
 .adobe-maker-field input:focus,
-.adobe-maker-field select:focus {
+.adobe-maker-field select:focus,
+.adobe-maker-field textarea:focus {
   border-color: #8c8c8c;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+}
+
+.adobe-maker-safe-note,
+.adobe-maker-process-note {
+  margin: 0;
+  border: 1px solid var(--adobe-line);
+  border-radius: 8px;
+  background: var(--adobe-soft);
+  padding: 12px 14px;
+  color: var(--adobe-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.adobe-maker-process-note {
+  display: grid;
+  gap: 4px;
+}
+
+.adobe-maker-process-note strong {
+  color: var(--adobe-ink);
+  font-weight: 500;
 }
 
 .adobe-maker-actions {
@@ -222,6 +276,13 @@ body.adobe-maker-body {
 .adobe-maker-primary:hover,
 .adobe-maker-secondary:hover {
   transform: translateY(-1px);
+}
+
+.adobe-maker-primary:disabled,
+.adobe-maker-secondary:disabled {
+  cursor: progress;
+  opacity: 0.65;
+  transform: none;
 }
 
 .adobe-maker-status {

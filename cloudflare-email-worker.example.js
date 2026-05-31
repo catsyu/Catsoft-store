@@ -2425,6 +2425,11 @@ function hydrateProductStockAccountWithCustomers(account, joinedCustomers) {
 
 async function hydrateProductStockAccounts(customerDb, accounts, options = {}) {
   const normalizedAccounts = (Array.isArray(accounts) ? accounts : [accounts]).filter(Boolean);
+
+  if (options.includeDetails === false) {
+    return normalizedAccounts.map((account) => hydrateProductStockAccountWithCustomers(account, []));
+  }
+
   const joinedMap = await getProductStockJoinedCustomersMap(customerDb, normalizedAccounts, options);
 
   return normalizedAccounts.map((account) => hydrateProductStockAccountWithCustomers(
@@ -2452,7 +2457,7 @@ async function listProductStockAccounts(request, env) {
   const offset = clampNumber(url.searchParams.get('offset'), 0, 0, 10000);
   const search = normalizeCustomerUniqueEmail(url.searchParams.get('q') || url.searchParams.get('search'));
   const stockMonth = cleanValue(url.searchParams.get('month') || url.searchParams.get('stockMonth') || '', 7);
-  const includeDetails = url.searchParams.get('details') !== '0';
+  const includeDetails = url.searchParams.get('details') === '1';
   const whereParts = [];
   const bindings = [];
 
@@ -2628,7 +2633,8 @@ async function saveProductStockAccounts(request, env) {
   `).all();
   const accounts = await hydrateProductStockAccounts(
     customerDb,
-    (listResult.results || []).map(mapProductStockRow)
+    (listResult.results || []).map(mapProductStockRow),
+    { includeDetails: false }
   );
 
   return json({
@@ -4364,6 +4370,15 @@ async function verifyStoredPassword(password, passwordHash, legacyPassword) {
   }
 
   return Boolean(legacyPassword) && String(legacyPassword) === String(password);
+}
+
+function bytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
+  return bytesToHex(new Uint8Array(digest));
 }
 
 async function createSessionCookie(env, session) {

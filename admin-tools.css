@@ -3521,7 +3521,8 @@ body.admin-console-body .admin-spectrum-head h2 {
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(1px);
 }
 
 .admin-detail-drawer {
@@ -3534,8 +3535,9 @@ body.admin-console-body .admin-spectrum-head h2 {
   max-width: 100%;
   overflow: auto;
   padding: 22px;
+  border-left: 1px solid #d4d4d4;
   background: #fff;
-  box-shadow: -6px 0 22px rgba(0, 0, 0, 0.16);
+  box-shadow: -14px 0 34px rgba(0, 0, 0, 0.08);
 }
 
 .admin-detail-drawer[hidden],
@@ -5179,6 +5181,168 @@ body.admin-console-body .console-access-sidebar small {
 
 body.admin-console-body .console-access-sidebar span {
     font-size: 13px;
+  }
+}
+
+/* Admin Console unified workspace: keep the main tool, quick links, and drawer feeling like one surface. */
+body.admin-console-body {
+  background: #fff;
+}
+
+.admin-console-page {
+  background: #fff;
+}
+
+body.admin-console-body .console-tabs a.is-active {
+  background: #fff;
+}
+
+body.admin-console-body .console-shell {
+  width: min(1500px, calc(100vw - 36px));
+  grid-template-columns: minmax(0, 1fr) 236px;
+  gap: 0;
+  align-items: stretch;
+  margin-top: 18px;
+  margin-bottom: 26px;
+  border: 1px solid #d7d7d7;
+  border-radius: 14px;
+  padding: 0;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
+
+body.admin-console-body .console-main {
+  min-height: calc(100vh - 122px);
+  padding: 18px 18px 20px;
+  background: #fff;
+}
+
+body.admin-console-body .console-module-view {
+  gap: 10px;
+}
+
+body.admin-console-body .console-module-head {
+  margin-bottom: 0;
+  border-color: #dddddd;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+body.admin-console-body .console-module-head::after {
+  background-color: #f3f3f3;
+}
+
+body.admin-console-body .console-module-head h2 {
+  font-size: 20px;
+}
+
+body.admin-console-body .console-module-head p {
+  color: #4f4f4f;
+}
+
+body.admin-console-body .console-access-workspace {
+  border-color: #d9d9d9;
+  border-radius: 11px;
+  box-shadow: none;
+}
+
+body.admin-console-body .console-tool-frame {
+  background: #fff;
+}
+
+body.admin-console-body .console-quick-panel {
+  position: sticky;
+  top: 70px;
+  align-self: start;
+  min-height: calc(100vh - 122px);
+  padding: 18px 16px 20px;
+  border-left: 1px solid #dcdcdc;
+  background: #fff;
+}
+
+body.admin-console-body .console-quick-panel h2 {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  color: #303030;
+  font-size: 16px;
+}
+
+body.admin-console-body .console-quick-links {
+  justify-items: stretch;
+  gap: 8px;
+}
+
+body.admin-console-body .console-quick-links a {
+  width: 100%;
+  min-height: 36px;
+  border-color: #d4d4d4;
+  border-radius: 10px;
+  padding: 7px 11px 7px 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+body.admin-console-body .console-quick-links a:hover,
+body.admin-console-body .console-quick-links a:focus-visible {
+  border-color: #b8b8b8;
+  background: #f7f7f7;
+  box-shadow: none;
+  transform: none;
+}
+
+body.admin-console-body .console-footer {
+  border-top-color: #dcdcdc;
+  background: #fff;
+}
+
+@media (max-width: 1180px) {
+  body.admin-console-body .console-shell {
+    grid-template-columns: 1fr;
+  }
+
+  body.admin-console-body .console-quick-panel {
+    position: static;
+    min-height: 0;
+    border-top: 1px solid #dcdcdc;
+    border-left: 0;
+    padding: 14px 18px 18px;
+  }
+
+  body.admin-console-body .console-quick-links {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  body.admin-console-body .console-shell {
+    width: min(100%, calc(100vw - 22px));
+    margin-top: 12px;
+  }
+
+  body.admin-console-body .console-main {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  body.admin-console-body .console-quick-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  body.admin-console-body .console-shell {
+    width: min(100%, calc(100vw - 14px));
+  }
+
+  body.admin-console-body .console-quick-links {
+    grid-template-columns: 1fr;
   }
 }
 

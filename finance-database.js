@@ -674,12 +674,12 @@ function renderFinanceMonthly() {
     </div>
     ${rows.map((row) => `
       <div class="finance-row">
-        <b>${escapeFinanceHtml(formatFinanceMonth(row.monthKey))}</b>
-        <span>${formatFinanceCurrency(row.shopee)}</span>
-        <span>${formatFinanceCurrency(row.gopay)}</span>
-        <b>${formatFinanceCurrency(row.totalWithdrawal)}</b>
-        <span>${formatFinanceCurrency(row.stockCost)}</span>
-        <b>${formatFinanceCurrency(row.profit)}</b>
+        <b class="finance-row-month">${escapeFinanceHtml(formatFinanceMonth(row.monthKey))}</b>
+        <span class="finance-row-item" data-label="Shopee">${formatFinanceCurrency(row.shopee)}</span>
+        <span class="finance-row-item" data-label="GoPay">${formatFinanceCurrency(row.gopay)}</span>
+        <b class="finance-row-item is-total" data-label="Total Penarikan">${formatFinanceCurrency(row.totalWithdrawal)}</b>
+        <span class="finance-row-item" data-label="Biaya Stok">${formatFinanceCurrency(row.stockCost)}</span>
+        <b class="finance-row-item is-profit" data-label="Profit Bersih">${formatFinanceCurrency(row.profit)}</b>
       </div>
     `).join('')}
   `;

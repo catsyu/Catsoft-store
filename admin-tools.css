@@ -1999,21 +1999,22 @@ body.admin-console-body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
   height: 52px;
-  padding: 0 12px 0 10px;
+  padding: 0 10px;
   flex-wrap: nowrap;
 }
 
 .console-site-link {
-  flex: 0 0 auto;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 12px;
-  font-weight: 500;
+  flex: 0 1 auto;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12.5px;
+  font-weight: 560;
   text-decoration: none;
   white-space: nowrap;
-  max-width: 150px;
+  max-width: 118px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2022,6 +2023,7 @@ body.admin-console-body {
   flex: 0 0 auto;
   flex-wrap: nowrap !important;
   margin: 0 !important;
+  min-width: 0;
 }
 
 .console-actions .admin-profile {
@@ -2029,10 +2031,11 @@ body.admin-console-body {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  min-height: 36px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
+  min-height: 34px !important;
+  padding: 2px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   box-shadow: none !important;
 }
 
@@ -2040,8 +2043,8 @@ body.admin-console-body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: 0;
   border-radius: 999px;
   padding: 0;
@@ -2057,12 +2060,12 @@ body.admin-console-body {
 }
 
 .console-actions .admin-profile-avatar {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   background: #fff !important;
   color: #111 !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
+  font-size: 10.5px !important;
+  font-weight: 650 !important;
 }
 
 .admin-profile-menu {
@@ -4194,14 +4197,14 @@ body.admin-console-body .console-tools-list .primary-button:focus-visible {
     flex-direction: row;
     align-items: center;
     justify-content: flex-end;
-    gap: 7px;
+    gap: 5px;
     height: 50px;
-    padding: 0 8px;
+    padding: 0 8px 0 6px;
   }
 
   .console-site-link {
-    max-width: 92px;
-    font-size: 11px;
+    max-width: 86px;
+    font-size: 11.5px;
   }
 
   .console-actions .admin-profile {
@@ -4395,6 +4398,17 @@ body.admin-console-body .console-tools-list .primary-button:focus-visible {
 
   .console-actions {
     padding-left: 4px;
+  }
+
+  .console-actions .admin-profile-trigger {
+    width: 28px;
+    height: 28px;
+  }
+
+  .console-actions .admin-profile-avatar {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 10px !important;
   }
 
   .console-actions .admin-profile {

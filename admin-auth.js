@@ -4119,7 +4119,7 @@ function initAdminAuth() {
   enableAdminConsoleViews();
   if (document.body.classList.contains('admin-console-body')) {
     const currentHash = String(window.location.hash || '').replace(/^#/, '');
-    const routePath = normalizeRoutePath(window.location.pathname);
+    const routePath = normalizeAdminConsoleRoutePath(window.location.pathname);
     if (currentHash === 'chat' || routePath === '/chat') {
       window.setTimeout(openAdminChatPopup, 0);
     }

@@ -124,6 +124,10 @@ export default {
       return json({ error: 'Unauthorized' }, 401, request);
     }
 
+    if (url.pathname === '/api/auth/session' && request.method === 'GET') {
+      return sessionApi(request, authContext);
+    }
+
     if (!canAccessApiRoute(url.pathname, request.method, authContext)) {
       return json({ error: 'Forbidden' }, 403, request);
     }
@@ -4128,6 +4132,15 @@ async function loginApi(request, env) {
 
 function logoutApi(request) {
   return jsonWithCookie({ ok: true }, `${CATSOFT_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`, 200, request);
+}
+
+function sessionApi(request, authContext) {
+  return json({
+    ok: true,
+    role: authContext?.role || '',
+    username: authContext?.username || '',
+    type: authContext?.type || ''
+  }, 200, request);
 }
 
 function isOwnerLogin(env, username, password) {

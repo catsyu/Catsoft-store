@@ -239,10 +239,10 @@ function getDefaultAuthSessionApiEndpoint() {
   const isLocalPage = !hostname || hostname === 'localhost' || hostname === '127.0.0.1';
 
   if (window.location.protocol === 'file:' || isLocalPage) {
-    return 'https://catsoft.store/api/admin-accounts';
+    return 'https://catsoft.store/api/auth/session';
   }
 
-  return '/api/admin-accounts';
+  return '/api/auth/session';
 }
 
 function getDefaultSessionActivityApiEndpoint() {
@@ -581,8 +581,12 @@ function saveAdminSession(session) {
   sessionStorage.setItem(CATSOFT_ADMIN_SESSION_KEY, JSON.stringify(session));
 }
 
-function clearAdminSession() {
+function clearAdminLocalSession() {
   sessionStorage.removeItem(CATSOFT_ADMIN_SESSION_KEY);
+}
+
+function clearAdminSession() {
+  clearAdminLocalSession();
   fetch('/api/auth/logout', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
 }
 
@@ -847,7 +851,7 @@ async function loginAdmin(username, password) {
   return { ok: true };
 }
 
-async function validateAdminServerSession() {
+async function validateAdminServerSession(admin = getCurrentAdmin()) {
   if (window.location.protocol === 'file:') {
     return true;
   }
@@ -860,11 +864,25 @@ async function validateAdminServerSession() {
     });
 
     if (response.status === 401 || response.status === 403) {
-      clearAdminSession();
+      clearAdminLocalSession();
       return false;
     }
 
-    return response.ok;
+    const payload = await response.json().catch(() => ({}));
+    const serverRole = normalizeAdminValue(payload.role);
+    const serverUsername = normalizeAdminValue(payload.username);
+    const localRole = normalizeAdminValue(admin?.role);
+    const localUsername = normalizeAdminValue(admin?.username);
+
+    if (!response.ok || !payload.ok) {
+      return false;
+    }
+
+    if (localRole === 'owner') {
+      return serverRole === 'owner' && serverUsername === normalizeAdminValue(CATSOFT_OWNER_USERNAME);
+    }
+
+    return ['admin', 'owner'].includes(serverRole) && (!localUsername || serverUsername === localUsername || serverRole === 'owner');
   } catch (error) {
     return true;
   }
@@ -4270,7 +4288,7 @@ async function initAdminAuth() {
     return;
   }
 
-  if (!(await validateAdminServerSession())) {
+  if (!(await validateAdminServerSession(admin))) {
     admin = null;
     renderLogin('Sesi admin berakhir. Silakan login ulang.');
     return;
